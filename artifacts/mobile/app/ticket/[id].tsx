@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Platform,
   Pressable,
@@ -17,10 +18,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import {
   PortalUserRole,
+  TicketAttachment,
   TicketMessage,
   TicketStatus,
+  getAttachmentContent,
   getGetTicketQueryKey,
   getListTicketsQueryKey,
+  useAddTicketAttachment,
   useAddTicketMessage,
   useAssignTicket,
   useChangeTicketStatus,
@@ -31,6 +35,14 @@ import { SeverityBadge, StatusBadge, STATUS_META } from '@/components/TicketBadg
 import { ErrorView, LoadingView } from '@/components/StateViews';
 import { useColors } from '@/hooks/useColors';
 import { useScreenInsets } from '@/hooks/useWebInsets';
+import {
+  PendingAttachment,
+  attachmentIcon,
+  formatBytes,
+  openAttachmentContent,
+  pickDocument,
+  pickPhoto,
+} from '@/lib/attachments';
 import { formatDateTime, initials, timeAgo } from '@/lib/format';
 
 const STATUS_ORDER: TicketStatus[] = [
@@ -96,6 +108,55 @@ function MessageBubble({ message, isStaffViewer }: { message: TicketMessage; isS
   );
 }
 
+function AttachmentRow({
+  attachment,
+  downloading,
+  onPress,
+}: {
+  attachment: TicketAttachment;
+  downloading: boolean;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      testID={`attachment-${attachment.id}`}
+      onPress={onPress}
+      disabled={downloading}
+      style={({ pressed }) => [
+        styles.attachmentRow,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          borderRadius: colors.radius,
+          opacity: pressed ? 0.7 : 1,
+        },
+      ]}
+    >
+      <View style={[styles.attachmentIconWrap, { backgroundColor: colors.muted }]}>
+        <Feather
+          name={attachmentIcon(attachment.contentType)}
+          size={15}
+          color={colors.mutedForeground}
+        />
+      </View>
+      <View style={styles.attachmentInfo}>
+        <Text style={[styles.attachmentName, { color: colors.foreground }]} numberOfLines={1}>
+          {attachment.filename}
+        </Text>
+        <Text style={[styles.attachmentMeta, { color: colors.mutedForeground }]}>
+          {formatBytes(attachment.sizeBytes)} · {timeAgo(attachment.createdAt)}
+        </Text>
+      </View>
+      {downloading ? (
+        <ActivityIndicator size="small" color={colors.accent} />
+      ) : (
+        <Feather name="download" size={16} color={colors.accent} />
+      )}
+    </Pressable>
+  );
+}
+
 export default function TicketDetailScreen() {
   const colors = useColors();
   const insets = useScreenInsets();
@@ -112,23 +173,20 @@ export default function TicketDetailScreen() {
 
   const [reply, setReply] = useState('');
   const [internalNote, setInternalNote] = useState(false);
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
+  const [sending, setSending] = useState(false);
+  const [composerError, setComposerError] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getGetTicketQueryKey(ticketId) });
     queryClient.invalidateQueries({ queryKey: getListTicketsQueryKey() });
   };
 
-  const addMessage = useAddTicketMessage({
-    mutation: {
-      onSuccess: () => {
-        setReply('');
-        setInternalNote(false);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        invalidate();
-        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 350);
-      },
-    },
-  });
+  const addMessage = useAddTicketMessage();
+  const addAttachment = useAddTicketAttachment();
   const changeStatus = useChangeTicketStatus({
     mutation: {
       onSuccess: () => {
@@ -148,6 +206,7 @@ export default function TicketDetailScreen() {
 
   const ticket = detail.data?.ticket;
   const messages = detail.data?.messages ?? [];
+  const attachments = detail.data?.attachments ?? [];
 
   const slaState = useMemo(() => {
     if (!ticket) return null;
@@ -161,10 +220,77 @@ export default function TicketDetailScreen() {
     return null;
   }, [ticket]);
 
-  const onSend = () => {
+  const onPick = async (kind: 'photo' | 'file') => {
+    if (picking) return;
+    setPicking(true);
+    setComposerError(null);
+    try {
+      const picked = kind === 'photo' ? await pickPhoto() : await pickDocument();
+      if (picked) setPending((prev) => [...prev, picked]);
+    } catch (err) {
+      setComposerError(err instanceof Error ? err.message : "Couldn't attach that file.");
+    } finally {
+      setPicking(false);
+    }
+  };
+
+  const onSend = async () => {
     const content = reply.trim();
-    if (!content || addMessage.isPending) return;
-    addMessage.mutate({ id: ticketId, data: { content, isInternal: isStaff ? internalNote : false } });
+    if ((!content && pending.length === 0) || sending) return;
+    setSending(true);
+    setComposerError(null);
+    try {
+      let messageId: number | null = null;
+      if (content) {
+        const message = await addMessage.mutateAsync({
+          id: ticketId,
+          data: { content, isInternal: isStaff ? internalNote : false },
+        });
+        messageId = message.id;
+      }
+      const queue = [...pending];
+      for (const att of queue) {
+        await addAttachment.mutateAsync({
+          id: ticketId,
+          data: {
+            filename: att.filename,
+            contentType: att.contentType,
+            data: att.data,
+            messageId,
+          },
+        });
+        setPending((prev) => prev.filter((p) => p.key !== att.key));
+      }
+      setReply('');
+      setInternalNote(false);
+      setPending([]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      invalidate();
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 350);
+    } catch {
+      setComposerError("Couldn't send. Check your connection and try again.");
+      invalidate();
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const onOpenAttachment = async (att: TicketAttachment) => {
+    if (downloadingId !== null) return;
+    setDownloadingId(att.id);
+    setDownloadError(null);
+    try {
+      const content = await getAttachmentContent(att.id);
+      await openAttachmentContent(content);
+    } catch (err) {
+      setDownloadError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't download that attachment. Try again.",
+      );
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const header = ticket ? (
@@ -207,6 +333,25 @@ export default function TicketDetailScreen() {
           {ticket.description}
         </Text>
       </View>
+
+      {attachments.length > 0 ? (
+        <View style={styles.attachmentsSection}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+            Attachments ({attachments.length})
+          </Text>
+          {attachments.map((att) => (
+            <AttachmentRow
+              key={att.id}
+              attachment={att}
+              downloading={downloadingId === att.id}
+              onPress={() => onOpenAttachment(att)}
+            />
+          ))}
+          {downloadError ? (
+            <Text style={styles.attachmentErrorText}>{downloadError}</Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={styles.assigneeRow}>
         <Feather
@@ -326,6 +471,49 @@ export default function TicketDetailScreen() {
               },
             ]}
           >
+            {pending.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pendingChips}
+              >
+                {pending.map((att) => (
+                  <View
+                    key={att.key}
+                    style={[
+                      styles.pendingChip,
+                      { backgroundColor: colors.muted, borderColor: colors.border },
+                    ]}
+                  >
+                    <Feather
+                      name={attachmentIcon(att.contentType)}
+                      size={12}
+                      color={colors.mutedForeground}
+                    />
+                    <Text
+                      style={[styles.pendingChipText, { color: colors.foreground }]}
+                      numberOfLines={1}
+                    >
+                      {att.filename}
+                    </Text>
+                    <Text style={[styles.pendingChipSize, { color: colors.mutedForeground }]}>
+                      {formatBytes(att.sizeBytes)}
+                    </Text>
+                    <Pressable
+                      testID={`remove-pending-${att.key}`}
+                      hitSlop={8}
+                      disabled={sending}
+                      onPress={() => setPending((prev) => prev.filter((p) => p.key !== att.key))}
+                    >
+                      <Feather name="x" size={13} color={colors.mutedForeground} />
+                    </Pressable>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
+            {composerError ? (
+              <Text style={styles.attachmentErrorText}>{composerError}</Text>
+            ) : null}
             {isStaff ? (
               <View style={styles.internalRow}>
                 <Feather name="eye-off" size={13} color={internalNote ? '#B45309' : colors.mutedForeground} />
@@ -346,6 +534,30 @@ export default function TicketDetailScreen() {
               </View>
             ) : null}
             <View style={styles.composerRow}>
+              <Pressable
+                testID="attach-photo-button"
+                onPress={() => onPick('photo')}
+                disabled={picking || sending}
+                hitSlop={6}
+                style={({ pressed }) => [
+                  styles.attachButton,
+                  { opacity: picking || sending || pressed ? 0.5 : 1 },
+                ]}
+              >
+                <Feather name="image" size={20} color={colors.mutedForeground} />
+              </Pressable>
+              <Pressable
+                testID="attach-file-button"
+                onPress={() => onPick('file')}
+                disabled={picking || sending}
+                hitSlop={6}
+                style={({ pressed }) => [
+                  styles.attachButton,
+                  { opacity: picking || sending || pressed ? 0.5 : 1 },
+                ]}
+              >
+                <Feather name="paperclip" size={19} color={colors.mutedForeground} />
+              </Pressable>
               <TextInput
                 testID="reply-input"
                 style={[
@@ -366,16 +578,21 @@ export default function TicketDetailScreen() {
               <Pressable
                 testID="send-button"
                 onPress={onSend}
-                disabled={!reply.trim() || addMessage.isPending}
+                disabled={(!reply.trim() && pending.length === 0) || sending}
                 style={({ pressed }) => [
                   styles.sendButton,
                   {
                     backgroundColor: internalNote ? '#B45309' : colors.accent,
-                    opacity: !reply.trim() || addMessage.isPending || pressed ? 0.6 : 1,
+                    opacity:
+                      (!reply.trim() && pending.length === 0) || sending || pressed ? 0.6 : 1,
                   },
                 ]}
               >
-                <Feather name="send" size={17} color="#FFFFFF" />
+                {sending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Feather name="send" size={17} color="#FFFFFF" />
+                )}
               </Pressable>
             </View>
           </View>
@@ -482,6 +699,70 @@ const styles = StyleSheet.create({
   statusSection: {
     gap: 6,
     marginTop: 4,
+  },
+  attachmentsSection: {
+    gap: 6,
+    marginTop: 4,
+  },
+  attachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  attachmentIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachmentInfo: {
+    flex: 1,
+    gap: 1,
+  },
+  attachmentName: {
+    fontSize: 13.5,
+    fontFamily: 'Inter_500Medium',
+  },
+  attachmentMeta: {
+    fontSize: 11.5,
+    fontFamily: 'Inter_400Regular',
+  },
+  attachmentErrorText: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: '#B91C1C',
+  },
+  pendingChips: {
+    gap: 6,
+    paddingBottom: 8,
+    paddingRight: 16,
+  },
+  pendingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    maxWidth: 220,
+  },
+  pendingChipText: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    flexShrink: 1,
+  },
+  pendingChipSize: {
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
+  },
+  attachButton: {
+    paddingBottom: 10,
+    paddingHorizontal: 2,
   },
   sectionLabel: {
     fontSize: 11.5,
