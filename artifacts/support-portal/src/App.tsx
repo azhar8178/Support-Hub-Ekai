@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
@@ -23,7 +23,7 @@ import KbEditorPage from "@/pages/kb/editor";
 import NotFoundPage from "@/pages/not-found";
 
 import Layout from "@/components/layout";
-import { useGetCurrentUser } from "@workspace/api-client-react";
+import { useGetCurrentUser, setAuthTokenGetter } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
@@ -123,6 +123,31 @@ function HomeRedirect() {
   );
 }
 
+/**
+ * Attach the Clerk session token as an Authorization header on every API
+ * request. Cookie-based auth can silently fail inside the embedded preview
+ * iframe (third-party cookie restrictions), which previously caused an
+ * endless 401 -> sign-in -> already-signed-in redirect loop.
+ */
+function ClerkApiTokenBridge({ children }: { children: ReactNode }) {
+  const { getToken, isLoaded } = useAuth();
+
+  useEffect(() => {
+    setAuthTokenGetter(() => getToken());
+    return () => setAuthTokenGetter(null);
+  }, [getToken]);
+
+  // Don't fire API calls until Clerk is ready to mint tokens.
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2563EB]" />
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const queryClient = useQueryClient();
@@ -190,8 +215,27 @@ function AuthenticatedApp() {
   }
 
   if (error || !user) {
-    // If it's another error, we could show a generic error, but let's assume they just need to sign in
-    return <Redirect to="/sign-in" />;
+    // Any other failure (e.g. 401 while Clerk thinks we're signed in) must NOT
+    // redirect to /sign-in: Clerk would bounce a signed-in user straight back,
+    // creating an infinite loop. Show an explicit recovery screen instead.
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-slate-50 px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl p-8 text-center border border-slate-200 shadow-sm">
+          <h1 className="text-2xl font-bold text-[#0F1F3D] mb-2">Session problem</h1>
+          <p className="text-slate-600 mb-8">
+            We couldn't verify your session with the server. Signing out and back in usually fixes this.
+          </p>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => signOut({ redirectUrl: basePath || "/" })}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   // Route Guards
@@ -258,6 +302,7 @@ function ClerkProviderWithRoutes() {
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
+        <ClerkApiTokenBridge>
         <Switch>
           <Route path="/" component={HomeRedirect} />
           <Route path="/sign-in/*?" component={SignInPage} />
@@ -281,6 +326,7 @@ function ClerkProviderWithRoutes() {
             </Show>
           </Route>
         </Switch>
+        </ClerkApiTokenBridge>
       </QueryClientProvider>
     </ClerkProvider>
   );
