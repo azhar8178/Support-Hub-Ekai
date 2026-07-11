@@ -1126,6 +1126,20 @@ export const UpdateSeverityResponse = zod.object({
 
 
 /**
+ * Returns how many open (non-resolved, non-closed) tickets currently reference the given category, environment, or severity. Used to warn admins before retiring an option that active tickets still depend on.
+ * @summary Count open tickets still using a taxonomy option (admin only)
+ */
+export const GetTaxonomyUsageParams = zod.object({
+  "type": zod.enum(['category', 'environment', 'severity']),
+  "id": zod.coerce.number()
+})
+
+export const GetTaxonomyUsageResponse = zod.object({
+  "openTicketCount": zod.number()
+})
+
+
+/**
  * @summary Rename a customer organisation or update its domain (admin only)
  */
 export const UpdateOrgParams = zod.object({

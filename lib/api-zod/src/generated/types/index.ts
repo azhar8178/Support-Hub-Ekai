@@ -61,6 +61,7 @@ export * from './statusHistoryEntry';
 export * from './taxonomyOption';
 export * from './taxonomyOptionInput';
 export * from './taxonomyOptionUpdate';
+export * from './taxonomyUsage';
 export * from './ticket';
 export * from './ticketAssignment';
 export * from './ticketAttachment';

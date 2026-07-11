@@ -20,6 +20,7 @@ import {
   useUpdateEnvironment,
   useGetReports,
   useGetKbDeflectionStats,
+  getTaxonomyUsage,
   getListInvitesQueryKey,
   getListOrgsQueryKey,
   getListSeveritiesQueryKey,
@@ -59,6 +60,10 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 export default function AdminDashboardPage() {
@@ -675,6 +680,7 @@ function TicketConfigTab() {
       <TaxonomySection
         title="Categories"
         description="Categories customers pick when raising a ticket."
+        usageType="category"
         useList={useListCategories}
         useCreate={useCreateCategory}
         useUpdate={useUpdateCategory}
@@ -683,12 +689,52 @@ function TicketConfigTab() {
       <TaxonomySection
         title="Environments"
         description="Affected environments customers can choose from."
+        usageType="environment"
         useList={useListEnvironments}
         useCreate={useCreateEnvironment}
         useUpdate={useUpdateEnvironment}
         listQueryKey={getListEnvironmentsQueryKey()}
       />
     </div>
+  );
+}
+
+// Shown before retiring a taxonomy option that open tickets still depend on, so
+// admins see the impact (retiring stays allowed — this is informed consent).
+type RetireTarget = { id: number; label: string; count: number };
+type TaxonomyUsageType = "category" | "environment" | "severity";
+
+function RetireConfirmDialog({
+  target,
+  noun,
+  isPending,
+  onCancel,
+  onConfirm,
+}: {
+  target: RetireTarget | null;
+  noun: string;
+  isPending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const count = target?.count ?? 0;
+  return (
+    <AlertDialog open={!!target} onOpenChange={(open) => { if (!open && !isPending) onCancel(); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Retire "{target?.label}"?</AlertDialogTitle>
+          <AlertDialogDescription>
+            <span className="font-semibold text-amber-700">{count} open {count === 1 ? "ticket" : "tickets"}</span> still use this {noun}. Retiring it hides it from new tickets and filters, but those tickets keep it and still display correctly. You can restore it any time.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending} data-testid="button-cancel-retire">Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={isPending} onClick={onConfirm} className="bg-amber-600 hover:bg-amber-700 focus:ring-amber-600" data-testid="button-confirm-retire">
+            {isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Archive className="h-4 w-4 mr-2" />} Retire anyway
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -777,10 +823,41 @@ function SeveritiesSection() {
     }
   };
 
-  const toggleActive = async (s: Severity) => {
+  const [retireTarget, setRetireTarget] = useState<RetireTarget | null>(null);
+  const [checkingId, setCheckingId] = useState<number | null>(null);
+
+  const doRetire = async (id: number) => {
     try {
-      await updateSeverity.mutateAsync({ id: s.id, data: { active: !s.active } });
-      toast.success(s.active ? "Severity retired" : "Severity restored");
+      await updateSeverity.mutateAsync({ id, data: { active: false } });
+      toast.success("Severity retired");
+      invalidate();
+      setRetireTarget(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update severity");
+    }
+  };
+
+  // Retiring: check open-ticket usage first and warn if any depend on it.
+  const requestRetire = async (s: Severity) => {
+    setCheckingId(s.id);
+    try {
+      const usage = await getTaxonomyUsage("severity", s.id);
+      if (usage.openTicketCount > 0) {
+        setRetireTarget({ id: s.id, label: s.label, count: usage.openTicketCount });
+      } else {
+        await doRetire(s.id);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to check ticket usage");
+    } finally {
+      setCheckingId(null);
+    }
+  };
+
+  const restore = async (s: Severity) => {
+    try {
+      await updateSeverity.mutateAsync({ id: s.id, data: { active: true } });
+      toast.success("Severity restored");
       invalidate();
     } catch (err: any) {
       toast.error(err?.message || "Failed to update severity");
@@ -969,9 +1046,9 @@ function SeveritiesSection() {
                           <div className="flex items-center justify-end gap-1">
                             <Button variant="ghost" size="sm" onClick={() => startEdit(s)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" data-testid={`button-edit-severity-${s.id}`}><Pencil className="h-4 w-4 mr-2" /> Edit</Button>
                             {s.active ? (
-                              <Button variant="ghost" size="sm" disabled={updateSeverity.isPending} onClick={() => toggleActive(s)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-retire-severity-${s.id}`}><Archive className="h-4 w-4 mr-2" /> Retire</Button>
+                              <Button variant="ghost" size="sm" disabled={updateSeverity.isPending || checkingId === s.id} onClick={() => requestRetire(s)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-retire-severity-${s.id}`}>{checkingId === s.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Archive className="h-4 w-4 mr-2" />} Retire</Button>
                             ) : (
-                              <Button variant="ghost" size="sm" disabled={updateSeverity.isPending} onClick={() => toggleActive(s)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-restore-severity-${s.id}`}><RotateCcw className="h-4 w-4 mr-2" /> Restore</Button>
+                              <Button variant="ghost" size="sm" disabled={updateSeverity.isPending} onClick={() => restore(s)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-restore-severity-${s.id}`}><RotateCcw className="h-4 w-4 mr-2" /> Restore</Button>
                             )}
                           </div>
                         </TableCell>
@@ -988,6 +1065,13 @@ function SeveritiesSection() {
           <p>Business hours are 09:00 - 18:00 UTC, Monday through Friday. Retiring a severity hides it from new tickets but keeps existing tickets intact — restore it any time.</p>
         </div>
       </CardContent>
+      <RetireConfirmDialog
+        target={retireTarget}
+        noun="severity"
+        isPending={updateSeverity.isPending}
+        onCancel={() => setRetireTarget(null)}
+        onConfirm={() => retireTarget && doRetire(retireTarget.id)}
+      />
     </Card>
   );
 }
@@ -1000,6 +1084,7 @@ type TaxonomyUpdateHook = typeof useUpdateCategory;
 function TaxonomySection({
   title,
   description,
+  usageType,
   useList,
   useCreate,
   useUpdate,
@@ -1007,6 +1092,7 @@ function TaxonomySection({
 }: {
   title: string;
   description: string;
+  usageType: TaxonomyUsageType;
   useList: TaxonomyListHook;
   useCreate: TaxonomyCreateHook;
   useUpdate: TaxonomyUpdateHook;
@@ -1074,10 +1160,41 @@ function TaxonomySection({
     }
   };
 
-  const toggleActive = async (item: TaxonomyOption) => {
+  const [retireTarget, setRetireTarget] = useState<RetireTarget | null>(null);
+  const [checkingId, setCheckingId] = useState<number | null>(null);
+
+  const doRetire = async (id: number) => {
     try {
-      await updateItem.mutateAsync({ id: item.id, data: { active: !item.active } });
-      toast.success(item.active ? `${singular} retired` : `${singular} restored`);
+      await updateItem.mutateAsync({ id, data: { active: false } });
+      toast.success(`${singular} retired`);
+      invalidate();
+      setRetireTarget(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update");
+    }
+  };
+
+  // Retiring: check open-ticket usage first and warn if any depend on it.
+  const requestRetire = async (item: TaxonomyOption) => {
+    setCheckingId(item.id);
+    try {
+      const usage = await getTaxonomyUsage(usageType, item.id);
+      if (usage.openTicketCount > 0) {
+        setRetireTarget({ id: item.id, label: item.label, count: usage.openTicketCount });
+      } else {
+        await doRetire(item.id);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to check ticket usage");
+    } finally {
+      setCheckingId(null);
+    }
+  };
+
+  const restore = async (item: TaxonomyOption) => {
+    try {
+      await updateItem.mutateAsync({ id: item.id, data: { active: true } });
+      toast.success(`${singular} restored`);
       invalidate();
     } catch (err: any) {
       toast.error(err?.message || "Failed to update");
@@ -1165,9 +1282,9 @@ function TaxonomySection({
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="sm" onClick={() => startEdit(item)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" data-testid={`button-edit-taxonomy-${item.id}`}><Pencil className="h-4 w-4 mr-2" /> Edit</Button>
                           {item.active ? (
-                            <Button variant="ghost" size="sm" disabled={updateItem.isPending} onClick={() => toggleActive(item)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-retire-taxonomy-${item.id}`}><Archive className="h-4 w-4 mr-2" /> Retire</Button>
+                            <Button variant="ghost" size="sm" disabled={updateItem.isPending || checkingId === item.id} onClick={() => requestRetire(item)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-retire-taxonomy-${item.id}`}>{checkingId === item.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Archive className="h-4 w-4 mr-2" />} Retire</Button>
                           ) : (
-                            <Button variant="ghost" size="sm" disabled={updateItem.isPending} onClick={() => toggleActive(item)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-restore-taxonomy-${item.id}`}><RotateCcw className="h-4 w-4 mr-2" /> Restore</Button>
+                            <Button variant="ghost" size="sm" disabled={updateItem.isPending} onClick={() => restore(item)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-restore-taxonomy-${item.id}`}><RotateCcw className="h-4 w-4 mr-2" /> Restore</Button>
                           )}
                         </div>
                       )}
@@ -1179,6 +1296,13 @@ function TaxonomySection({
           </TableBody>
         </Table>
       </CardContent>
+      <RetireConfirmDialog
+        target={retireTarget}
+        noun={singular.toLowerCase()}
+        isPending={updateItem.isPending}
+        onCancel={() => setRetireTarget(null)}
+        onConfirm={() => retireTarget && doRetire(retireTarget.id)}
+      />
     </Card>
   );
 }

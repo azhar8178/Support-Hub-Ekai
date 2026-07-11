@@ -630,6 +630,10 @@ export interface TaxonomyOption {
   active: boolean;
 }
 
+export interface TaxonomyUsage {
+  openTicketCount: number;
+}
+
 export interface TaxonomyOptionInput {
   /** @minLength 1 */
   label: string;

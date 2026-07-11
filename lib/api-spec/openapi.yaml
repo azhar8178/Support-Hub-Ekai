@@ -860,6 +860,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Severity"
+  /admin/taxonomy-usage/{type}/{id}:
+    get:
+      operationId: getTaxonomyUsage
+      tags: [admin]
+      summary: Count open tickets still using a taxonomy option (admin only)
+      description: >
+        Returns how many open (non-resolved, non-closed) tickets currently
+        reference the given category, environment, or severity. Used to warn
+        admins before retiring an option that active tickets still depend on.
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema: { type: string, enum: [category, environment, severity] }
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Usage count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxonomyUsage"
   /admin/orgs/{id}:
     patch:
       operationId: updateOrg
@@ -1375,6 +1400,11 @@ components:
         sortOrder: { type: integer }
         active: { type: boolean }
       required: [id, key, label, sortOrder, active]
+    TaxonomyUsage:
+      type: object
+      properties:
+        openTicketCount: { type: integer }
+      required: [openTicketCount]
     TaxonomyOptionInput:
       type: object
       properties:

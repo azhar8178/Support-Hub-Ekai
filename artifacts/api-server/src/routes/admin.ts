@@ -17,7 +17,7 @@ import {
   type TicketEnvironmentRow,
   type UserRole,
 } from "@workspace/db";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, notInArray, sql } from "drizzle-orm";
 import {
   CreateCategoryBody,
   CreateCategoryResponse,
@@ -31,6 +31,8 @@ import {
   CreateSeverityResponse,
   GetKbDeflectionStatsResponse,
   GetReportsResponse,
+  GetTaxonomyUsageParams,
+  GetTaxonomyUsageResponse,
   ListCategoriesResponse,
   ListEnvironmentsResponse,
   ListInvitesResponse,
@@ -599,6 +601,60 @@ router.patch(
       return;
     }
     res.json(UpdateEnvironmentResponse.parse(serializeTaxonomy(row)));
+  },
+);
+
+// Tickets in these statuses are considered "closed out" and safe to ignore when
+// warning about retiring a taxonomy option; everything else counts as open.
+const CLOSED_OUT_STATUSES = ["resolved", "closed"] as const;
+
+// How many open (non-resolved, non-closed) tickets still reference a taxonomy
+// option, so admins can make an informed choice before retiring it.
+router.get(
+  "/admin/taxonomy-usage/:type/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const parsed = GetTaxonomyUsageParams.safeParse(req.params);
+    if (!parsed.success) {
+      res.status(400).json({ message: parsed.error.message });
+      return;
+    }
+    const { type, id } = parsed.data;
+
+    let key: string | undefined;
+    let column;
+    if (type === "category") {
+      const [row] = await db
+        .select()
+        .from(ticketCategoriesTable)
+        .where(eq(ticketCategoriesTable.id, id));
+      key = row?.key;
+      column = ticketsTable.category;
+    } else if (type === "environment") {
+      const [row] = await db
+        .select()
+        .from(ticketEnvironmentsTable)
+        .where(eq(ticketEnvironmentsTable.id, id));
+      key = row?.key;
+      column = ticketsTable.environment;
+    } else {
+      const [row] = await db.select().from(slaConfigTable).where(eq(slaConfigTable.id, id));
+      key = row?.severity;
+      column = ticketsTable.severity;
+    }
+
+    if (key === undefined) {
+      res.status(404).json({ message: "Taxonomy option not found" });
+      return;
+    }
+
+    const [count] = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(ticketsTable)
+      .where(and(eq(column, key), notInArray(ticketsTable.status, [...CLOSED_OUT_STATUSES])));
+
+    res.json(GetTaxonomyUsageResponse.parse({ openTicketCount: Number(count?.n ?? 0) }));
   },
 );
 

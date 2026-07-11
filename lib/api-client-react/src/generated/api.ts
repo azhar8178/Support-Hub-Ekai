@@ -55,6 +55,7 @@ import type {
   TaxonomyOption,
   TaxonomyOptionInput,
   TaxonomyOptionUpdate,
+  TaxonomyUsage,
   Ticket,
   TicketAssignment,
   TicketAttachment,
@@ -3364,6 +3365,89 @@ export const useUpdateSeverity = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getUpdateSeverityMutationOptions(options));
     }
+
+export const getGetTaxonomyUsageUrl = (type: 'category' | 'environment' | 'severity',
+    id: number,) => {
+
+
+
+
+  return `/api/admin/taxonomy-usage/${type}/${id}`
+}
+
+/**
+ * Returns how many open (non-resolved, non-closed) tickets currently reference the given category, environment, or severity. Used to warn admins before retiring an option that active tickets still depend on.
+ * @summary Count open tickets still using a taxonomy option (admin only)
+ */
+export const getTaxonomyUsage = async (type: 'category' | 'environment' | 'severity',
+    id: number, options?: RequestInit): Promise<TaxonomyUsage> => {
+
+  return customFetch<TaxonomyUsage>(getGetTaxonomyUsageUrl(type,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTaxonomyUsageQueryKey = (type: 'category' | 'environment' | 'severity',
+    id: number,) => {
+    return [
+    `/api/admin/taxonomy-usage/${type}/${id}`
+    ] as const;
+    }
+
+
+export const getGetTaxonomyUsageQueryOptions = <TData = Awaited<ReturnType<typeof getTaxonomyUsage>>, TError = ErrorType<unknown>>(type: 'category' | 'environment' | 'severity',
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTaxonomyUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTaxonomyUsageQueryKey(type,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTaxonomyUsage>>> = ({ signal }) => getTaxonomyUsage(type,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: type !== null && type !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTaxonomyUsage>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTaxonomyUsageQueryResult = NonNullable<Awaited<ReturnType<typeof getTaxonomyUsage>>>
+export type GetTaxonomyUsageQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Count open tickets still using a taxonomy option (admin only)
+ */
+
+export function useGetTaxonomyUsage<TData = Awaited<ReturnType<typeof getTaxonomyUsage>>, TError = ErrorType<unknown>>(
+ type: 'category' | 'environment' | 'severity',
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTaxonomyUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTaxonomyUsageQueryOptions(type,id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getUpdateOrgUrl = (id: number,) => {
 
