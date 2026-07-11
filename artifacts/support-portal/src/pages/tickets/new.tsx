@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,6 +8,7 @@ import {
   useAddTicketAttachment,
   useListKbArticles,
   getListKbArticlesQueryKey,
+  useRecordKbSuggestionEvents,
   TicketInputSeverity,
   TicketInputCategory,
   TicketInputEnvironment
@@ -85,6 +86,32 @@ export default function TicketNewPage() {
   const suggestedArticles = kbSearchEnabled ? (suggestions.data ?? []).slice(0, 3) : [];
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+  // Deflection tracking: one draft session per page visit.
+  const [draftId] = useState(() => crypto.randomUUID());
+  const recordEvents = useRecordKbSuggestionEvents();
+  const seenArticleIds = useRef<Set<number>>(new Set());
+  const clickedArticleIds = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const newIds = suggestedArticles
+      .map((a) => a.id)
+      .filter((id) => !seenArticleIds.current.has(id));
+    if (newIds.length === 0) return;
+    newIds.forEach((id) => seenArticleIds.current.add(id));
+    recordEvents.mutate({
+      data: { draftId, events: newIds.map((articleId) => ({ articleId, eventType: "impression" as const })) },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestedArticles.map((a) => a.id).join(",")]);
+
+  const handleSuggestionClick = (articleId: number) => {
+    if (clickedArticleIds.current.has(articleId)) return;
+    clickedArticleIds.current.add(articleId);
+    recordEvents.mutate({
+      data: { draftId, events: [{ articleId, eventType: "click" as const }] },
+    });
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -121,7 +148,10 @@ export default function TicketNewPage() {
       setIsSubmitting(true);
       
       const ticket = await createTicket.mutateAsync({
-        data: values
+        data: {
+          ...values,
+          kbDraftId: seenArticleIds.current.size > 0 ? draftId : undefined,
+        }
       });
 
       // Upload attachments sequentially
@@ -191,6 +221,7 @@ export default function TicketNewPage() {
                         href={`${basePath}/kb/${article.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => handleSuggestionClick(article.id)}
                         data-testid={`kb-suggestion-${article.id}`}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-white transition-colors group"
                       >

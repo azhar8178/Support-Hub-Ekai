@@ -33,7 +33,9 @@ import type {
   KbArticleInput,
   KbArticleSummary,
   KbArticleUpdate,
+  KbDeflectionStats,
   KbFeedback,
+  KbSuggestionEventsInput,
   ListKbArticlesParams,
   ListTicketsParams,
   NotificationReadRequest,
@@ -1955,6 +1957,77 @@ export const useSubmitKbFeedback = <TError = ErrorType<unknown>,
       return useMutation(getSubmitKbFeedbackMutationOptions(options));
     }
 
+export const getRecordKbSuggestionEventsUrl = () => {
+
+
+
+
+  return `/api/kb/suggestions/events`
+}
+
+/**
+ * @summary Record KB suggestion impressions/clicks while drafting a ticket
+ */
+export const recordKbSuggestionEvents = async (kbSuggestionEventsInput: KbSuggestionEventsInput, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getRecordKbSuggestionEventsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(kbSuggestionEventsInput)
+  }
+);}
+
+
+
+
+
+export const getRecordKbSuggestionEventsMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordKbSuggestionEvents>>, TError,{data: BodyType<KbSuggestionEventsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordKbSuggestionEvents>>, TError,{data: BodyType<KbSuggestionEventsInput>}, TContext> => {
+
+const mutationKey = ['recordKbSuggestionEvents'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordKbSuggestionEvents>>, {data: BodyType<KbSuggestionEventsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordKbSuggestionEvents(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordKbSuggestionEventsMutationResult = NonNullable<Awaited<ReturnType<typeof recordKbSuggestionEvents>>>
+    export type RecordKbSuggestionEventsMutationBody = BodyType<KbSuggestionEventsInput>
+    export type RecordKbSuggestionEventsMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Record KB suggestion impressions/clicks while drafting a ticket
+ */
+export const useRecordKbSuggestionEvents = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordKbSuggestionEvents>>, TError,{data: BodyType<KbSuggestionEventsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordKbSuggestionEvents>>,
+        TError,
+        {data: BodyType<KbSuggestionEventsInput>},
+        TContext
+      > => {
+      return useMutation(getRecordKbSuggestionEventsMutationOptions(options));
+    }
+
 export const getListAgentsUrl = () => {
 
 
@@ -2690,6 +2763,83 @@ export function useGetReports<TData = Awaited<ReturnType<typeof getReports>>, TE
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetReportsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetKbDeflectionStatsUrl = () => {
+
+
+
+
+  return `/api/admin/kb-deflection`
+}
+
+/**
+ * @summary KB suggestion deflection metrics (admin only)
+ */
+export const getKbDeflectionStats = async ( options?: RequestInit): Promise<KbDeflectionStats> => {
+
+  return customFetch<KbDeflectionStats>(getGetKbDeflectionStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetKbDeflectionStatsQueryKey = () => {
+    return [
+    `/api/admin/kb-deflection`
+    ] as const;
+    }
+
+
+export const getGetKbDeflectionStatsQueryOptions = <TData = Awaited<ReturnType<typeof getKbDeflectionStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKbDeflectionStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetKbDeflectionStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getKbDeflectionStats>>> = ({ signal }) => getKbDeflectionStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getKbDeflectionStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetKbDeflectionStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getKbDeflectionStats>>>
+export type GetKbDeflectionStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary KB suggestion deflection metrics (admin only)
+ */
+
+export function useGetKbDeflectionStats<TData = Awaited<ReturnType<typeof getKbDeflectionStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKbDeflectionStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetKbDeflectionStatsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

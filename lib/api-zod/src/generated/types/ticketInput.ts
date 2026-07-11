@@ -17,4 +17,10 @@ export interface TicketInput {
   severity: TicketInputSeverity;
   category: TicketInputCategory;
   environment: TicketInputEnvironment;
+  /**
+     * Draft session id linking this ticket to KB suggestion events shown while drafting
+     * @maxLength 64
+     * @nullable
+     */
+  kbDraftId?: string | null;
 }

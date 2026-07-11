@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, serial, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, serial, text, timestamp, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -56,3 +56,29 @@ export const insertKbFeedbackSchema = createInsertSchema(kbFeedbackTable).omit({
 });
 export type InsertKbFeedback = z.infer<typeof insertKbFeedbackSchema>;
 export type KbFeedback = typeof kbFeedbackTable.$inferSelect;
+
+export type KbSuggestionEventType = "impression" | "click" | "ticket_filed";
+
+// Tracks KB suggestion deflection: impressions/clicks while drafting a ticket,
+// plus a ticket_filed marker when the draft turns into a real ticket.
+export const kbSuggestionEventsTable = pgTable(
+  "kb_suggestion_events",
+  {
+    id: serial("id").primaryKey(),
+    draftId: text("draft_id").notNull(),
+    eventType: text("event_type").$type<KbSuggestionEventType>().notNull(),
+    articleId: integer("article_id").references(() => kbArticlesTable.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+    ticketId: integer("ticket_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("kb_suggestion_events_draft_article_type_unique").on(t.draftId, t.articleId, t.eventType),
+    index("kb_suggestion_events_draft_idx").on(t.draftId),
+  ],
+);
+
+export type KbSuggestionEvent = typeof kbSuggestionEventsTable.$inferSelect;
+export type InsertKbSuggestionEvent = typeof kbSuggestionEventsTable.$inferInsert;

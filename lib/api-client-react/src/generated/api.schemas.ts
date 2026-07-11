@@ -272,6 +272,12 @@ export interface TicketInput {
   severity: TicketInputSeverity;
   category: TicketInputCategory;
   environment: TicketInputEnvironment;
+  /**
+     * Draft session id linking this ticket to KB suggestion events shown while drafting
+     * @maxLength 64
+     * @nullable
+     */
+  kbDraftId?: string | null;
 }
 
 export type TicketMessageAuthorRole = typeof TicketMessageAuthorRole[keyof typeof TicketMessageAuthorRole];
@@ -554,6 +560,60 @@ export interface KbArticleUpdate {
 
 export interface KbFeedback {
   helpful: boolean;
+}
+
+export type KbSuggestionEventsInputEventsItemEventType = typeof KbSuggestionEventsInputEventsItemEventType[keyof typeof KbSuggestionEventsInputEventsItemEventType];
+
+
+export const KbSuggestionEventsInputEventsItemEventType = {
+  impression: 'impression',
+  click: 'click',
+} as const;
+
+export type KbSuggestionEventsInputEventsItem = {
+  articleId: number;
+  eventType: KbSuggestionEventsInputEventsItemEventType;
+};
+
+export interface KbSuggestionEventsInput {
+  /**
+     * @minLength 8
+     * @maxLength 64
+     */
+  draftId: string;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     */
+  events: KbSuggestionEventsInputEventsItem[];
+}
+
+export interface KbDeflectionArticleStat {
+  articleId: number;
+  title: string;
+  /** Distinct drafts where this article was suggested */
+  impressions: number;
+  /** Distinct drafts where this article was opened */
+  clicks: number;
+}
+
+export interface KbDeflectionStats {
+  /** Distinct drafts where suggestions were shown */
+  draftsWithSuggestions: number;
+  /** Distinct drafts where a suggested article was opened */
+  draftsWithClicks: number;
+  /** Drafts with suggestions that still became tickets */
+  ticketsFiledAfterSuggestions: number;
+  /** Drafts where an article was opened but a ticket was still filed */
+  ticketsFiledAfterClick: number;
+  /** Drafts where an article was opened and no ticket was filed within 30 minutes (likely deflected) */
+  draftsAbandonedAfterClick: number;
+  /**
+     * abandoned-after-click / (abandoned-after-click + filed-after-click), settled drafts only
+     * @nullable
+     */
+  deflectionRatePct: number | null;
+  topArticles: KbDeflectionArticleStat[];
 }
 
 export type SlaTargetSeverity = typeof SlaTargetSeverity[keyof typeof SlaTargetSeverity];

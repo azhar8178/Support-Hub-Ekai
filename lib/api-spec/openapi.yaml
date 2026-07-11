@@ -525,6 +525,30 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/KbFeedback"
+  /kb/suggestions/events:
+    post:
+      operationId: recordKbSuggestionEvents
+      tags: [kb]
+      summary: Record KB suggestion impressions/clicks while drafting a ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KbSuggestionEventsInput"
+      responses:
+        "200":
+          description: Events recorded (idempotent per draft/article/type)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "400":
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /team/agents:
     get:
       operationId: listAgents
@@ -683,6 +707,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReportSummary"
+  /admin/kb-deflection:
+    get:
+      operationId: getKbDeflectionStats
+      tags: [admin]
+      summary: KB suggestion deflection metrics (admin only)
+      responses:
+        "200":
+          description: Deflection metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KbDeflectionStats"
 components:
   schemas:
     HealthStatus:
@@ -813,6 +849,10 @@ components:
         severity: { type: string, enum: [P1, P2, P3, P4] }
         category: { type: string, enum: [infrastructure, platform, configuration, billing, other] }
         environment: { type: string, enum: [aws, azure, gcp, snowflake, multiple] }
+        kbDraftId:
+          type: ["string", "null"]
+          maxLength: 64
+          description: Draft session id linking this ticket to KB suggestion events shown while drafting
       required: [title, description, severity, category, environment]
     TicketMessage:
       type: object
@@ -1005,6 +1045,43 @@ components:
       properties:
         helpful: { type: boolean }
       required: [helpful]
+    KbSuggestionEventsInput:
+      type: object
+      properties:
+        draftId: { type: string, minLength: 8, maxLength: 64 }
+        events:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: object
+            properties:
+              articleId: { type: integer }
+              eventType: { type: string, enum: [impression, click] }
+            required: [articleId, eventType]
+      required: [draftId, events]
+    KbDeflectionArticleStat:
+      type: object
+      properties:
+        articleId: { type: integer }
+        title: { type: string }
+        impressions: { type: integer, description: "Distinct drafts where this article was suggested" }
+        clicks: { type: integer, description: "Distinct drafts where this article was opened" }
+      required: [articleId, title, impressions, clicks]
+    KbDeflectionStats:
+      type: object
+      properties:
+        draftsWithSuggestions: { type: integer, description: "Distinct drafts where suggestions were shown" }
+        draftsWithClicks: { type: integer, description: "Distinct drafts where a suggested article was opened" }
+        ticketsFiledAfterSuggestions: { type: integer, description: "Drafts with suggestions that still became tickets" }
+        ticketsFiledAfterClick: { type: integer, description: "Drafts where an article was opened but a ticket was still filed" }
+        draftsAbandonedAfterClick: { type: integer, description: "Drafts where an article was opened and no ticket was filed within 30 minutes (likely deflected)" }
+        deflectionRatePct: { type: ["number", "null"], description: "abandoned-after-click / (abandoned-after-click + filed-after-click), settled drafts only" }
+        topArticles:
+          type: array
+          items:
+            $ref: "#/components/schemas/KbDeflectionArticleStat"
+      required: [draftsWithSuggestions, draftsWithClicks, ticketsFiledAfterSuggestions, ticketsFiledAfterClick, draftsAbandonedAfterClick, deflectionRatePct, topArticles]
     SlaTarget:
       type: object
       properties:

@@ -3,6 +3,8 @@ import { Router, type IRouter, type Request } from "express";
 import {
   db,
   invitesTable,
+  kbArticlesTable,
+  kbSuggestionEventsTable,
   organisationsTable,
   slaConfigTable,
   ticketsTable,
@@ -10,12 +12,13 @@ import {
   type SlaConfig,
   type UserRole,
 } from "@workspace/db";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import {
   CreateInviteBody,
   CreateInviteResponse,
   CreateOrgBody,
   CreateOrgResponse,
+  GetKbDeflectionStatsResponse,
   GetReportsResponse,
   GetSlaConfigResponse,
   ListInvitesResponse,
@@ -370,6 +373,99 @@ router.get(
         slaResolutionCompliancePct,
         totalTickets: tickets.length,
         openTickets: tickets.filter((t) => openStatuses.includes(t.status)).length,
+      }),
+    );
+  },
+);
+
+// A draft is "settled" once it filed a ticket or has been inactive for 30 minutes.
+const DRAFT_SETTLE_MS = 30 * 60 * 1000;
+
+router.get(
+  "/admin/kb-deflection",
+  requireAuth,
+  requireRole("admin"),
+  async (_req, res): Promise<void> => {
+    const events = await db.select().from(kbSuggestionEventsTable);
+    const now = Date.now();
+
+    type DraftAgg = { impressions: boolean; clicked: boolean; filed: boolean; lastEventAt: number };
+    const drafts = new Map<string, DraftAgg>();
+    const perArticle = new Map<number, { impressionDrafts: Set<string>; clickDrafts: Set<string> }>();
+
+    for (const e of events) {
+      let d = drafts.get(e.draftId);
+      if (!d) {
+        d = { impressions: false, clicked: false, filed: false, lastEventAt: 0 };
+        drafts.set(e.draftId, d);
+      }
+      if (e.eventType === "impression") d.impressions = true;
+      if (e.eventType === "click") d.clicked = true;
+      if (e.eventType === "ticket_filed") d.filed = true;
+      d.lastEventAt = Math.max(d.lastEventAt, e.createdAt.getTime());
+
+      if (e.articleId != null && e.eventType !== "ticket_filed") {
+        let a = perArticle.get(e.articleId);
+        if (!a) {
+          a = { impressionDrafts: new Set(), clickDrafts: new Set() };
+          perArticle.set(e.articleId, a);
+        }
+        if (e.eventType === "impression") a.impressionDrafts.add(e.draftId);
+        if (e.eventType === "click") a.clickDrafts.add(e.draftId);
+      }
+    }
+
+    let draftsWithSuggestions = 0;
+    let draftsWithClicks = 0;
+    let ticketsFiledAfterSuggestions = 0;
+    let ticketsFiledAfterClick = 0;
+    let draftsAbandonedAfterClick = 0;
+
+    for (const d of drafts.values()) {
+      if (!d.impressions) continue; // ticket_filed-only drafts shouldn't happen, but be safe
+      draftsWithSuggestions++;
+      if (d.filed) ticketsFiledAfterSuggestions++;
+      if (d.clicked) {
+        draftsWithClicks++;
+        if (d.filed) ticketsFiledAfterClick++;
+        else if (now - d.lastEventAt > DRAFT_SETTLE_MS) draftsAbandonedAfterClick++;
+      }
+    }
+
+    const settledClicked = draftsAbandonedAfterClick + ticketsFiledAfterClick;
+    const deflectionRatePct =
+      settledClicked > 0
+        ? Math.round((draftsAbandonedAfterClick / settledClicked) * 1000) / 10
+        : null;
+
+    const articleIds = [...perArticle.keys()];
+    const titles = articleIds.length
+      ? await db
+          .select({ id: kbArticlesTable.id, title: kbArticlesTable.title })
+          .from(kbArticlesTable)
+          .where(inArray(kbArticlesTable.id, articleIds))
+      : [];
+    const titleById = new Map(titles.map((t) => [t.id, t.title]));
+
+    const topArticles = articleIds
+      .map((id) => ({
+        articleId: id,
+        title: titleById.get(id) ?? "Deleted article",
+        impressions: perArticle.get(id)!.impressionDrafts.size,
+        clicks: perArticle.get(id)!.clickDrafts.size,
+      }))
+      .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions)
+      .slice(0, 5);
+
+    res.json(
+      GetKbDeflectionStatsResponse.parse({
+        draftsWithSuggestions,
+        draftsWithClicks,
+        ticketsFiledAfterSuggestions,
+        ticketsFiledAfterClick,
+        draftsAbandonedAfterClick,
+        deflectionRatePct,
+        topArticles,
       }),
     );
   },

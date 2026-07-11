@@ -9,6 +9,7 @@ import {
   useGetSlaConfig,
   useUpdateSlaConfig,
   useGetReports,
+  useGetKbDeflectionStats,
   PortalUserRole,
   InviteRole,
   SlaTargetSeverity
@@ -16,7 +17,7 @@ import {
 import { queryClient } from "@/lib/queryClient";
 import { 
   Users, Building, Mail, ShieldAlert, BarChart3, Plus, Search, 
-  Check, X, Loader2, Copy, AlertTriangle, TrendingUp, Clock
+  Check, X, Loader2, Copy, AlertTriangle, TrendingUp, Clock, BookOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -661,6 +662,99 @@ function SlaConfigTab() {
 }
 
 // --- REPORTS TAB ---
+function KbDeflectionSection() {
+  const { data: stats, isLoading } = useGetKbDeflectionStats();
+
+  if (isLoading || !stats) return null;
+
+  const cards = [
+    {
+      label: "Drafts Shown Articles",
+      value: stats.draftsWithSuggestions,
+      hint: "Ticket drafts where suggestions appeared",
+    },
+    {
+      label: "Article Clicks",
+      value: stats.draftsWithClicks,
+      hint: "Drafts where a suggested article was opened",
+    },
+    {
+      label: "Likely Deflected",
+      value: stats.draftsAbandonedAfterClick,
+      hint: "Read an article, never filed the ticket",
+    },
+    {
+      label: "Filed Anyway",
+      value: stats.ticketsFiledAfterSuggestions,
+      hint: `${stats.ticketsFiledAfterClick} of these clicked an article first`,
+    },
+  ];
+
+  return (
+    <Card className="border-slate-200 shadow-sm" data-testid="kb-deflection-card">
+      <CardHeader className="pb-2 border-b border-slate-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-[#2563EB]" />
+              Self-Service Deflection
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Do suggested KB articles stop tickets from being filed?
+            </CardDescription>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold text-[#0F1F3D]" data-testid="deflection-rate">
+              {stats.deflectionRatePct !== null ? `${stats.deflectionRatePct.toFixed(0)}%` : "N/A"}
+            </div>
+            <p className="text-xs text-slate-500">Deflection rate</p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-6 space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {cards.map((c) => (
+            <div key={c.label} className="rounded-lg border border-slate-200 p-4">
+              <div className="text-2xl font-bold text-[#0F1F3D]">{c.value}</div>
+              <div className="text-sm font-medium text-slate-700 mt-1">{c.label}</div>
+              <p className="text-xs text-slate-500 mt-0.5">{c.hint}</p>
+            </div>
+          ))}
+        </div>
+
+        {stats.topArticles.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-[#0F1F3D] mb-2">Most-Clicked Suggestions</h4>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Article</TableHead>
+                  <TableHead className="text-right">Shown (drafts)</TableHead>
+                  <TableHead className="text-right">Opened (drafts)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stats.topArticles.map((a) => (
+                  <TableRow key={a.articleId}>
+                    <TableCell className="font-medium text-slate-700">{a.title}</TableCell>
+                    <TableCell className="text-right">{a.impressions}</TableCell>
+                    <TableCell className="text-right">{a.clicks}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        {stats.draftsWithSuggestions === 0 && (
+          <p className="text-sm text-slate-500">
+            No suggestion activity recorded yet. Metrics appear once customers start drafting tickets.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ReportsTab() {
   const { data: report, isLoading } = useGetReports();
 
@@ -774,6 +868,8 @@ function ReportsTab() {
           </div>
         </CardContent>
       </Card>
+
+      <KbDeflectionSection />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import {
   db,
+  kbSuggestionEventsTable,
   ticketAttachmentsTable,
   ticketMessagesTable,
   ticketsTable,
@@ -121,10 +122,11 @@ router.post("/tickets", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const { kbDraftId, ...ticketInput } = parsed.data;
   const [ticket] = await db
     .insert(ticketsTable)
     .values({
-      ...parsed.data,
+      ...ticketInput,
       orgId,
       raisedById: user.id,
       responseDeadline: deadlines.responseDeadline,
@@ -138,6 +140,20 @@ router.post("/tickets", requireAuth, async (req, res): Promise<void> => {
     toStatus: "new",
     changedById: user.id,
   });
+
+  // Link the ticket to the KB-suggestion draft session (deflection tracking).
+  if (kbDraftId) {
+    await db
+      .insert(kbSuggestionEventsTable)
+      .values({
+        draftId: kbDraftId,
+        eventType: "ticket_filed",
+        articleId: null,
+        userId: user.id,
+        ticketId: ticket!.id,
+      })
+      .onConflictDoNothing();
+  }
 
   await notifyTicketCreated(ticket!, user);
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -12,6 +12,7 @@ import {
   getListTicketsQueryKey,
   useCreateTicket,
   useListKbArticles,
+  useRecordKbSuggestionEvents,
 } from '@workspace/api-client-react';
 import { SEVERITY_META } from '@/components/TicketBadges';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
@@ -32,6 +33,13 @@ const ENVIRONMENTS = Object.values(TicketEnvironment);
 
 function labelize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, ' ');
+}
+
+// crypto.randomUUID isn't guaranteed in Hermes; a random draft-session id is enough here.
+function makeDraftId(): string {
+  return `d-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
 }
 
 export default function NewTicketScreen() {
@@ -75,6 +83,38 @@ export default function NewTicketScreen() {
   });
   const suggestedArticles = kbSearchEnabled ? (suggestions.data ?? []).slice(0, 3) : [];
 
+  // Deflection tracking: one draft session per screen visit.
+  const [draftId] = useState(makeDraftId);
+  const recordEvents = useRecordKbSuggestionEvents();
+  const seenArticleIds = useRef<Set<number>>(new Set());
+  const clickedArticleIds = useRef<Set<number>>(new Set());
+
+  const suggestedIdsKey = suggestedArticles.map((a) => a.id).join(',');
+  useEffect(() => {
+    const newIds = suggestedArticles
+      .map((a) => a.id)
+      .filter((id) => !seenArticleIds.current.has(id));
+    if (newIds.length === 0) return;
+    newIds.forEach((id) => seenArticleIds.current.add(id));
+    recordEvents.mutate({
+      data: {
+        draftId,
+        events: newIds.map((articleId) => ({ articleId, eventType: 'impression' as const })),
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestedIdsKey]);
+
+  const onSuggestionPress = (articleId: number) => {
+    if (!clickedArticleIds.current.has(articleId)) {
+      clickedArticleIds.current.add(articleId);
+      recordEvents.mutate({
+        data: { draftId, events: [{ articleId, eventType: 'click' as const }] },
+      });
+    }
+    router.push(`/kb/${articleId}`);
+  };
+
   const onSubmit = () => {
     if (!canSubmit) return;
     setError(null);
@@ -85,6 +125,7 @@ export default function NewTicketScreen() {
         severity,
         category,
         environment,
+        kbDraftId: seenArticleIds.current.size > 0 ? draftId : undefined,
       },
     });
   };
@@ -145,7 +186,7 @@ export default function NewTicketScreen() {
               <Pressable
                 key={article.id}
                 testID={`kb-suggestion-${article.id}`}
-                onPress={() => router.push(`/kb/${article.id}`)}
+                onPress={() => onSuggestionPress(article.id)}
                 style={({ pressed }) => [
                   styles.suggestItem,
                   {

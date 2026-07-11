@@ -1,11 +1,19 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, kbArticlesTable, kbFeedbackTable, usersTable, type KbCategory } from "@workspace/db";
-import { and, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import {
+  db,
+  kbArticlesTable,
+  kbFeedbackTable,
+  kbSuggestionEventsTable,
+  usersTable,
+  type KbCategory,
+} from "@workspace/db";
+import { and, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import {
   CreateKbArticleBody,
   GetKbArticleResponse,
   ListKbArticlesQueryParams,
   ListKbArticlesResponse,
+  RecordKbSuggestionEventsBody,
   SubmitKbFeedbackBody,
   UpdateKbArticleBody,
 } from "@workspace/api-zod";
@@ -161,6 +169,7 @@ router.delete(
   requireRole("admin"),
   async (req, res): Promise<void> => {
     const id = parseId(req);
+    await db.delete(kbSuggestionEventsTable).where(eq(kbSuggestionEventsTable.articleId, id));
     await db.delete(kbFeedbackTable).where(eq(kbFeedbackTable.articleId, id));
     const [deleted] = await db
       .delete(kbArticlesTable)
@@ -173,6 +182,37 @@ router.delete(
     res.json({ message: "Article deleted" });
   },
 );
+
+router.post("/kb/suggestions/events", requireAuth, async (req, res): Promise<void> => {
+  const user = req.portalUser!;
+  const parsed = RecordKbSuggestionEventsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const { draftId, events } = parsed.data;
+
+  // Only record events against articles that actually exist.
+  const articleIds = [...new Set(events.map((e) => e.articleId))];
+  const existing = await db
+    .select({ id: kbArticlesTable.id })
+    .from(kbArticlesTable)
+    .where(inArray(kbArticlesTable.id, articleIds));
+  const validIds = new Set(existing.map((r) => r.id));
+  const rows = events
+    .filter((e) => validIds.has(e.articleId))
+    .map((e) => ({
+      draftId,
+      eventType: e.eventType as "impression" | "click",
+      articleId: e.articleId,
+      userId: user.id,
+    }));
+
+  if (rows.length > 0) {
+    await db.insert(kbSuggestionEventsTable).values(rows).onConflictDoNothing();
+  }
+  res.json({ message: "Events recorded" });
+});
 
 router.post("/kb/articles/:id/feedback", requireAuth, async (req, res): Promise<void> => {
   const user = req.portalUser!;

@@ -123,6 +123,8 @@ export const ListTicketsResponse = zod.array(ListTicketsResponseItem)
  */
 
 
+export const createTicketBodyKbDraftIdMax = 64;
+
 
 
 export const CreateTicketBody = zod.object({
@@ -130,7 +132,8 @@ export const CreateTicketBody = zod.object({
   "description": zod.string().min(1),
   "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
   "category": zod.enum(['infrastructure', 'platform', 'configuration', 'billing', 'other']),
-  "environment": zod.enum(['aws', 'azure', 'gcp', 'snowflake', 'multiple'])
+  "environment": zod.enum(['aws', 'azure', 'gcp', 'snowflake', 'multiple']),
+  "kbDraftId": zod.string().max(createTicketBodyKbDraftIdMax).nullish().describe('Draft session id linking this ticket to KB suggestion events shown while drafting')
 })
 
 export const CreateTicketResponse = zod.object({
@@ -705,6 +708,30 @@ export const SubmitKbFeedbackResponse = zod.object({
 
 
 /**
+ * @summary Record KB suggestion impressions/clicks while drafting a ticket
+ */
+export const recordKbSuggestionEventsBodyDraftIdMin = 8;
+export const recordKbSuggestionEventsBodyDraftIdMax = 64;
+
+export const recordKbSuggestionEventsBodyEventsMax = 20;
+
+
+
+export const RecordKbSuggestionEventsBody = zod.object({
+  "draftId": zod.string().min(recordKbSuggestionEventsBodyDraftIdMin).max(recordKbSuggestionEventsBodyDraftIdMax),
+  "events": zod.array(zod.object({
+  "articleId": zod.number(),
+  "eventType": zod.enum(['impression', 'click'])
+})).min(1).max(recordKbSuggestionEventsBodyEventsMax)
+})
+
+export const RecordKbSuggestionEventsResponse = zod.object({
+  "message": zod.string(),
+  "code": zod.string().nullish()
+})
+
+
+/**
  * @summary List Ekai agents and admins for assignment (agents/admins only)
  */
 export const ListAgentsResponseItem = zod.object({
@@ -893,6 +920,25 @@ export const GetReportsResponse = zod.object({
   "slaResolutionCompliancePct": zod.number().nullable(),
   "totalTickets": zod.number(),
   "openTickets": zod.number()
+})
+
+
+/**
+ * @summary KB suggestion deflection metrics (admin only)
+ */
+export const GetKbDeflectionStatsResponse = zod.object({
+  "draftsWithSuggestions": zod.number().describe('Distinct drafts where suggestions were shown'),
+  "draftsWithClicks": zod.number().describe('Distinct drafts where a suggested article was opened'),
+  "ticketsFiledAfterSuggestions": zod.number().describe('Drafts with suggestions that still became tickets'),
+  "ticketsFiledAfterClick": zod.number().describe('Drafts where an article was opened but a ticket was still filed'),
+  "draftsAbandonedAfterClick": zod.number().describe('Drafts where an article was opened and no ticket was filed within 30 minutes (likely deflected)'),
+  "deflectionRatePct": zod.number().nullable().describe('abandoned-after-click \/ (abandoned-after-click + filed-after-click), settled drafts only'),
+  "topArticles": zod.array(zod.object({
+  "articleId": zod.number(),
+  "title": zod.string(),
+  "impressions": zod.number().describe('Distinct drafts where this article was suggested'),
+  "clicks": zod.number().describe('Distinct drafts where this article was opened')
+}))
 })
 
 
