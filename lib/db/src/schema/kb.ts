@@ -77,6 +77,8 @@ export const kbSuggestionEventsTable = pgTable(
   (t) => [
     unique("kb_suggestion_events_draft_article_type_unique").on(t.draftId, t.articleId, t.eventType),
     index("kb_suggestion_events_draft_idx").on(t.draftId),
+    // Supports the background prune of old settled events.
+    index("kb_suggestion_events_created_idx").on(t.createdAt),
   ],
 );
 

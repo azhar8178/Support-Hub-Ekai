@@ -12,7 +12,7 @@ import {
   type SlaConfig,
   type UserRole,
 } from "@workspace/db";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import {
   CreateInviteBody,
   CreateInviteResponse,
@@ -386,51 +386,44 @@ router.get(
   requireAuth,
   requireRole("admin"),
   async (_req, res): Promise<void> => {
-    const events = await db.select().from(kbSuggestionEventsTable);
-    const now = Date.now();
+    const settleCutoff = new Date(Date.now() - DRAFT_SETTLE_MS);
 
-    type DraftAgg = { impressions: boolean; clicked: boolean; filed: boolean; lastEventAt: number };
-    const drafts = new Map<string, DraftAgg>();
-    const perArticle = new Map<number, { impressionDrafts: Set<string>; clickDrafts: Set<string> }>();
+    // Per-draft rollup done in SQL so we never load the raw event table.
+    const perDraft = db
+      .select({
+        draftId: kbSuggestionEventsTable.draftId,
+        hasImpression: sql<boolean>`bool_or(${kbSuggestionEventsTable.eventType} = 'impression')`.as(
+          "has_impression",
+        ),
+        hasClick: sql<boolean>`bool_or(${kbSuggestionEventsTable.eventType} = 'click')`.as(
+          "has_click",
+        ),
+        hasFiled: sql<boolean>`bool_or(${kbSuggestionEventsTable.eventType} = 'ticket_filed')`.as(
+          "has_filed",
+        ),
+        lastEventAt: sql<Date>`max(${kbSuggestionEventsTable.createdAt})`.as("last_event_at"),
+      })
+      .from(kbSuggestionEventsTable)
+      .groupBy(kbSuggestionEventsTable.draftId)
+      .as("d");
 
-    for (const e of events) {
-      let d = drafts.get(e.draftId);
-      if (!d) {
-        d = { impressions: false, clicked: false, filed: false, lastEventAt: 0 };
-        drafts.set(e.draftId, d);
-      }
-      if (e.eventType === "impression") d.impressions = true;
-      if (e.eventType === "click") d.clicked = true;
-      if (e.eventType === "ticket_filed") d.filed = true;
-      d.lastEventAt = Math.max(d.lastEventAt, e.createdAt.getTime());
+    const [totals] = await db
+      .select({
+        draftsWithSuggestions: sql<number>`count(*)`,
+        draftsWithClicks: sql<number>`count(*) filter (where ${perDraft.hasClick})`,
+        ticketsFiledAfterSuggestions: sql<number>`count(*) filter (where ${perDraft.hasFiled})`,
+        ticketsFiledAfterClick: sql<number>`count(*) filter (where ${perDraft.hasClick} and ${perDraft.hasFiled})`,
+        draftsAbandonedAfterClick: sql<number>`count(*) filter (where ${perDraft.hasClick} and not ${perDraft.hasFiled} and ${perDraft.lastEventAt} < ${settleCutoff})`,
+      })
+      .from(perDraft)
+      // ticket_filed-only drafts shouldn't happen, but be safe
+      .where(sql`${perDraft.hasImpression}`);
 
-      if (e.articleId != null && e.eventType !== "ticket_filed") {
-        let a = perArticle.get(e.articleId);
-        if (!a) {
-          a = { impressionDrafts: new Set(), clickDrafts: new Set() };
-          perArticle.set(e.articleId, a);
-        }
-        if (e.eventType === "impression") a.impressionDrafts.add(e.draftId);
-        if (e.eventType === "click") a.clickDrafts.add(e.draftId);
-      }
-    }
-
-    let draftsWithSuggestions = 0;
-    let draftsWithClicks = 0;
-    let ticketsFiledAfterSuggestions = 0;
-    let ticketsFiledAfterClick = 0;
-    let draftsAbandonedAfterClick = 0;
-
-    for (const d of drafts.values()) {
-      if (!d.impressions) continue; // ticket_filed-only drafts shouldn't happen, but be safe
-      draftsWithSuggestions++;
-      if (d.filed) ticketsFiledAfterSuggestions++;
-      if (d.clicked) {
-        draftsWithClicks++;
-        if (d.filed) ticketsFiledAfterClick++;
-        else if (now - d.lastEventAt > DRAFT_SETTLE_MS) draftsAbandonedAfterClick++;
-      }
-    }
+    const draftsWithSuggestions = Number(totals?.draftsWithSuggestions ?? 0);
+    const draftsWithClicks = Number(totals?.draftsWithClicks ?? 0);
+    const ticketsFiledAfterSuggestions = Number(totals?.ticketsFiledAfterSuggestions ?? 0);
+    const ticketsFiledAfterClick = Number(totals?.ticketsFiledAfterClick ?? 0);
+    const draftsAbandonedAfterClick = Number(totals?.draftsAbandonedAfterClick ?? 0);
 
     const settledClicked = draftsAbandonedAfterClick + ticketsFiledAfterClick;
     const deflectionRatePct =
@@ -438,24 +431,35 @@ router.get(
         ? Math.round((draftsAbandonedAfterClick / settledClicked) * 1000) / 10
         : null;
 
-    const articleIds = [...perArticle.keys()];
-    const titles = articleIds.length
-      ? await db
-          .select({ id: kbArticlesTable.id, title: kbArticlesTable.title })
-          .from(kbArticlesTable)
-          .where(inArray(kbArticlesTable.id, articleIds))
-      : [];
-    const titleById = new Map(titles.map((t) => [t.id, t.title]));
+    // Per-article rollup: distinct drafts per event type, top 5 by clicks then impressions.
+    const topRows = await db
+      .select({
+        articleId: kbSuggestionEventsTable.articleId,
+        title: kbArticlesTable.title,
+        impressions:
+          sql<number>`count(distinct ${kbSuggestionEventsTable.draftId}) filter (where ${kbSuggestionEventsTable.eventType} = 'impression')`.as(
+            "impressions",
+          ),
+        clicks:
+          sql<number>`count(distinct ${kbSuggestionEventsTable.draftId}) filter (where ${kbSuggestionEventsTable.eventType} = 'click')`.as(
+            "clicks",
+          ),
+      })
+      .from(kbSuggestionEventsTable)
+      .leftJoin(kbArticlesTable, eq(kbSuggestionEventsTable.articleId, kbArticlesTable.id))
+      .where(
+        sql`${kbSuggestionEventsTable.articleId} is not null and ${kbSuggestionEventsTable.eventType} != 'ticket_filed'`,
+      )
+      .groupBy(kbSuggestionEventsTable.articleId, kbArticlesTable.title)
+      .orderBy(sql`clicks desc, impressions desc`)
+      .limit(5);
 
-    const topArticles = articleIds
-      .map((id) => ({
-        articleId: id,
-        title: titleById.get(id) ?? "Deleted article",
-        impressions: perArticle.get(id)!.impressionDrafts.size,
-        clicks: perArticle.get(id)!.clickDrafts.size,
-      }))
-      .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions)
-      .slice(0, 5);
+    const topArticles = topRows.map((r) => ({
+      articleId: r.articleId!,
+      title: r.title ?? "Deleted article",
+      impressions: Number(r.impressions),
+      clicks: Number(r.clicks),
+    }));
 
     res.json(
       GetKbDeflectionStatsResponse.parse({

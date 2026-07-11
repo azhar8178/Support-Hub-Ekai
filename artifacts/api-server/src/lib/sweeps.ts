@@ -1,5 +1,5 @@
-import { db, ticketsTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { db, kbSuggestionEventsTable, ticketsTable } from "@workspace/db";
+import { eq, inArray, lt, sql } from "drizzle-orm";
 import { addBusinessDays } from "./businessHours";
 import { computeSlaInfo } from "./sla";
 import { applyStatusChange } from "./ticketActions";
@@ -10,6 +10,38 @@ import { logger } from "./logger";
 const SWEEP_INTERVAL_MS = 60_000;
 const AUTO_CLOSE_BUSINESS_DAYS = 5;
 
+// KB suggestion events are only needed for the deflection dashboard; drafts
+// settle within 30 minutes, so anything this old is safe to drop.
+const KB_EVENT_RETENTION_MS = 90 * 24 * 3600_000;
+// The prune is cheap but there's no point running it every minute.
+const KB_EVENT_PRUNE_INTERVAL_MS = 24 * 3600_000;
+
+let lastKbEventPruneAt = 0;
+
+/**
+ * Delete KB suggestion events for drafts whose latest activity is older than
+ * the retention window. Deleting whole drafts (rather than individual rows)
+ * keeps per-draft aggregates consistent for anything still inside the window.
+ */
+export async function pruneOldKbSuggestionEvents(
+  now: Date = new Date(),
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - KB_EVENT_RETENTION_MS);
+  const staleDrafts = db
+    .select({ draftId: kbSuggestionEventsTable.draftId })
+    .from(kbSuggestionEventsTable)
+    .groupBy(kbSuggestionEventsTable.draftId)
+    .having(lt(sql`max(${kbSuggestionEventsTable.createdAt})`, cutoff));
+  const deleted = await db
+    .delete(kbSuggestionEventsTable)
+    .where(inArray(kbSuggestionEventsTable.draftId, staleDrafts))
+    .returning({ id: kbSuggestionEventsTable.id });
+  if (deleted.length > 0) {
+    logger.info({ count: deleted.length }, "pruned old KB suggestion events");
+  }
+  return deleted.length;
+}
+
 /**
  * Periodic background sweep:
  * 1. SLA 75% warning notifications for open tickets approaching a deadline.
@@ -18,6 +50,12 @@ const AUTO_CLOSE_BUSINESS_DAYS = 5;
  */
 export async function runSweep(): Promise<void> {
   const now = new Date();
+
+  // --- Prune old settled KB suggestion events (at most once a day) ---
+  if (now.getTime() - lastKbEventPruneAt >= KB_EVENT_PRUNE_INTERVAL_MS) {
+    lastKbEventPruneAt = now.getTime();
+    await pruneOldKbSuggestionEvents(now);
+  }
 
   // --- SLA 75% warnings ---
   const openTickets = await db

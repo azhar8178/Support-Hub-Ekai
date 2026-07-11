@@ -33,6 +33,7 @@ vi.mock("@clerk/express", () => ({
 }));
 
 const { default: app } = await import("../app");
+const { pruneOldKbSuggestionEvents } = await import("../lib/sweeps");
 
 const fx = new Fixtures();
 
@@ -44,7 +45,8 @@ let article: KbArticle;
 // Unique per test run so aggregates over the shared dev DB stay assertable.
 const filedDraftId = `test-filed-${fx.suffix}`;
 const abandonedDraftId = `test-abandoned-${fx.suffix}`;
-const draftIds = [filedDraftId, abandonedDraftId];
+const ancientDraftId = `test-ancient-${fx.suffix}`;
+const draftIds = [filedDraftId, abandonedDraftId, ancientDraftId];
 
 let createdTicketId: number | null = null;
 
@@ -192,6 +194,42 @@ describe("KB suggestion deflection tracking", () => {
       expect(mine.impressions).toBe(2);
       expect(mine.clicks).toBe(2);
     }
+  });
+
+  it("prunes drafts settled beyond the retention window, keeps recent ones", async () => {
+    // A draft whose latest event is far older than the 90-day retention window.
+    const ancientDate = new Date(Date.now() - 120 * 24 * 3600_000);
+    await db.insert(kbSuggestionEventsTable).values([
+      {
+        draftId: ancientDraftId,
+        eventType: "impression",
+        articleId: article.id,
+        userId: customer.id,
+        createdAt: ancientDate,
+      },
+      {
+        draftId: ancientDraftId,
+        eventType: "click",
+        articleId: article.id,
+        userId: customer.id,
+        createdAt: ancientDate,
+      },
+    ]);
+
+    await pruneOldKbSuggestionEvents();
+
+    const ancientRows = await db
+      .select()
+      .from(kbSuggestionEventsTable)
+      .where(eq(kbSuggestionEventsTable.draftId, ancientDraftId));
+    expect(ancientRows).toHaveLength(0);
+
+    // Recent drafts (even the hour-old abandoned one) must be untouched.
+    const recentRows = await db
+      .select()
+      .from(kbSuggestionEventsTable)
+      .where(inArray(kbSuggestionEventsTable.draftId, [filedDraftId, abandonedDraftId]));
+    expect(recentRows.length).toBeGreaterThanOrEqual(5);
   });
 
   it("blocks non-admins from deflection stats", async () => {
