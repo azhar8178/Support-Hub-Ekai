@@ -9,6 +9,7 @@ import {
   newCriticalTicketEmail,
   slaWarningEmail,
 } from "./email";
+import { sendExpoPushToUsers } from "./push";
 
 export interface NotificationPayload {
   type: NotificationType;
@@ -151,6 +152,12 @@ export async function notifyUsers(userIds: number[], payload: NotificationPayloa
       }
     }
   }
+
+  // Native device push (Expo). Never throws; failures are logged inside.
+  await sendExpoPushToUsers(
+    activeUsers.map((u) => u.id),
+    payload,
+  );
 }
 
 /** All active agents + admins. */

@@ -5,3 +5,4 @@ export * from "./tickets";
 export * from "./kb";
 export * from "./slaConfig";
 export * from "./notifications";
+export * from "./pushTokens";

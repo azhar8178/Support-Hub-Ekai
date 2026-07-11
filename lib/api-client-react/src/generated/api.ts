@@ -42,6 +42,8 @@ import type {
   PortalUser,
   PortalUserUpdate,
   PreviewInviteParams,
+  PushTokenInput,
+  PushTokenRemoval,
   ReportSummary,
   SlaConfigUpdate,
   SlaTarget,
@@ -1362,6 +1364,148 @@ export const useMarkNotificationsRead = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getMarkNotificationsReadMutationOptions(options));
+    }
+
+export const getRegisterPushTokenUrl = () => {
+
+
+
+
+  return `/api/push-tokens`
+}
+
+/**
+ * @summary Register an Expo push token for the current user's device
+ */
+export const registerPushToken = async (pushTokenInput: PushTokenInput, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getRegisterPushTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pushTokenInput)
+  }
+);}
+
+
+
+
+
+export const getRegisterPushTokenMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{data: BodyType<PushTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{data: BodyType<PushTokenInput>}, TContext> => {
+
+const mutationKey = ['registerPushToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerPushToken>>, {data: BodyType<PushTokenInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerPushToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterPushTokenMutationResult = NonNullable<Awaited<ReturnType<typeof registerPushToken>>>
+    export type RegisterPushTokenMutationBody = BodyType<PushTokenInput>
+    export type RegisterPushTokenMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Register an Expo push token for the current user's device
+ */
+export const useRegisterPushToken = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{data: BodyType<PushTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerPushToken>>,
+        TError,
+        {data: BodyType<PushTokenInput>},
+        TContext
+      > => {
+      return useMutation(getRegisterPushTokenMutationOptions(options));
+    }
+
+export const getRemovePushTokenUrl = () => {
+
+
+
+
+  return `/api/push-tokens/remove`
+}
+
+/**
+ * @summary Remove a registered push token (e.g. on sign-out)
+ */
+export const removePushToken = async (pushTokenRemoval: PushTokenRemoval, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getRemovePushTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pushTokenRemoval)
+  }
+);}
+
+
+
+
+
+export const getRemovePushTokenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removePushToken>>, TError,{data: BodyType<PushTokenRemoval>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removePushToken>>, TError,{data: BodyType<PushTokenRemoval>}, TContext> => {
+
+const mutationKey = ['removePushToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removePushToken>>, {data: BodyType<PushTokenRemoval>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  removePushToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemovePushTokenMutationResult = NonNullable<Awaited<ReturnType<typeof removePushToken>>>
+    export type RemovePushTokenMutationBody = BodyType<PushTokenRemoval>
+    export type RemovePushTokenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a registered push token (e.g. on sign-out)
+ */
+export const useRemovePushToken = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removePushToken>>, TError,{data: BodyType<PushTokenRemoval>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removePushToken>>,
+        TError,
+        {data: BodyType<PushTokenRemoval>},
+        TContext
+      > => {
+      return useMutation(getRemovePushTokenMutationOptions(options));
     }
 
 export const getListKbArticlesUrl = (params?: ListKbArticlesParams,) => {

@@ -527,6 +527,39 @@ export const MarkNotificationsReadResponse = zod.object({
 
 
 /**
+ * @summary Register an Expo push token for the current user's device
+ */
+
+
+
+export const RegisterPushTokenBody = zod.object({
+  "token": zod.string().min(1).describe('Expo push token, e.g. ExponentPushToken[...]'),
+  "platform": zod.enum(['ios', 'android'])
+})
+
+export const RegisterPushTokenResponse = zod.object({
+  "message": zod.string(),
+  "code": zod.string().nullish()
+})
+
+
+/**
+ * @summary Remove a registered push token (e.g. on sign-out)
+ */
+
+
+
+export const RemovePushTokenBody = zod.object({
+  "token": zod.string().min(1)
+})
+
+export const RemovePushTokenResponse = zod.object({
+  "message": zod.string(),
+  "code": zod.string().nullish()
+})
+
+
+/**
  * @summary List/search knowledge base articles
  */
 export const ListKbArticlesQueryParams = zod.object({

@@ -6,6 +6,7 @@ import { useAuth, useClerk } from '@clerk/expo';
 import { setAuthTokenGetter, useGetCurrentUser } from '@workspace/api-client-react';
 import { LoadingView, ErrorView } from '@/components/StateViews';
 import { useColors } from '@/hooks/useColors';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 function NotInvitedScreen() {
   const colors = useColors();
@@ -37,6 +38,10 @@ function NotInvitedScreen() {
 function PortalTabs() {
   const colors = useColors();
   const me = useGetCurrentUser();
+
+  // Register for native push + handle notification taps once the portal
+  // profile is confirmed (invited users only).
+  usePushNotifications(!!me.data);
 
   if (me.isLoading) {
     return <LoadingView />;

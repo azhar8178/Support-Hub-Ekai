@@ -358,6 +358,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /push-tokens:
+    post:
+      operationId: registerPushToken
+      tags: [notifications]
+      summary: Register an Expo push token for the current user's device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushTokenInput"
+      responses:
+        "200":
+          description: Token registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "400":
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /push-tokens/remove:
+    post:
+      operationId: removePushToken
+      tags: [notifications]
+      summary: Remove a registered push token (e.g. on sign-out)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushTokenRemoval"
+      responses:
+        "200":
+          description: Token removed (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /kb/articles:
     get:
       operationId: listKbArticles
@@ -905,6 +947,17 @@ components:
           type: array
           items: { type: integer }
         all: { type: boolean, default: false }
+    PushTokenInput:
+      type: object
+      properties:
+        token: { type: string, minLength: 1, description: "Expo push token, e.g. ExponentPushToken[...]" }
+        platform: { type: string, enum: [ios, android] }
+      required: [token, platform]
+    PushTokenRemoval:
+      type: object
+      properties:
+        token: { type: string, minLength: 1 }
+      required: [token]
     KbArticleSummary:
       type: object
       properties:

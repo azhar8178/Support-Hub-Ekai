@@ -2,6 +2,7 @@ import {
   db,
   notificationsTable,
   organisationsTable,
+  pushTokensTable,
   ticketAttachmentsTable,
   ticketMessagesTable,
   ticketsTable,
@@ -156,6 +157,7 @@ export class Fixtures {
       await db.delete(ticketsTable).where(inArray(ticketsTable.id, this.ticketIds));
     }
     if (this.userIds.length > 0) {
+      await db.delete(pushTokensTable).where(inArray(pushTokensTable.userId, this.userIds));
       await db.delete(usersTable).where(inArray(usersTable.id, this.userIds));
     }
     if (this.orgIds.length > 0) {

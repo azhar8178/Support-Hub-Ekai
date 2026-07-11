@@ -441,6 +441,28 @@ export interface NotificationReadRequest {
   all?: boolean;
 }
 
+export type PushTokenInputPlatform = typeof PushTokenInputPlatform[keyof typeof PushTokenInputPlatform];
+
+
+export const PushTokenInputPlatform = {
+  ios: 'ios',
+  android: 'android',
+} as const;
+
+export interface PushTokenInput {
+  /**
+     * Expo push token, e.g. ExponentPushToken[...]
+     * @minLength 1
+     */
+  token: string;
+  platform: PushTokenInputPlatform;
+}
+
+export interface PushTokenRemoval {
+  /** @minLength 1 */
+  token: string;
+}
+
 export type KbArticleSummaryCategory = typeof KbArticleSummaryCategory[keyof typeof KbArticleSummaryCategory];
 
 

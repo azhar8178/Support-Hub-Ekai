@@ -3,9 +3,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useClerk } from '@clerk/expo';
 import { useQueryClient } from '@tanstack/react-query';
-import { PortalUserRole, useGetCurrentUser } from '@workspace/api-client-react';
+import { PortalUserRole, useGetCurrentUser, useRemovePushToken } from '@workspace/api-client-react';
 import { ErrorView, LoadingView } from '@/components/StateViews';
 import { useColors } from '@/hooks/useColors';
+import { clearStoredPushToken, getStoredPushToken } from '@/hooks/usePushNotifications';
 import { useScreenInsets } from '@/hooks/useWebInsets';
 import { initials } from '@/lib/format';
 
@@ -36,6 +37,7 @@ export default function AccountScreen() {
   const { signOut } = useClerk();
   const queryClient = useQueryClient();
   const me = useGetCurrentUser();
+  const removePushToken = useRemovePushToken();
 
   if (me.isLoading) return <LoadingView />;
   if (me.isError || !me.data) {
@@ -46,6 +48,16 @@ export default function AccountScreen() {
   const isStaff = user.role !== PortalUserRole.customer;
 
   const onSignOut = async () => {
+    // Stop pushing to this device once its user signs out (best effort).
+    try {
+      const token = await getStoredPushToken();
+      if (token) {
+        await removePushToken.mutateAsync({ data: { token } });
+        await clearStoredPushToken();
+      }
+    } catch {
+      // Ignore — sign-out must not be blocked by push cleanup.
+    }
     queryClient.clear();
     await signOut();
   };
