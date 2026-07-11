@@ -11,4 +11,4 @@ description: Phantom typecheck errors (missing exports, old schema shapes) cause
 
 **How to apply:** From the workspace root run `npx tsc -b lib/db lib/api-zod --force`, then re-run the artifact typecheck. Don't "fix" imports or schemas based on the phantom errors.
 
-**Note (July 2026):** The api-server `typecheck` script now runs `tsc -b ../../lib/db ../../lib/api-zod` before `tsc -p --noEmit`, so it self-heals. Other artifacts' typecheck scripts may still hit this — apply the same prefix pattern if they do. Runtime is unaffected either way: lib package `exports` point at `src/*.ts`, so only declaration-consuming typechecks see stale dist.
+**Mitigations in place (July 2026):** api-server and mobile `typecheck` scripts now run `tsc -b` on their referenced libs before `tsc -p --noEmit`, so they self-heal; `api-spec` codegen also force-rebuilds `lib/api-client-react` (its `build` script) before `typecheck:libs`. Other artifacts' typecheck scripts may still hit this — apply the same prefix pattern if they do. Runtime is unaffected either way: lib package `exports` point at `src/*.ts`, so only declaration-consuming typechecks see stale dist.
