@@ -19,6 +19,7 @@ import {
   ChangeTicketStatusBody,
   CreateTicketBody,
   CreateTicketResponse,
+  GetTicketConfigResponse,
   GetTicketResponse,
   ListTicketsQueryParams,
   ListTicketsResponse,
@@ -33,10 +34,16 @@ import {
 } from "../lib/objectStorage";
 import { loadTicketDto, loadTicketsWhere } from "../lib/serializers";
 import { computeInitialDeadlines } from "../lib/sla";
+import { loadTicketConfig, validateTicketTaxonomy } from "../lib/ticketConfig";
 import { applyStatusChange, notifyTicketCreated } from "../lib/ticketActions";
 import { notifyUsers } from "../lib/notify";
 
 const router: IRouter = Router();
+
+// Active taxonomy for new-ticket forms and filters (any authenticated user).
+router.get("/ticket-config", requireAuth, async (_req, res): Promise<void> => {
+  res.json(GetTicketConfigResponse.parse(await loadTicketConfig()));
+});
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 
@@ -108,6 +115,12 @@ router.post("/tickets", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateTicketBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+
+  const taxonomyError = await validateTicketTaxonomy(parsed.data);
+  if (taxonomyError) {
+    res.status(400).json({ message: taxonomyError });
     return;
   }
 

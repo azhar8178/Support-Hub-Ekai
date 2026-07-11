@@ -5,11 +5,10 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
-import type { ListTicketsSeverity } from './listTicketsSeverity';
 import type { ListTicketsStatus } from './listTicketsStatus';
 
 export type ListTicketsParams = {
-severity?: ListTicketsSeverity;
+severity?: string;
 status?: ListTicketsStatus;
 orgId?: number;
 assignedToId?: number;

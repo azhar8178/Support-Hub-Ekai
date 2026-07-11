@@ -74,7 +74,7 @@ export const PreviewInviteResponse = zod.object({
  * @summary List tickets (customers see own org; agents/admins see all)
  */
 export const ListTicketsQueryParams = zod.object({
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']).optional(),
+  "severity": zod.coerce.string().optional(),
   "status": zod.enum(['new', 'triaged', 'in_progress', 'awaiting_customer', 'resolved', 'closed']).optional(),
   "orgId": zod.coerce.number().optional(),
   "assignedToId": zod.coerce.number().optional(),
@@ -88,10 +88,10 @@ export const ListTicketsResponseItem = zod.object({
   "id": zod.number(),
   "title": zod.string(),
   "description": zod.string(),
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
+  "severity": zod.string(),
   "status": zod.enum(['new', 'triaged', 'in_progress', 'awaiting_customer', 'resolved', 'closed']),
-  "category": zod.enum(['infrastructure', 'platform', 'configuration', 'billing', 'other']),
-  "environment": zod.enum(['aws', 'azure', 'gcp', 'snowflake', 'multiple']),
+  "category": zod.string(),
+  "environment": zod.string(),
   "orgId": zod.number(),
   "orgName": zod.string(),
   "raisedById": zod.number(),
@@ -130,9 +130,9 @@ export const createTicketBodyKbDraftIdMax = 64;
 export const CreateTicketBody = zod.object({
   "title": zod.string().min(1),
   "description": zod.string().min(1),
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
-  "category": zod.enum(['infrastructure', 'platform', 'configuration', 'billing', 'other']),
-  "environment": zod.enum(['aws', 'azure', 'gcp', 'snowflake', 'multiple']),
+  "severity": zod.string(),
+  "category": zod.string(),
+  "environment": zod.string(),
   "kbDraftId": zod.string().max(createTicketBodyKbDraftIdMax).nullish().describe('Draft session id linking this ticket to KB suggestion events shown while drafting')
 })
 
@@ -140,10 +140,10 @@ export const CreateTicketResponse = zod.object({
   "id": zod.number(),
   "title": zod.string(),
   "description": zod.string(),
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
+  "severity": zod.string(),
   "status": zod.enum(['new', 'triaged', 'in_progress', 'awaiting_customer', 'resolved', 'closed']),
-  "category": zod.enum(['infrastructure', 'platform', 'configuration', 'billing', 'other']),
-  "environment": zod.enum(['aws', 'azure', 'gcp', 'snowflake', 'multiple']),
+  "category": zod.string(),
+  "environment": zod.string(),
   "orgId": zod.number(),
   "orgName": zod.string(),
   "raisedById": zod.number(),
@@ -185,10 +185,10 @@ export const BulkUpdateTicketsResponseItem = zod.object({
   "id": zod.number(),
   "title": zod.string(),
   "description": zod.string(),
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
+  "severity": zod.string(),
   "status": zod.enum(['new', 'triaged', 'in_progress', 'awaiting_customer', 'resolved', 'closed']),
-  "category": zod.enum(['infrastructure', 'platform', 'configuration', 'billing', 'other']),
-  "environment": zod.enum(['aws', 'azure', 'gcp', 'snowflake', 'multiple']),
+  "category": zod.string(),
+  "environment": zod.string(),
   "orgId": zod.number(),
   "orgName": zod.string(),
   "raisedById": zod.number(),
@@ -227,10 +227,10 @@ export const GetTicketResponse = zod.object({
   "id": zod.number(),
   "title": zod.string(),
   "description": zod.string(),
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
+  "severity": zod.string(),
   "status": zod.enum(['new', 'triaged', 'in_progress', 'awaiting_customer', 'resolved', 'closed']),
-  "category": zod.enum(['infrastructure', 'platform', 'configuration', 'billing', 'other']),
-  "environment": zod.enum(['aws', 'azure', 'gcp', 'snowflake', 'multiple']),
+  "category": zod.string(),
+  "environment": zod.string(),
   "orgId": zod.number(),
   "orgName": zod.string(),
   "raisedById": zod.number(),
@@ -327,10 +327,10 @@ export const ChangeTicketStatusResponse = zod.object({
   "id": zod.number(),
   "title": zod.string(),
   "description": zod.string(),
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
+  "severity": zod.string(),
   "status": zod.enum(['new', 'triaged', 'in_progress', 'awaiting_customer', 'resolved', 'closed']),
-  "category": zod.enum(['infrastructure', 'platform', 'configuration', 'billing', 'other']),
-  "environment": zod.enum(['aws', 'azure', 'gcp', 'snowflake', 'multiple']),
+  "category": zod.string(),
+  "environment": zod.string(),
   "orgId": zod.number(),
   "orgName": zod.string(),
   "raisedById": zod.number(),
@@ -371,10 +371,10 @@ export const AssignTicketResponse = zod.object({
   "id": zod.number(),
   "title": zod.string(),
   "description": zod.string(),
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
+  "severity": zod.string(),
   "status": zod.enum(['new', 'triaged', 'in_progress', 'awaiting_customer', 'resolved', 'closed']),
-  "category": zod.enum(['infrastructure', 'platform', 'configuration', 'billing', 'other']),
-  "environment": zod.enum(['aws', 'azure', 'gcp', 'snowflake', 'multiple']),
+  "category": zod.string(),
+  "environment": zod.string(),
   "orgId": zod.number(),
   "orgName": zod.string(),
   "raisedById": zod.number(),
@@ -455,10 +455,10 @@ export const GetDashboardSummaryResponse = zod.object({
   "id": zod.number(),
   "title": zod.string(),
   "description": zod.string(),
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
+  "severity": zod.string(),
   "status": zod.enum(['new', 'triaged', 'in_progress', 'awaiting_customer', 'resolved', 'closed']),
-  "category": zod.enum(['infrastructure', 'platform', 'configuration', 'billing', 'other']),
-  "environment": zod.enum(['aws', 'azure', 'gcp', 'snowflake', 'multiple']),
+  "category": zod.string(),
+  "environment": zod.string(),
   "orgId": zod.number(),
   "orgName": zod.string(),
   "raisedById": zod.number(),
@@ -830,6 +830,7 @@ export const ListInvitesResponseItem = zod.object({
   "inviteUrl": zod.string().nullable(),
   "expiresAt": zod.string(),
   "usedAt": zod.string().nullable(),
+  "revokedAt": zod.string().nullable(),
   "createdAt": zod.string()
 })
 export const ListInvitesResponse = zod.array(ListInvitesResponseItem)
@@ -858,6 +859,7 @@ export const CreateInviteResponse = zod.object({
   "inviteUrl": zod.string().nullable(),
   "expiresAt": zod.string(),
   "usedAt": zod.string().nullable(),
+  "revokedAt": zod.string().nullable(),
   "createdAt": zod.string()
 })
 
@@ -896,39 +898,299 @@ export const CreateOrgResponse = zod.object({
 
 
 /**
- * @summary Get SLA targets per severity (agents/admins only)
+ * @summary Active ticket taxonomy for forms and filters (any authenticated user)
  */
-export const GetSlaConfigResponseItem = zod.object({
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
+export const GetTicketConfigResponse = zod.object({
+  "categories": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string()
+}).describe('An active taxonomy option for populating a form field or filter')),
+  "environments": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string()
+}).describe('An active taxonomy option for populating a form field or filter')),
+  "severities": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "rank": zod.number().describe('Lower rank = more severe (1 = top)'),
+  "isUrgent": zod.boolean(),
+  "resolutionOptional": zod.boolean(),
   "firstResponseMinutes": zod.number().describe('Business minutes unless use24x7'),
-  "resolutionMinutes": zod.number().nullable().describe('Null means Planned (P4)'),
+  "resolutionMinutes": zod.number().nullable().describe('Null means Planned'),
   "use24x7": zod.boolean().describe('True = wall-clock, false = business hours 09:00-18:00 UTC Mon-Fri')
+}).describe('An active severity with its SLA targets, for forms and filters'))
 })
-export const GetSlaConfigResponse = zod.array(GetSlaConfigResponseItem)
 
 
 /**
- * @summary Update SLA targets (admin only)
+ * @summary List all ticket categories including retired (agents/admins only)
+ */
+export const ListCategoriesResponseItem = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
+})
+export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
+
+
+/**
+ * @summary Add a ticket category (admin only)
  */
 
 
 
-export const UpdateSlaConfigBody = zod.object({
-  "targets": zod.array(zod.object({
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
-  "firstResponseMinutes": zod.number().describe('Business minutes unless use24x7'),
-  "resolutionMinutes": zod.number().nullable().describe('Null means Planned (P4)'),
-  "use24x7": zod.boolean().describe('True = wall-clock, false = business hours 09:00-18:00 UTC Mon-Fri')
-})).min(1)
+export const CreateCategoryBody = zod.object({
+  "label": zod.string().min(1),
+  "key": zod.string().optional().describe('Stable key stored on tickets; auto-derived from the label when omitted')
 })
 
-export const UpdateSlaConfigResponseItem = zod.object({
-  "severity": zod.enum(['P1', 'P2', 'P3', 'P4']),
-  "firstResponseMinutes": zod.number().describe('Business minutes unless use24x7'),
-  "resolutionMinutes": zod.number().nullable().describe('Null means Planned (P4)'),
-  "use24x7": zod.boolean().describe('True = wall-clock, false = business hours 09:00-18:00 UTC Mon-Fri')
+export const CreateCategoryResponse = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })
-export const UpdateSlaConfigResponse = zod.array(UpdateSlaConfigResponseItem)
+
+
+/**
+ * @summary Rename, reorder, or retire a ticket category (admin only)
+ */
+export const UpdateCategoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateCategoryBody = zod.object({
+  "label": zod.string().min(1).optional(),
+  "sortOrder": zod.number().optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateCategoryResponse = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary List all ticket environments including retired (agents/admins only)
+ */
+export const ListEnvironmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
+})
+export const ListEnvironmentsResponse = zod.array(ListEnvironmentsResponseItem)
+
+
+/**
+ * @summary Add a ticket environment (admin only)
+ */
+
+
+
+export const CreateEnvironmentBody = zod.object({
+  "label": zod.string().min(1),
+  "key": zod.string().optional().describe('Stable key stored on tickets; auto-derived from the label when omitted')
+})
+
+export const CreateEnvironmentResponse = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Rename, reorder, or retire a ticket environment (admin only)
+ */
+export const UpdateEnvironmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateEnvironmentBody = zod.object({
+  "label": zod.string().min(1).optional(),
+  "sortOrder": zod.number().optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateEnvironmentResponse = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary List all severities incl. SLA targets and retired (agents/admins only)
+ */
+export const ListSeveritiesResponseItem = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "rank": zod.number(),
+  "isUrgent": zod.boolean(),
+  "resolutionOptional": zod.boolean(),
+  "firstResponseMinutes": zod.number(),
+  "resolutionMinutes": zod.number().nullable(),
+  "use24x7": zod.boolean(),
+  "active": zod.boolean()
+})
+export const ListSeveritiesResponse = zod.array(ListSeveritiesResponseItem)
+
+
+/**
+ * @summary Add a severity with its SLA targets (admin only)
+ */
+
+export const createSeverityBodyIsUrgentDefault = false;
+export const createSeverityBodyResolutionOptionalDefault = false;
+export const createSeverityBodyUse24x7Default = false;
+
+export const CreateSeverityBody = zod.object({
+  "key": zod.string().optional().describe('Stable key stored on tickets; auto-derived from the label when omitted'),
+  "label": zod.string().min(1),
+  "rank": zod.number().optional(),
+  "isUrgent": zod.boolean().default(createSeverityBodyIsUrgentDefault),
+  "resolutionOptional": zod.boolean().default(createSeverityBodyResolutionOptionalDefault),
+  "firstResponseMinutes": zod.number().min(1),
+  "resolutionMinutes": zod.number().nullish(),
+  "use24x7": zod.boolean().default(createSeverityBodyUse24x7Default)
+})
+
+export const CreateSeverityResponse = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "rank": zod.number(),
+  "isUrgent": zod.boolean(),
+  "resolutionOptional": zod.boolean(),
+  "firstResponseMinutes": zod.number(),
+  "resolutionMinutes": zod.number().nullable(),
+  "use24x7": zod.boolean(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Edit a severity's label, ordering, SLA targets, or retire it (admin only)
+ */
+export const UpdateSeverityParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+
+export const UpdateSeverityBody = zod.object({
+  "label": zod.string().min(1).optional(),
+  "rank": zod.number().optional(),
+  "isUrgent": zod.boolean().optional(),
+  "resolutionOptional": zod.boolean().optional(),
+  "firstResponseMinutes": zod.number().min(1).optional(),
+  "resolutionMinutes": zod.number().nullish(),
+  "use24x7": zod.boolean().optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateSeverityResponse = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "rank": zod.number(),
+  "isUrgent": zod.boolean(),
+  "resolutionOptional": zod.boolean(),
+  "firstResponseMinutes": zod.number(),
+  "resolutionMinutes": zod.number().nullable(),
+  "use24x7": zod.boolean(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Rename a customer organisation or update its domain (admin only)
+ */
+export const UpdateOrgParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateOrgBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "domain": zod.string().nullish()
+})
+
+export const UpdateOrgResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "domain": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "userCount": zod.number()
+})
+
+
+/**
+ * @summary Revoke a pending invite so its link can no longer be used (admin only)
+ */
+export const RevokeInviteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RevokeInviteResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "role": zod.enum(['customer', 'ekai_agent', 'admin']),
+  "orgId": zod.number().nullable(),
+  "orgName": zod.string().nullable(),
+  "token": zod.string().nullable(),
+  "inviteUrl": zod.string().nullable(),
+  "expiresAt": zod.string(),
+  "usedAt": zod.string().nullable(),
+  "revokedAt": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Issue a fresh link for a pending invite and re-send the email (admin only)
+ */
+export const ResendInviteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ResendInviteResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "role": zod.enum(['customer', 'ekai_agent', 'admin']),
+  "orgId": zod.number().nullable(),
+  "orgName": zod.string().nullable(),
+  "token": zod.string().nullable(),
+  "inviteUrl": zod.string().nullable(),
+  "expiresAt": zod.string(),
+  "usedAt": zod.string().nullable(),
+  "revokedAt": zod.string().nullable(),
+  "createdAt": zod.string()
+})
 
 
 /**

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListTickets, getListTicketsQueryKey, TicketSeverity, TicketStatus } from "@workspace/api-client-react";
+import { useListTickets, getListTicketsQueryKey, useGetTicketConfig, TicketStatus } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
 import { Search, Filter, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,12 @@ import {
 } from "@/components/ui/select";
 import { useDebounce } from "@/hooks/use-debounce"; // We need to create this
 
+// Map a stored taxonomy key to its active label, falling back to the raw key
+// so tickets carrying a since-retired key never render blank.
+function lookupLabel(options: { key: string; label: string }[] | undefined, key: string): string {
+  return options?.find((o) => o.key === key)?.label ?? key;
+}
+
 export default function TicketsListPage() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
@@ -24,9 +30,11 @@ export default function TicketsListPage() {
   const [severity, setSeverity] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
 
+  const { data: ticketConfig } = useGetTicketConfig();
+
   const ticketParams = {
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
-    ...(severity !== "all" ? { severity: severity as TicketSeverity } : {}),
+    ...(severity !== "all" ? { severity } : {}),
     ...(status !== "all" ? { status: status as TicketStatus } : {}),
   };
 
@@ -82,10 +90,9 @@ export default function TicketsListPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Severities</SelectItem>
-            <SelectItem value="P1">P1 Critical</SelectItem>
-            <SelectItem value="P2">P2 High</SelectItem>
-            <SelectItem value="P3">P3 Normal</SelectItem>
-            <SelectItem value="P4">P4 Low</SelectItem>
+            {ticketConfig?.severities.map((s) => (
+              <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -137,12 +144,12 @@ export default function TicketsListPage() {
                     <TableCell className="font-medium text-slate-500">#{ticket.id}</TableCell>
                     <TableCell>
                       <div className="font-medium text-[#0F1F3D]">{ticket.title}</div>
-                      <div className="text-xs text-slate-500">{ticket.category}</div>
+                      <div className="text-xs text-slate-500">{lookupLabel(ticketConfig?.categories, ticket.category)}</div>
                     </TableCell>
-                    <TableCell><SeverityBadge severity={ticket.severity} /></TableCell>
+                    <TableCell><SeverityBadge severity={ticket.severity} label={lookupLabel(ticketConfig?.severities, ticket.severity)} /></TableCell>
                     <TableCell><StatusBadge status={ticket.status} /></TableCell>
                     <TableCell>
-                      <span className="capitalize text-sm text-slate-600">{ticket.environment}</span>
+                      <span className="text-sm text-slate-600">{lookupLabel(ticketConfig?.environments, ticket.environment)}</span>
                     </TableCell>
                     <TableCell>
                       <SlaIndicator sla={ticket.sla} type="combined" />

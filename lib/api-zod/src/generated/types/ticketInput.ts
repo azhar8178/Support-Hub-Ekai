@@ -5,18 +5,15 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
-import type { TicketInputCategory } from './ticketInputCategory';
-import type { TicketInputEnvironment } from './ticketInputEnvironment';
-import type { TicketInputSeverity } from './ticketInputSeverity';
 
 export interface TicketInput {
   /** @minLength 1 */
   title: string;
   /** @minLength 1 */
   description: string;
-  severity: TicketInputSeverity;
-  category: TicketInputCategory;
-  environment: TicketInputEnvironment;
+  severity: string;
+  category: string;
+  environment: string;
   /**
      * Draft session id linking this ticket to KB suggestion events shown while drafting
      * @maxLength 64

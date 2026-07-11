@@ -42,20 +42,26 @@ import type {
   NotificationReadRequest,
   Organisation,
   OrganisationInput,
+  OrganisationUpdate,
   PortalUser,
   PortalUserUpdate,
   PreviewInviteParams,
   PushTokenInput,
   PushTokenRemoval,
   ReportSummary,
-  SlaConfigUpdate,
-  SlaTarget,
+  Severity,
+  SeverityInput,
+  SeverityUpdate,
+  TaxonomyOption,
+  TaxonomyOptionInput,
+  TaxonomyOptionUpdate,
   Ticket,
   TicketAssignment,
   TicketAttachment,
   TicketAttachmentContent,
   TicketAttachmentInput,
   TicketBulkAction,
+  TicketConfig,
   TicketDetail,
   TicketInput,
   TicketMessage,
@@ -2622,20 +2628,20 @@ export const useCreateOrg = <TError = ErrorType<unknown>,
       return useMutation(getCreateOrgMutationOptions(options));
     }
 
-export const getGetSlaConfigUrl = () => {
+export const getGetTicketConfigUrl = () => {
 
 
 
 
-  return `/api/admin/sla-config`
+  return `/api/ticket-config`
 }
 
 /**
- * @summary Get SLA targets per severity (agents/admins only)
+ * @summary Active ticket taxonomy for forms and filters (any authenticated user)
  */
-export const getSlaConfig = async ( options?: RequestInit): Promise<SlaTarget[]> => {
+export const getTicketConfig = async ( options?: RequestInit): Promise<TicketConfig> => {
 
-  return customFetch<SlaTarget[]>(getGetSlaConfigUrl(),
+  return customFetch<TicketConfig>(getGetTicketConfigUrl(),
   {
     ...options,
     method: 'GET'
@@ -2648,45 +2654,45 @@ export const getSlaConfig = async ( options?: RequestInit): Promise<SlaTarget[]>
 
 
 
-export const getGetSlaConfigQueryKey = () => {
+export const getGetTicketConfigQueryKey = () => {
     return [
-    `/api/admin/sla-config`
+    `/api/ticket-config`
     ] as const;
     }
 
 
-export const getGetSlaConfigQueryOptions = <TData = Awaited<ReturnType<typeof getSlaConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSlaConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetTicketConfigQueryOptions = <TData = Awaited<ReturnType<typeof getTicketConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTicketConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetSlaConfigQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetTicketConfigQueryKey();
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSlaConfig>>> = ({ signal }) => getSlaConfig({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTicketConfig>>> = ({ signal }) => getTicketConfig({ signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSlaConfig>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTicketConfig>>, TError, TData> & { queryKey: QueryKey }
 }
 
-export type GetSlaConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getSlaConfig>>>
-export type GetSlaConfigQueryError = ErrorType<unknown>
+export type GetTicketConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getTicketConfig>>>
+export type GetTicketConfigQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get SLA targets per severity (agents/admins only)
+ * @summary Active ticket taxonomy for forms and filters (any authenticated user)
  */
 
-export function useGetSlaConfig<TData = Awaited<ReturnType<typeof getSlaConfig>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSlaConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useGetTicketConfig<TData = Awaited<ReturnType<typeof getTicketConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTicketConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetSlaConfigQueryOptions(options)
+  const queryOptions = getGetTicketConfigQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -2699,25 +2705,25 @@ export function useGetSlaConfig<TData = Awaited<ReturnType<typeof getSlaConfig>>
 
 
 
-export const getUpdateSlaConfigUrl = () => {
+export const getListCategoriesUrl = () => {
 
 
 
 
-  return `/api/admin/sla-config`
+  return `/api/admin/categories`
 }
 
 /**
- * @summary Update SLA targets (admin only)
+ * @summary List all ticket categories including retired (agents/admins only)
  */
-export const updateSlaConfig = async (slaConfigUpdate: SlaConfigUpdate, options?: RequestInit): Promise<SlaTarget[]> => {
+export const listCategories = async ( options?: RequestInit): Promise<TaxonomyOption[]> => {
 
-  return customFetch<SlaTarget[]>(getUpdateSlaConfigUrl(),
+  return customFetch<TaxonomyOption[]>(getListCategoriesUrl(),
   {
     ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(slaConfigUpdate)
+    method: 'GET'
+
+
   }
 );}
 
@@ -2725,11 +2731,88 @@ export const updateSlaConfig = async (slaConfigUpdate: SlaConfigUpdate, options?
 
 
 
-export const getUpdateSlaConfigMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSlaConfig>>, TError,{data: BodyType<SlaConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateSlaConfig>>, TError,{data: BodyType<SlaConfigUpdate>}, TContext> => {
+export const getListCategoriesQueryKey = () => {
+    return [
+    `/api/admin/categories`
+    ] as const;
+    }
 
-const mutationKey = ['updateSlaConfig'];
+
+export const getListCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCategoriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategories>>> = ({ signal }) => listCategories({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCategoriesQueryResult = NonNullable<Awaited<ReturnType<typeof listCategories>>>
+export type ListCategoriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all ticket categories including retired (agents/admins only)
+ */
+
+export function useListCategories<TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCategoriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCategoryUrl = () => {
+
+
+
+
+  return `/api/admin/categories`
+}
+
+/**
+ * @summary Add a ticket category (admin only)
+ */
+export const createCategory = async (taxonomyOptionInput: TaxonomyOptionInput, options?: RequestInit): Promise<TaxonomyOption> => {
+
+  return customFetch<TaxonomyOption>(getCreateCategoryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(taxonomyOptionInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCategoryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCategory>>, TError,{data: BodyType<TaxonomyOptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCategory>>, TError,{data: BodyType<TaxonomyOptionInput>}, TContext> => {
+
+const mutationKey = ['createCategory'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -2739,10 +2822,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSlaConfig>>, {data: BodyType<SlaConfigUpdate>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCategory>>, {data: BodyType<TaxonomyOptionInput>}> = (props) => {
           const {data} = props ?? {};
 
-          return  updateSlaConfig(data,requestOptions)
+          return  createCategory(data,requestOptions)
         }
 
 
@@ -2752,22 +2835,748 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type UpdateSlaConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateSlaConfig>>>
-    export type UpdateSlaConfigMutationBody = BodyType<SlaConfigUpdate>
-    export type UpdateSlaConfigMutationError = ErrorType<unknown>
+    export type CreateCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof createCategory>>>
+    export type CreateCategoryMutationBody = BodyType<TaxonomyOptionInput>
+    export type CreateCategoryMutationError = ErrorType<unknown>
 
     /**
- * @summary Update SLA targets (admin only)
+ * @summary Add a ticket category (admin only)
  */
-export const useUpdateSlaConfig = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSlaConfig>>, TError,{data: BodyType<SlaConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useCreateCategory = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCategory>>, TError,{data: BodyType<TaxonomyOptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof updateSlaConfig>>,
+        Awaited<ReturnType<typeof createCategory>>,
         TError,
-        {data: BodyType<SlaConfigUpdate>},
+        {data: BodyType<TaxonomyOptionInput>},
         TContext
       > => {
-      return useMutation(getUpdateSlaConfigMutationOptions(options));
+      return useMutation(getCreateCategoryMutationOptions(options));
+    }
+
+export const getUpdateCategoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/categories/${id}`
+}
+
+/**
+ * @summary Rename, reorder, or retire a ticket category (admin only)
+ */
+export const updateCategory = async (id: number,
+    taxonomyOptionUpdate: TaxonomyOptionUpdate, options?: RequestInit): Promise<TaxonomyOption> => {
+
+  return customFetch<TaxonomyOption>(getUpdateCategoryUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(taxonomyOptionUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCategoryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCategory>>, TError,{id: number;data: BodyType<TaxonomyOptionUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCategory>>, TError,{id: number;data: BodyType<TaxonomyOptionUpdate>}, TContext> => {
+
+const mutationKey = ['updateCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCategory>>, {id: number;data: BodyType<TaxonomyOptionUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCategory(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof updateCategory>>>
+    export type UpdateCategoryMutationBody = BodyType<TaxonomyOptionUpdate>
+    export type UpdateCategoryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Rename, reorder, or retire a ticket category (admin only)
+ */
+export const useUpdateCategory = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCategory>>, TError,{id: number;data: BodyType<TaxonomyOptionUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCategory>>,
+        TError,
+        {id: number;data: BodyType<TaxonomyOptionUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCategoryMutationOptions(options));
+    }
+
+export const getListEnvironmentsUrl = () => {
+
+
+
+
+  return `/api/admin/environments`
+}
+
+/**
+ * @summary List all ticket environments including retired (agents/admins only)
+ */
+export const listEnvironments = async ( options?: RequestInit): Promise<TaxonomyOption[]> => {
+
+  return customFetch<TaxonomyOption[]>(getListEnvironmentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEnvironmentsQueryKey = () => {
+    return [
+    `/api/admin/environments`
+    ] as const;
+    }
+
+
+export const getListEnvironmentsQueryOptions = <TData = Awaited<ReturnType<typeof listEnvironments>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEnvironments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEnvironmentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEnvironments>>> = ({ signal }) => listEnvironments({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEnvironments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEnvironmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listEnvironments>>>
+export type ListEnvironmentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all ticket environments including retired (agents/admins only)
+ */
+
+export function useListEnvironments<TData = Awaited<ReturnType<typeof listEnvironments>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEnvironments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEnvironmentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateEnvironmentUrl = () => {
+
+
+
+
+  return `/api/admin/environments`
+}
+
+/**
+ * @summary Add a ticket environment (admin only)
+ */
+export const createEnvironment = async (taxonomyOptionInput: TaxonomyOptionInput, options?: RequestInit): Promise<TaxonomyOption> => {
+
+  return customFetch<TaxonomyOption>(getCreateEnvironmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(taxonomyOptionInput)
+  }
+);}
+
+
+
+
+
+export const getCreateEnvironmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEnvironment>>, TError,{data: BodyType<TaxonomyOptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEnvironment>>, TError,{data: BodyType<TaxonomyOptionInput>}, TContext> => {
+
+const mutationKey = ['createEnvironment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEnvironment>>, {data: BodyType<TaxonomyOptionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createEnvironment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEnvironmentMutationResult = NonNullable<Awaited<ReturnType<typeof createEnvironment>>>
+    export type CreateEnvironmentMutationBody = BodyType<TaxonomyOptionInput>
+    export type CreateEnvironmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a ticket environment (admin only)
+ */
+export const useCreateEnvironment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEnvironment>>, TError,{data: BodyType<TaxonomyOptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEnvironment>>,
+        TError,
+        {data: BodyType<TaxonomyOptionInput>},
+        TContext
+      > => {
+      return useMutation(getCreateEnvironmentMutationOptions(options));
+    }
+
+export const getUpdateEnvironmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/environments/${id}`
+}
+
+/**
+ * @summary Rename, reorder, or retire a ticket environment (admin only)
+ */
+export const updateEnvironment = async (id: number,
+    taxonomyOptionUpdate: TaxonomyOptionUpdate, options?: RequestInit): Promise<TaxonomyOption> => {
+
+  return customFetch<TaxonomyOption>(getUpdateEnvironmentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(taxonomyOptionUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateEnvironmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEnvironment>>, TError,{id: number;data: BodyType<TaxonomyOptionUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEnvironment>>, TError,{id: number;data: BodyType<TaxonomyOptionUpdate>}, TContext> => {
+
+const mutationKey = ['updateEnvironment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEnvironment>>, {id: number;data: BodyType<TaxonomyOptionUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateEnvironment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEnvironmentMutationResult = NonNullable<Awaited<ReturnType<typeof updateEnvironment>>>
+    export type UpdateEnvironmentMutationBody = BodyType<TaxonomyOptionUpdate>
+    export type UpdateEnvironmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Rename, reorder, or retire a ticket environment (admin only)
+ */
+export const useUpdateEnvironment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEnvironment>>, TError,{id: number;data: BodyType<TaxonomyOptionUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEnvironment>>,
+        TError,
+        {id: number;data: BodyType<TaxonomyOptionUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateEnvironmentMutationOptions(options));
+    }
+
+export const getListSeveritiesUrl = () => {
+
+
+
+
+  return `/api/admin/severities`
+}
+
+/**
+ * @summary List all severities incl. SLA targets and retired (agents/admins only)
+ */
+export const listSeverities = async ( options?: RequestInit): Promise<Severity[]> => {
+
+  return customFetch<Severity[]>(getListSeveritiesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSeveritiesQueryKey = () => {
+    return [
+    `/api/admin/severities`
+    ] as const;
+    }
+
+
+export const getListSeveritiesQueryOptions = <TData = Awaited<ReturnType<typeof listSeverities>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSeverities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSeveritiesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSeverities>>> = ({ signal }) => listSeverities({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSeverities>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSeveritiesQueryResult = NonNullable<Awaited<ReturnType<typeof listSeverities>>>
+export type ListSeveritiesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all severities incl. SLA targets and retired (agents/admins only)
+ */
+
+export function useListSeverities<TData = Awaited<ReturnType<typeof listSeverities>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSeverities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSeveritiesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSeverityUrl = () => {
+
+
+
+
+  return `/api/admin/severities`
+}
+
+/**
+ * @summary Add a severity with its SLA targets (admin only)
+ */
+export const createSeverity = async (severityInput: SeverityInput, options?: RequestInit): Promise<Severity> => {
+
+  return customFetch<Severity>(getCreateSeverityUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(severityInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSeverityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeverity>>, TError,{data: BodyType<SeverityInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSeverity>>, TError,{data: BodyType<SeverityInput>}, TContext> => {
+
+const mutationKey = ['createSeverity'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSeverity>>, {data: BodyType<SeverityInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSeverity(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSeverityMutationResult = NonNullable<Awaited<ReturnType<typeof createSeverity>>>
+    export type CreateSeverityMutationBody = BodyType<SeverityInput>
+    export type CreateSeverityMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a severity with its SLA targets (admin only)
+ */
+export const useCreateSeverity = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSeverity>>, TError,{data: BodyType<SeverityInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSeverity>>,
+        TError,
+        {data: BodyType<SeverityInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSeverityMutationOptions(options));
+    }
+
+export const getUpdateSeverityUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/severities/${id}`
+}
+
+/**
+ * @summary Edit a severity's label, ordering, SLA targets, or retire it (admin only)
+ */
+export const updateSeverity = async (id: number,
+    severityUpdate: SeverityUpdate, options?: RequestInit): Promise<Severity> => {
+
+  return customFetch<Severity>(getUpdateSeverityUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(severityUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSeverityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSeverity>>, TError,{id: number;data: BodyType<SeverityUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSeverity>>, TError,{id: number;data: BodyType<SeverityUpdate>}, TContext> => {
+
+const mutationKey = ['updateSeverity'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSeverity>>, {id: number;data: BodyType<SeverityUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSeverity(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSeverityMutationResult = NonNullable<Awaited<ReturnType<typeof updateSeverity>>>
+    export type UpdateSeverityMutationBody = BodyType<SeverityUpdate>
+    export type UpdateSeverityMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Edit a severity's label, ordering, SLA targets, or retire it (admin only)
+ */
+export const useUpdateSeverity = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSeverity>>, TError,{id: number;data: BodyType<SeverityUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSeverity>>,
+        TError,
+        {id: number;data: BodyType<SeverityUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSeverityMutationOptions(options));
+    }
+
+export const getUpdateOrgUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/orgs/${id}`
+}
+
+/**
+ * @summary Rename a customer organisation or update its domain (admin only)
+ */
+export const updateOrg = async (id: number,
+    organisationUpdate: OrganisationUpdate, options?: RequestInit): Promise<Organisation> => {
+
+  return customFetch<Organisation>(getUpdateOrgUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(organisationUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateOrgMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOrg>>, TError,{id: number;data: BodyType<OrganisationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOrg>>, TError,{id: number;data: BodyType<OrganisationUpdate>}, TContext> => {
+
+const mutationKey = ['updateOrg'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOrg>>, {id: number;data: BodyType<OrganisationUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateOrg(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOrgMutationResult = NonNullable<Awaited<ReturnType<typeof updateOrg>>>
+    export type UpdateOrgMutationBody = BodyType<OrganisationUpdate>
+    export type UpdateOrgMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Rename a customer organisation or update its domain (admin only)
+ */
+export const useUpdateOrg = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOrg>>, TError,{id: number;data: BodyType<OrganisationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOrg>>,
+        TError,
+        {id: number;data: BodyType<OrganisationUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateOrgMutationOptions(options));
+    }
+
+export const getRevokeInviteUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/invites/${id}/revoke`
+}
+
+/**
+ * @summary Revoke a pending invite so its link can no longer be used (admin only)
+ */
+export const revokeInvite = async (id: number, options?: RequestInit): Promise<Invite> => {
+
+  return customFetch<Invite>(getRevokeInviteUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeInviteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeInvite>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeInvite>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['revokeInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeInvite>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  revokeInvite(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeInviteMutationResult = NonNullable<Awaited<ReturnType<typeof revokeInvite>>>
+
+    export type RevokeInviteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Revoke a pending invite so its link can no longer be used (admin only)
+ */
+export const useRevokeInvite = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeInvite>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeInvite>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRevokeInviteMutationOptions(options));
+    }
+
+export const getResendInviteUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/invites/${id}/resend`
+}
+
+/**
+ * @summary Issue a fresh link for a pending invite and re-send the email (admin only)
+ */
+export const resendInvite = async (id: number, options?: RequestInit): Promise<Invite> => {
+
+  return customFetch<Invite>(getResendInviteUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResendInviteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendInvite>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resendInvite>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['resendInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resendInvite>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  resendInvite(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResendInviteMutationResult = NonNullable<Awaited<ReturnType<typeof resendInvite>>>
+
+    export type ResendInviteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Issue a fresh link for a pending invite and re-send the email (admin only)
+ */
+export const useResendInvite = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendInvite>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resendInvite>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getResendInviteMutationOptions(options));
     }
 
 export const getGetReportsUrl = () => {

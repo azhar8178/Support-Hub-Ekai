@@ -5,17 +5,15 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import {
-  TicketCategory,
-  TicketEnvironment,
-  TicketSeverity,
   getListKbArticlesQueryKey,
   getListTicketsQueryKey,
   useCreateTicket,
+  useGetTicketConfig,
   useListKbArticles,
   useRecordKbSearch,
   useRecordKbSuggestionEvents,
 } from '@workspace/api-client-react';
-import { SEVERITY_META } from '@/components/TicketBadges';
+import { NEUTRAL_BADGE, SEVERITY_META } from '@/components/TicketBadges';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { kbCategoryLabel } from '@/components/kb';
 import { useColors } from '@/hooks/useColors';
@@ -23,18 +21,11 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useScreenInsets } from '@/hooks/useWebInsets';
 
 const SEVERITY_HELP: Record<string, string> = {
-  [TicketSeverity.P1]: 'Production down, no workaround',
-  [TicketSeverity.P2]: 'Major feature impaired',
-  [TicketSeverity.P3]: 'Minor issue or question',
-  [TicketSeverity.P4]: 'Low impact / cosmetic',
+  P1: 'Production down, no workaround',
+  P2: 'Major feature impaired',
+  P3: 'Minor issue or question',
+  P4: 'Low impact / cosmetic',
 };
-
-const CATEGORIES = Object.values(TicketCategory);
-const ENVIRONMENTS = Object.values(TicketEnvironment);
-
-function labelize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, ' ');
-}
 
 // crypto.randomUUID isn't guaranteed in Hermes; a random draft-session id is enough here.
 function makeDraftId(): string {
@@ -51,10 +42,24 @@ export default function NewTicketScreen() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [severity, setSeverity] = useState<TicketSeverity>(TicketSeverity.P3);
-  const [category, setCategory] = useState<TicketCategory>(TicketCategory.platform);
-  const [environment, setEnvironment] = useState<TicketEnvironment>(ENVIRONMENTS[0]);
+  const [severity, setSeverity] = useState('');
+  const [category, setCategory] = useState('');
+  const [environment, setEnvironment] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const config = useGetTicketConfig();
+  const categories = config.data?.categories ?? [];
+  const environments = config.data?.environments ?? [];
+  const severities = config.data?.severities ?? [];
+
+  // Seed the pickers with sensible defaults once the live config arrives.
+  useEffect(() => {
+    if (!config.data) return;
+    setSeverity((prev) => prev || severities[Math.floor(severities.length / 2)]?.key || severities[0]?.key || '');
+    setCategory((prev) => prev || categories[0]?.key || '');
+    setEnvironment((prev) => prev || environments[0]?.key || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.data]);
 
   const createTicket = useCreateTicket({
     mutation: {
@@ -70,7 +75,13 @@ export default function NewTicketScreen() {
     },
   });
 
-  const canSubmit = title.trim().length > 0 && description.trim().length > 0 && !createTicket.isPending;
+  const canSubmit =
+    title.trim().length > 0 &&
+    description.trim().length > 0 &&
+    severity.length > 0 &&
+    category.length > 0 &&
+    environment.length > 0 &&
+    !createTicket.isPending;
 
   const debouncedTitle = useDebouncedValue(title.trim(), 350);
   const kbSearchEnabled = debouncedTitle.length >= 3;
@@ -245,94 +256,105 @@ export default function NewTicketScreen() {
           textAlignVertical="top"
         />
 
-        <Text style={[styles.label, { color: colors.foreground }]}>Severity</Text>
-        <View style={styles.severityGrid}>
-          {Object.values(TicketSeverity).map((sev) => {
-            const meta = SEVERITY_META[sev];
-            const active = severity === sev;
-            return (
-              <Pressable
-                key={sev}
-                testID={`severity-option-${sev}`}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setSeverity(sev);
-                }}
-                style={[
-                  styles.severityOption,
-                  {
-                    backgroundColor: active ? meta.bg : colors.card,
-                    borderColor: active ? meta.fg : colors.border,
-                    borderRadius: colors.radius,
-                  },
-                ]}
-              >
-                <Text style={[styles.severityLabel, { color: active ? meta.fg : colors.foreground }]}>
-                  {meta.label}
-                </Text>
-                <Text
-                  style={[
-                    styles.severityHelp,
-                    { color: active ? meta.fg : colors.mutedForeground },
-                  ]}
-                  numberOfLines={2}
-                >
-                  {SEVERITY_HELP[sev]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {config.isLoading ? (
+          <View testID="config-loading" style={styles.configLoading}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={[styles.configLoadingText, { color: colors.mutedForeground }]}>
+              Loading options
+            </Text>
+          </View>
+        ) : (
+          <>
+            <Text style={[styles.label, { color: colors.foreground }]}>Severity</Text>
+            <View style={styles.severityGrid}>
+              {severities.map((sev) => {
+                const meta = SEVERITY_META[sev.key] ?? { label: sev.label, ...NEUTRAL_BADGE };
+                const active = severity === sev.key;
+                return (
+                  <Pressable
+                    key={sev.key}
+                    testID={`severity-option-${sev.key}`}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setSeverity(sev.key);
+                    }}
+                    style={[
+                      styles.severityOption,
+                      {
+                        backgroundColor: active ? meta.bg : colors.card,
+                        borderColor: active ? meta.fg : colors.border,
+                        borderRadius: colors.radius,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.severityLabel, { color: active ? meta.fg : colors.foreground }]}>
+                      {sev.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.severityHelp,
+                        { color: active ? meta.fg : colors.mutedForeground },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {SEVERITY_HELP[sev.key] ?? (sev.isUrgent ? 'Urgent response required' : 'Standard response')}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-        <Text style={[styles.label, { color: colors.foreground }]}>Category</Text>
-        <View style={styles.chipWrap}>
-          {CATEGORIES.map((cat) => {
-            const active = category === cat;
-            return (
-              <Pressable
-                key={cat}
-                testID={`category-option-${cat}`}
-                onPress={() => setCategory(cat)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? '#0F1F3D' : colors.background,
-                    borderColor: active ? '#0F1F3D' : colors.border,
-                  },
-                ]}
-              >
-                <Text style={[styles.chipText, { color: active ? '#FFFFFF' : colors.mutedForeground }]}>
-                  {labelize(cat)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+            <Text style={[styles.label, { color: colors.foreground }]}>Category</Text>
+            <View style={styles.chipWrap}>
+              {categories.map((cat) => {
+                const active = category === cat.key;
+                return (
+                  <Pressable
+                    key={cat.key}
+                    testID={`category-option-${cat.key}`}
+                    onPress={() => setCategory(cat.key)}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? '#0F1F3D' : colors.background,
+                        borderColor: active ? '#0F1F3D' : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.chipText, { color: active ? '#FFFFFF' : colors.mutedForeground }]}>
+                      {cat.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-        <Text style={[styles.label, { color: colors.foreground }]}>Environment</Text>
-        <View style={styles.chipWrap}>
-          {ENVIRONMENTS.map((env) => {
-            const active = environment === env;
-            return (
-              <Pressable
-                key={env}
-                testID={`environment-option-${env}`}
-                onPress={() => setEnvironment(env)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? colors.accent : colors.background,
-                    borderColor: active ? colors.accent : colors.border,
-                  },
-                ]}
-              >
-                <Text style={[styles.chipText, { color: active ? '#FFFFFF' : colors.mutedForeground }]}>
-                  {labelize(env)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+            <Text style={[styles.label, { color: colors.foreground }]}>Environment</Text>
+            <View style={styles.chipWrap}>
+              {environments.map((env) => {
+                const active = environment === env.key;
+                return (
+                  <Pressable
+                    key={env.key}
+                    testID={`environment-option-${env.key}`}
+                    onPress={() => setEnvironment(env.key)}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? colors.accent : colors.background,
+                        borderColor: active ? colors.accent : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.chipText, { color: active ? '#FFFFFF' : colors.mutedForeground }]}>
+                      {env.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         <Pressable
           testID="submit-ticket-button"
@@ -411,6 +433,16 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 110,
+  },
+  configLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 20,
+  },
+  configLoadingText: {
+    fontSize: 13.5,
+    fontFamily: 'Inter_500Medium',
   },
   severityGrid: {
     flexDirection: 'row',

@@ -23,21 +23,71 @@ export async function getSlaConfigFor(severity: string): Promise<SlaConfig | und
   return config;
 }
 
-// Cached severity -> use24x7 map so the synchronous SLA math can be
-// business-hours aware. Loaded at startup and refreshed when admins
-// change the SLA configuration. Falls back to the spec defaults
-// (only P1 is 24x7) until the first load completes.
-let use24x7BySeverity: Record<string, boolean> = { P1: true, P2: false, P3: false, P4: false };
+// Cached severity metadata so the synchronous SLA math and de-hardcoded
+// severity checks (24x7 clock, resolution-optional, urgent alerting, ranking)
+// don't hit the DB per ticket. Loaded at startup and refreshed whenever admins
+// change the severity configuration. Falls back to the spec defaults
+// (P1 24x7 + urgent, P2 urgent, P4 resolution-optional) until the first load.
+interface SeverityMeta {
+  use24x7: boolean;
+  resolutionOptional: boolean;
+  isUrgent: boolean;
+  rank: number;
+  active: boolean;
+}
+
+const DEFAULT_SEVERITY_META: Record<string, SeverityMeta> = {
+  P1: { use24x7: true, resolutionOptional: false, isUrgent: true, rank: 1, active: true },
+  P2: { use24x7: false, resolutionOptional: false, isUrgent: true, rank: 2, active: true },
+  P3: { use24x7: false, resolutionOptional: false, isUrgent: false, rank: 3, active: true },
+  P4: { use24x7: false, resolutionOptional: true, isUrgent: false, rank: 4, active: true },
+};
+
+// The cache keeps ALL severities (including retired ones) so SLA/urgency math
+// still resolves for existing tickets that carry a now-retired severity. Rank
+// helpers that answer "what is the top severity right now" filter to active.
+let severityMetaByKey: Record<string, SeverityMeta> = { ...DEFAULT_SEVERITY_META };
 
 export async function refreshSlaClockCache(): Promise<void> {
   const rows = await db.select().from(slaConfigTable);
   if (rows.length > 0) {
-    use24x7BySeverity = Object.fromEntries(rows.map((r) => [r.severity, r.use24x7]));
+    severityMetaByKey = Object.fromEntries(
+      rows.map((r) => [
+        r.severity,
+        {
+          use24x7: r.use24x7,
+          resolutionOptional: r.resolutionOptional,
+          isUrgent: r.isUrgent,
+          rank: r.rank,
+          active: r.active,
+        },
+      ]),
+    );
   }
 }
 
 export function isUse24x7(severity: string): boolean {
-  return use24x7BySeverity[severity] ?? false;
+  return severityMetaByKey[severity]?.use24x7 ?? false;
+}
+
+export function isResolutionOptional(severity: string): boolean {
+  return severityMetaByKey[severity]?.resolutionOptional ?? false;
+}
+
+export function isUrgentSeverity(severity: string): boolean {
+  return severityMetaByKey[severity]?.isUrgent ?? false;
+}
+
+export function getSeverityRank(severity: string): number {
+  return severityMetaByKey[severity]?.rank ?? Number.MAX_SAFE_INTEGER;
+}
+
+/** Rank of the most severe active severity (lowest rank number). */
+export function getTopSeverityRank(): number {
+  const ranks = Object.values(severityMetaByKey)
+    .filter((m) => m.active)
+    .map((m) => m.rank);
+  return ranks.length > 0 ? Math.min(...ranks) : 1;
 }
 
 /** Compute initial deadlines for a new ticket. */
@@ -88,7 +138,8 @@ function pctElapsed(createdAt: Date, deadline: Date, now: Date, use24x7: boolean
 /** Compute the presented SLA state for a ticket. */
 export function computeSlaInfo(ticket: Ticket, now: Date = new Date()): SlaInfoDto {
   const paused = ticket.slaPausedAt != null && ticket.status === "awaiting_customer";
-  const resolutionPlanned = ticket.severity === "P4" && ticket.resolutionDeadline == null;
+  const resolutionPlanned =
+    isResolutionOptional(ticket.severity) && ticket.resolutionDeadline == null;
 
   const effectiveNow = paused && ticket.slaPausedAt ? ticket.slaPausedAt : now;
 

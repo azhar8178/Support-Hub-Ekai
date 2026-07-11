@@ -14,13 +14,13 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import {
   ListTicketsParams,
-  TicketSeverity,
   TicketStatus,
   getGetAgentMetricsQueryKey,
   getGetDashboardSummaryQueryKey,
   useGetAgentMetrics,
   useGetCurrentUser,
   useGetDashboardSummary,
+  useGetTicketConfig,
   useListTickets,
 } from '@workspace/api-client-react';
 import { STATUS_META } from '@/components/TicketBadges';
@@ -37,14 +37,6 @@ const STATUS_FILTERS: { value: TicketStatus | 'all'; label: string }[] = [
   { value: TicketStatus.awaiting_customer, label: 'Awaiting' },
   { value: TicketStatus.resolved, label: 'Resolved' },
   { value: TicketStatus.closed, label: 'Closed' },
-];
-
-const SEVERITY_FILTERS: (TicketSeverity | 'all')[] = [
-  'all',
-  TicketSeverity.P1,
-  TicketSeverity.P2,
-  TicketSeverity.P3,
-  TicketSeverity.P4,
 ];
 
 function StatChip({ label, value, alert }: { label: string; value: string | number; alert?: boolean }) {
@@ -77,8 +69,17 @@ export default function TicketsScreen() {
   const isStaff = me.data?.role === 'ekai_agent' || me.data?.role === 'admin';
 
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all');
-  const [severityFilter, setSeverityFilter] = useState<TicketSeverity | 'all'>('all');
+  const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+
+  const config = useGetTicketConfig();
+  const severityFilters = useMemo<{ value: string; label: string }[]>(
+    () => [
+      { value: 'all', label: 'All severities' },
+      ...(config.data?.severities ?? []).map((sev) => ({ value: sev.key, label: sev.key })),
+    ],
+    [config.data],
+  );
 
   const params = useMemo(() => {
     const p: ListTicketsParams = {};
@@ -188,15 +189,15 @@ export default function TicketsScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRow}
         >
-          {SEVERITY_FILTERS.map((sev) => {
-            const active = severityFilter === sev;
+          {severityFilters.map((filter) => {
+            const active = severityFilter === filter.value;
             return (
               <Pressable
-                key={sev}
-                testID={`severity-filter-${sev}`}
+                key={filter.value}
+                testID={`severity-filter-${filter.value}`}
                 onPress={() => {
                   Haptics.selectionAsync();
-                  setSeverityFilter(sev);
+                  setSeverityFilter(filter.value);
                 }}
                 style={[
                   styles.filterChip,
@@ -212,7 +213,7 @@ export default function TicketsScreen() {
                     { color: active ? '#FFFFFF' : colors.mutedForeground },
                   ]}
                 >
-                  {sev === 'all' ? 'All severities' : sev}
+                  {filter.label}
                 </Text>
               </Pressable>
             );

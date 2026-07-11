@@ -8,3 +8,4 @@
 - [pnpm hoist store staleness](pnpm-hoist-staleness.md) — "library class missing props/setState" tsc errors mean `.pnpm/node_modules/@types/react` is gone; `pnpm install --force` fixes (plain install no-ops).
 - [Validation commands are workflows](validation-vs-workflows.md) — register checks via setValidationCommand only; a same-named plain workflow blocks it (NO_MATCHING_WORKFLOW).
 - [Shared dev DB drift](shared-dev-db-drift.md) — parallel tasks share one dev Postgres; "column does not exist" or stale-dist "no exported member" failures may be sibling-task drift, not your change.
+- [Taxonomy as data](taxonomy-as-data.md) — severity/category/environment are admin-editable rows (severities live on sla_config); retire not delete, validate at runtime, keep retired in SLA cache but filter active for top-rank.

@@ -7,7 +7,7 @@ import {
   type User,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { getSlaConfigFor, shiftDeadlineForPause } from "./sla";
+import { getSlaConfigFor, isUrgentSeverity, shiftDeadlineForPause } from "./sla";
 import { getAgentAndAdminIds, notifyUsers } from "./notify";
 
 export const TICKET_STATUSES: TicketStatus[] = [
@@ -122,7 +122,7 @@ export async function notifyTicketCreated(ticket: Ticket, raiser: User): Promise
   });
   // Alert the support team.
   const staff = (await getAgentAndAdminIds()).filter((id) => id !== raiser.id);
-  if (ticket.severity === "P1" || ticket.severity === "P2") {
+  if (isUrgentSeverity(ticket.severity)) {
     await notifyUsers(staff, {
       type: "new_critical_ticket",
       title: `New ${ticket.severity} ticket #${ticket.id}`,

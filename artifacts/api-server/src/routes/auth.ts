@@ -32,7 +32,7 @@ router.get("/invites/preview", async (req, res): Promise<void> => {
     return;
   }
   const [invite] = await db.select().from(invitesTable).where(eq(invitesTable.token, token));
-  if (!invite || invite.usedAt || invite.expiresAt < new Date()) {
+  if (!invite || invite.usedAt || invite.revokedAt || invite.expiresAt < new Date()) {
     res.status(400).json({ message: "This invite link is invalid or has expired." });
     return;
   }
@@ -70,7 +70,7 @@ router.post("/invites/accept", async (req, res): Promise<void> => {
     .select()
     .from(invitesTable)
     .where(and(eq(invitesTable.token, parsed.data.token), isNull(invitesTable.usedAt)));
-  if (!invite || invite.expiresAt < new Date()) {
+  if (!invite || invite.revokedAt || invite.expiresAt < new Date()) {
     res.status(400).json({ message: "This invite link is invalid or has expired." });
     return;
   }

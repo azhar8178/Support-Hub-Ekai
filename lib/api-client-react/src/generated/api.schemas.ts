@@ -95,6 +95,8 @@ export interface Invite {
   expiresAt: string;
   /** @nullable */
   usedAt: string | null;
+  /** @nullable */
+  revokedAt: string | null;
   createdAt: string;
 }
 
@@ -163,16 +165,6 @@ export interface SlaInfo {
   resolutionBreached: boolean;
 }
 
-export type TicketSeverity = typeof TicketSeverity[keyof typeof TicketSeverity];
-
-
-export const TicketSeverity = {
-  P1: 'P1',
-  P2: 'P2',
-  P3: 'P3',
-  P4: 'P4',
-} as const;
-
 export type TicketStatus = typeof TicketStatus[keyof typeof TicketStatus];
 
 
@@ -185,36 +177,14 @@ export const TicketStatus = {
   closed: 'closed',
 } as const;
 
-export type TicketCategory = typeof TicketCategory[keyof typeof TicketCategory];
-
-
-export const TicketCategory = {
-  infrastructure: 'infrastructure',
-  platform: 'platform',
-  configuration: 'configuration',
-  billing: 'billing',
-  other: 'other',
-} as const;
-
-export type TicketEnvironment = typeof TicketEnvironment[keyof typeof TicketEnvironment];
-
-
-export const TicketEnvironment = {
-  aws: 'aws',
-  azure: 'azure',
-  gcp: 'gcp',
-  snowflake: 'snowflake',
-  multiple: 'multiple',
-} as const;
-
 export interface Ticket {
   id: number;
   title: string;
   description: string;
-  severity: TicketSeverity;
+  severity: string;
   status: TicketStatus;
-  category: TicketCategory;
-  environment: TicketEnvironment;
+  category: string;
+  environment: string;
   orgId: number;
   orgName: string;
   raisedById: number;
@@ -232,46 +202,14 @@ export interface Ticket {
   sla: SlaInfo;
 }
 
-export type TicketInputSeverity = typeof TicketInputSeverity[keyof typeof TicketInputSeverity];
-
-
-export const TicketInputSeverity = {
-  P1: 'P1',
-  P2: 'P2',
-  P3: 'P3',
-  P4: 'P4',
-} as const;
-
-export type TicketInputCategory = typeof TicketInputCategory[keyof typeof TicketInputCategory];
-
-
-export const TicketInputCategory = {
-  infrastructure: 'infrastructure',
-  platform: 'platform',
-  configuration: 'configuration',
-  billing: 'billing',
-  other: 'other',
-} as const;
-
-export type TicketInputEnvironment = typeof TicketInputEnvironment[keyof typeof TicketInputEnvironment];
-
-
-export const TicketInputEnvironment = {
-  aws: 'aws',
-  azure: 'azure',
-  gcp: 'gcp',
-  snowflake: 'snowflake',
-  multiple: 'multiple',
-} as const;
-
 export interface TicketInput {
   /** @minLength 1 */
   title: string;
   /** @minLength 1 */
   description: string;
-  severity: TicketInputSeverity;
-  category: TicketInputCategory;
-  environment: TicketInputEnvironment;
+  severity: string;
+  category: string;
+  environment: string;
   /**
      * Draft session id linking this ticket to KB suggestion events shown while drafting
      * @maxLength 64
@@ -642,22 +580,35 @@ export interface KbDeflectionStats {
   uncoveredQueries: KbUncoveredQuery[];
 }
 
-export type SlaTargetSeverity = typeof SlaTargetSeverity[keyof typeof SlaTargetSeverity];
+export interface OrganisationUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  domain?: string | null;
+}
 
+/**
+ * An active taxonomy option for populating a form field or filter
+ */
+export interface TicketConfigOption {
+  key: string;
+  label: string;
+}
 
-export const SlaTargetSeverity = {
-  P1: 'P1',
-  P2: 'P2',
-  P3: 'P3',
-  P4: 'P4',
-} as const;
-
-export interface SlaTarget {
-  severity: SlaTargetSeverity;
+/**
+ * An active severity with its SLA targets, for forms and filters
+ */
+export interface SeverityOption {
+  key: string;
+  label: string;
+  /** Lower rank = more severe (1 = top) */
+  rank: number;
+  isUrgent: boolean;
+  resolutionOptional: boolean;
   /** Business minutes unless use24x7 */
   firstResponseMinutes: number;
   /**
-     * Null means Planned (P4)
+     * Null means Planned
      * @nullable
      */
   resolutionMinutes: number | null;
@@ -665,9 +616,75 @@ export interface SlaTarget {
   use24x7: boolean;
 }
 
-export interface SlaConfigUpdate {
-  /** @minItems 1 */
-  targets: SlaTarget[];
+export interface TicketConfig {
+  categories: TicketConfigOption[];
+  environments: TicketConfigOption[];
+  severities: SeverityOption[];
+}
+
+export interface TaxonomyOption {
+  id: number;
+  key: string;
+  label: string;
+  sortOrder: number;
+  active: boolean;
+}
+
+export interface TaxonomyOptionInput {
+  /** @minLength 1 */
+  label: string;
+  /** Stable key stored on tickets; auto-derived from the label when omitted */
+  key?: string;
+}
+
+export interface TaxonomyOptionUpdate {
+  /** @minLength 1 */
+  label?: string;
+  sortOrder?: number;
+  active?: boolean;
+}
+
+export interface Severity {
+  id: number;
+  key: string;
+  label: string;
+  rank: number;
+  isUrgent: boolean;
+  resolutionOptional: boolean;
+  firstResponseMinutes: number;
+  /** @nullable */
+  resolutionMinutes: number | null;
+  use24x7: boolean;
+  active: boolean;
+}
+
+export interface SeverityInput {
+  /** Stable key stored on tickets; auto-derived from the label when omitted */
+  key?: string;
+  /** @minLength 1 */
+  label: string;
+  rank?: number;
+  isUrgent?: boolean;
+  resolutionOptional?: boolean;
+  /** @minimum 1 */
+  firstResponseMinutes: number;
+  /** @nullable */
+  resolutionMinutes?: number | null;
+  use24x7?: boolean;
+}
+
+export interface SeverityUpdate {
+  /** @minLength 1 */
+  label?: string;
+  rank?: number;
+  isUrgent?: boolean;
+  resolutionOptional?: boolean;
+  /** @minimum 1 */
+  firstResponseMinutes?: number;
+  /** @nullable */
+  resolutionMinutes?: number | null;
+  use24x7?: boolean;
+  active?: boolean;
 }
 
 export interface WeeklyVolumePoint {
@@ -693,7 +710,7 @@ token: string;
 };
 
 export type ListTicketsParams = {
-severity?: ListTicketsSeverity;
+severity?: string;
 status?: ListTicketsStatus;
 orgId?: number;
 assignedToId?: number;
@@ -702,16 +719,6 @@ search?: string;
 createdFrom?: string;
 createdTo?: string;
 };
-
-export type ListTicketsSeverity = typeof ListTicketsSeverity[keyof typeof ListTicketsSeverity];
-
-
-export const ListTicketsSeverity = {
-  P1: 'P1',
-  P2: 'P2',
-  P3: 'P3',
-  P4: 'P4',
-} as const;
 
 export type ListTicketsStatus = typeof ListTicketsStatus[keyof typeof ListTicketsStatus];
 

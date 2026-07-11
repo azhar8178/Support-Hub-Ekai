@@ -19,10 +19,13 @@ export const ticketsTable = pgTable("tickets", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  severity: text("severity").$type<TicketSeverity>().notNull(),
+  // severity/category/environment are admin-managed taxonomy keys (see
+  // sla_config, ticket_categories, ticket_environments) — plain strings, not a
+  // fixed enum. status stays a fixed union because it carries workflow logic.
+  severity: text("severity").notNull(),
   status: text("status").$type<TicketStatus>().notNull().default("new"),
-  category: text("category").$type<TicketCategory>().notNull(),
-  environment: text("environment").$type<TicketEnvironment>().notNull(),
+  category: text("category").notNull(),
+  environment: text("environment").notNull(),
   orgId: integer("org_id")
     .notNull()
     .references(() => organisationsTable.id),

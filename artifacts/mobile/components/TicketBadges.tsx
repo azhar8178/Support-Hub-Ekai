@@ -1,14 +1,22 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { TicketSeverity, TicketStatus } from '@workspace/api-client-react';
+import { TicketStatus } from '@workspace/api-client-react';
 
 export type BadgeMeta = { label: string; bg: string; fg: string; border: string };
 
+// Neutral fallback styling for severities that aren't in the static map
+// (e.g. a now-retired taxonomy value stored on an older ticket).
+export const NEUTRAL_BADGE: Omit<BadgeMeta, 'label'> = {
+  bg: '#F1F5F9',
+  fg: '#334155',
+  border: '#E2E8F0',
+};
+
 export const SEVERITY_META: Record<string, BadgeMeta> = {
-  [TicketSeverity.P1]: { label: 'P1 Critical', bg: '#FEE2E2', fg: '#B91C1C', border: '#FECACA' },
-  [TicketSeverity.P2]: { label: 'P2 High', bg: '#FFEDD5', fg: '#C2410C', border: '#FED7AA' },
-  [TicketSeverity.P3]: { label: 'P3 Normal', bg: '#FEF3C7', fg: '#B45309', border: '#FDE68A' },
-  [TicketSeverity.P4]: { label: 'P4 Low', bg: '#F1F5F9', fg: '#334155', border: '#E2E8F0' },
+  P1: { label: 'P1 Critical', bg: '#FEE2E2', fg: '#B91C1C', border: '#FECACA' },
+  P2: { label: 'P2 High', bg: '#FFEDD5', fg: '#C2410C', border: '#FED7AA' },
+  P3: { label: 'P3 Normal', bg: '#FEF3C7', fg: '#B45309', border: '#FDE68A' },
+  P4: { label: 'P4 Low', bg: '#F1F5F9', fg: '#334155', border: '#E2E8F0' },
 };
 
 export const STATUS_META: Record<string, BadgeMeta> = {
@@ -36,8 +44,10 @@ function Pill({ meta, small }: { meta: BadgeMeta; small?: boolean }) {
   );
 }
 
-export function SeverityBadge({ severity, small }: { severity: TicketSeverity; small?: boolean }) {
-  const meta = SEVERITY_META[severity] ?? SEVERITY_META[TicketSeverity.P4];
+export function SeverityBadge({ severity, small }: { severity: string; small?: boolean }) {
+  // Fall back to the raw stored key (never blank) with neutral styling when the
+  // severity isn't in the static map (e.g. a retired taxonomy value).
+  const meta = SEVERITY_META[severity] ?? { label: severity, ...NEUTRAL_BADGE };
   return <Pill meta={meta} small={small} />;
 }
 

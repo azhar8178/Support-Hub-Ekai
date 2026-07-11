@@ -4,32 +4,109 @@ import {
   kbArticlesTable,
   organisationsTable,
   slaConfigTable,
+  ticketCategoriesTable,
+  ticketEnvironmentsTable,
   ticketMessagesTable,
   ticketsTable,
   ticketStatusHistoryTable,
   usersTable,
   type TicketStatus,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { computeInitialDeadlines } from "./sla";
 import { logger } from "./logger";
 
-/** Ensure SLA config rows exist (idempotent, safe on every boot). */
-export async function ensureSlaConfig(): Promise<void> {
-  const defaults = [
-    { severity: "P1" as const, firstResponseMinutes: 15, resolutionMinutes: 240, use24x7: true },
-    { severity: "P2" as const, firstResponseMinutes: 60, resolutionMinutes: 480, use24x7: false },
-    { severity: "P3" as const, firstResponseMinutes: 240, resolutionMinutes: 1440, use24x7: false },
-    { severity: "P4" as const, firstResponseMinutes: 540, resolutionMinutes: null, use24x7: false },
+/**
+ * Ensure the ticket taxonomy (severities, categories, environments) exists.
+ * Idempotent and safe on every boot: missing rows are inserted; the newer
+ * severity metadata columns are backfilled only onto rows that predate them
+ * (label = ''), so admin renames/retirements are never reset on reboot.
+ */
+export async function ensureTicketConfig(): Promise<void> {
+  const severityDefaults = [
+    {
+      severity: "P1",
+      label: "P1",
+      firstResponseMinutes: 15,
+      resolutionMinutes: 240 as number | null,
+      use24x7: true,
+      rank: 1,
+      isUrgent: true,
+      resolutionOptional: false,
+    },
+    {
+      severity: "P2",
+      label: "P2",
+      firstResponseMinutes: 60,
+      resolutionMinutes: 480 as number | null,
+      use24x7: false,
+      rank: 2,
+      isUrgent: true,
+      resolutionOptional: false,
+    },
+    {
+      severity: "P3",
+      label: "P3",
+      firstResponseMinutes: 240,
+      resolutionMinutes: 1440 as number | null,
+      use24x7: false,
+      rank: 3,
+      isUrgent: false,
+      resolutionOptional: false,
+    },
+    {
+      severity: "P4",
+      label: "P4",
+      firstResponseMinutes: 540,
+      resolutionMinutes: null as number | null,
+      use24x7: false,
+      rank: 4,
+      isUrgent: false,
+      resolutionOptional: true,
+    },
   ];
-  for (const row of defaults) {
+  for (const row of severityDefaults) {
     await db.insert(slaConfigTable).values(row).onConflictDoNothing();
+    // Backfill metadata onto pre-existing rows created before these columns
+    // existed (they land with the default label ''). Never overwrite rows an
+    // admin has already labelled.
+    await db
+      .update(slaConfigTable)
+      .set({
+        label: row.label,
+        rank: row.rank,
+        isUrgent: row.isUrgent,
+        resolutionOptional: row.resolutionOptional,
+      })
+      .where(and(eq(slaConfigTable.severity, row.severity), eq(slaConfigTable.label, "")));
+  }
+
+  const categoryDefaults = [
+    { key: "infrastructure", label: "Infrastructure", sortOrder: 1 },
+    { key: "platform", label: "Platform", sortOrder: 2 },
+    { key: "configuration", label: "Configuration", sortOrder: 3 },
+    { key: "billing", label: "Billing", sortOrder: 4 },
+    { key: "other", label: "Other", sortOrder: 5 },
+  ];
+  for (const row of categoryDefaults) {
+    await db.insert(ticketCategoriesTable).values(row).onConflictDoNothing();
+  }
+
+  const environmentDefaults = [
+    { key: "aws", label: "AWS", sortOrder: 1 },
+    { key: "azure", label: "Azure", sortOrder: 2 },
+    { key: "gcp", label: "GCP", sortOrder: 3 },
+    { key: "snowflake", label: "Snowflake", sortOrder: 4 },
+    { key: "multiple", label: "Multiple", sortOrder: 5 },
+  ];
+  for (const row of environmentDefaults) {
+    await db.insert(ticketEnvironmentsTable).values(row).onConflictDoNothing();
   }
 }
 
 /** Seed demo data on first boot (skipped when users already exist). */
 export async function seedIfEmpty(): Promise<void> {
-  await ensureSlaConfig();
+  await ensureTicketConfig();
 
   const existing = await db.select().from(usersTable).limit(1);
   if (existing.length > 0) return;

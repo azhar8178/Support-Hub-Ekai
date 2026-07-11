@@ -4,7 +4,7 @@ import { and, eq, gte, inArray, isNull } from "drizzle-orm";
 import { GetAgentMetricsResponse, GetDashboardSummaryResponse } from "@workspace/api-zod";
 import { isStaff, requireAuth, requireRole } from "../middlewares/requireAuth";
 import { loadTicketsWhere } from "../lib/serializers";
-import { computeSlaInfo } from "../lib/sla";
+import { computeSlaInfo, getSeverityRank, getTopSeverityRank } from "../lib/sla";
 
 const router: IRouter = Router();
 
@@ -59,7 +59,11 @@ router.get(
     const startOfToday = new Date(now);
     startOfToday.setUTCHours(0, 0, 0, 0);
 
-    const openP1Count = allOpen.filter((t) => t.severity === "P1").length;
+    // "Top severity" open tickets: those at the most severe active rank. For the
+    // default P1-P4 taxonomy this is exactly the P1 count, but it stays correct
+    // if admins rename or reorder severities.
+    const topRank = getTopSeverityRank();
+    const openP1Count = allOpen.filter((t) => getSeverityRank(t.severity) === topRank).length;
     const unassignedCount = allOpen.filter((t) => t.assignedToId == null).length;
 
     // Breaches that became overdue today (response or resolution deadline

@@ -22,5 +22,7 @@ export interface Invite {
   expiresAt: string;
   /** @nullable */
   usedAt: string | null;
+  /** @nullable */
+  revokedAt: string | null;
   createdAt: string;
 }

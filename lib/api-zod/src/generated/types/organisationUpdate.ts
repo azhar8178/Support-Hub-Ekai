@@ -5,9 +5,10 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
-import type { SlaTarget } from './slaTarget';
 
-export interface SlaConfigUpdate {
-  /** @minItems 1 */
-  targets: SlaTarget[];
+export interface OrganisationUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  domain?: string | null;
 }

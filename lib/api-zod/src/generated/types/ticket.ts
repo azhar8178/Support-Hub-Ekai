@@ -6,19 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SlaInfo } from './slaInfo';
-import type { TicketCategory } from './ticketCategory';
-import type { TicketEnvironment } from './ticketEnvironment';
-import type { TicketSeverity } from './ticketSeverity';
 import type { TicketStatus } from './ticketStatus';
 
 export interface Ticket {
   id: number;
   title: string;
   description: string;
-  severity: TicketSeverity;
+  severity: string;
   status: TicketStatus;
-  category: TicketCategory;
-  environment: TicketEnvironment;
+  category: string;
+  environment: string;
   orgId: number;
   orgName: string;
   raisedById: number;

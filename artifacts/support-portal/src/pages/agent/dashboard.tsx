@@ -6,7 +6,7 @@ import {
   getListTicketsQueryKey,
   useBulkUpdateTickets,
   useListAgents,
-  TicketSeverity, 
+  useGetTicketConfig,
   TicketStatus 
 } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
@@ -57,6 +57,7 @@ export default function AgentDashboardPage() {
   });
 
   const { data: agents } = useListAgents();
+  const { data: ticketConfig } = useGetTicketConfig();
 
   // Orval's API client handles the translation, but we need to map our "open" meta-status 
   // to omit resolved/closed via the API params if supported, or filter client-side.
@@ -65,7 +66,7 @@ export default function AgentDashboardPage() {
 
   const ticketParams = {
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
-    ...(severity !== "all" ? { severity: severity as TicketSeverity } : {}),
+    ...(severity !== "all" ? { severity } : {}),
     ...(apiStatus ? { status: apiStatus } : {}),
     ...(unassignedOnly ? { unassigned: true } : {}),
   };
@@ -236,10 +237,9 @@ export default function AgentDashboardPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Any Severity</SelectItem>
-                <SelectItem value="P1">P1 Critical</SelectItem>
-                <SelectItem value="P2">P2 High</SelectItem>
-                <SelectItem value="P3">P3 Normal</SelectItem>
-                <SelectItem value="P4">P4 Low</SelectItem>
+                {ticketConfig?.severities.map((s) => (
+                  <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             

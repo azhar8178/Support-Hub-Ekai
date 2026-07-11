@@ -8,24 +8,45 @@ import {
   kbSuggestionEventsTable,
   organisationsTable,
   slaConfigTable,
+  ticketCategoriesTable,
+  ticketEnvironmentsTable,
   ticketsTable,
   usersTable,
   type SlaConfig,
+  type TicketCategoryRow,
+  type TicketEnvironmentRow,
   type UserRole,
 } from "@workspace/db";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import {
+  CreateCategoryBody,
+  CreateCategoryResponse,
+  CreateEnvironmentBody,
+  CreateEnvironmentResponse,
   CreateInviteBody,
   CreateInviteResponse,
   CreateOrgBody,
   CreateOrgResponse,
+  CreateSeverityBody,
+  CreateSeverityResponse,
   GetKbDeflectionStatsResponse,
   GetReportsResponse,
-  GetSlaConfigResponse,
+  ListCategoriesResponse,
+  ListEnvironmentsResponse,
   ListInvitesResponse,
   ListOrgsResponse,
+  ListSeveritiesResponse,
   ListUsersResponse,
-  UpdateSlaConfigBody,
+  ResendInviteResponse,
+  RevokeInviteResponse,
+  UpdateCategoryBody,
+  UpdateCategoryResponse,
+  UpdateEnvironmentBody,
+  UpdateEnvironmentResponse,
+  UpdateOrgBody,
+  UpdateOrgResponse,
+  UpdateSeverityBody,
+  UpdateSeverityResponse,
   UpdateUserBody,
   UpdateUserResponse,
 } from "@workspace/api-zod";
@@ -108,8 +129,18 @@ function serializeInvite(
     inviteUrl: includeToken ? `/accept-invite?token=${invite.token}` : null,
     expiresAt: invite.expiresAt.toISOString(),
     usedAt: invite.usedAt?.toISOString() ?? null,
+    revokedAt: invite.revokedAt?.toISOString() ?? null,
     createdAt: invite.createdAt.toISOString(),
   };
+}
+
+async function orgNameFor(orgId: number | null): Promise<string | null> {
+  if (orgId == null) return null;
+  const [org] = await db
+    .select()
+    .from(organisationsTable)
+    .where(eq(organisationsTable.id, orgId));
+  return org?.name ?? null;
 }
 
 router.get(
@@ -123,9 +154,16 @@ router.get(
       .leftJoin(organisationsTable, eq(invitesTable.orgId, organisationsTable.id))
       .orderBy(desc(invitesTable.createdAt));
     // Pending invites keep their token visible so admins can re-copy the link.
+    // Accepted or revoked invites hide the (now-dead) token.
     res.json(
       ListInvitesResponse.parse(
-        rows.map((r) => serializeInvite(r.invite, r.org?.name ?? null, r.invite.usedAt == null)),
+        rows.map((r) =>
+          serializeInvite(
+            r.invite,
+            r.org?.name ?? null,
+            r.invite.usedAt == null && r.invite.revokedAt == null,
+          ),
+        ),
       ),
     );
   },
@@ -251,60 +289,437 @@ router.post(
   },
 );
 
-const SEVERITY_ORDER = ["P1", "P2", "P3", "P4"];
+// --- Organisation rename ---
 
-function serializeSla(rows: SlaConfig[]): Array<Record<string, unknown>> {
-  return [...rows]
-    .sort((a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity))
-    .map((r) => ({
-      severity: r.severity,
-      firstResponseMinutes: r.firstResponseMinutes,
-      resolutionMinutes: r.resolutionMinutes,
-      use24x7: r.use24x7,
-    }));
-}
-
-router.get(
-  "/admin/sla-config",
-  requireAuth,
-  requireRole("ekai_agent", "admin"),
-  async (_req, res): Promise<void> => {
-    const rows = await db.select().from(slaConfigTable);
-    res.json(GetSlaConfigResponse.parse(serializeSla(rows)));
-  },
-);
-
-router.put(
-  "/admin/sla-config",
+router.patch(
+  "/admin/orgs/:id",
   requireAuth,
   requireRole("admin"),
   async (req, res): Promise<void> => {
-    const parsed = UpdateSlaConfigBody.safeParse(req.body);
+    const id = parseId(req);
+    const parsed = UpdateOrgBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ message: parsed.error.message });
       return;
     }
-    for (const target of parsed.data.targets) {
-      await db
+    const updates: Record<string, unknown> = {};
+    if (parsed.data.name !== undefined) updates.name = parsed.data.name.trim();
+    if (parsed.data.domain !== undefined) updates.domain = parsed.data.domain?.trim() || null;
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ message: "No changes provided." });
+      return;
+    }
+    const [org] = await db
+      .update(organisationsTable)
+      .set(updates)
+      .where(eq(organisationsTable.id, id))
+      .returning();
+    if (!org) {
+      res.status(404).json({ message: "Organisation not found" });
+      return;
+    }
+    const [count] = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(usersTable)
+      .where(eq(usersTable.orgId, org.id));
+    res.json(
+      UpdateOrgResponse.parse({
+        id: org.id,
+        name: org.name,
+        domain: org.domain,
+        createdAt: org.createdAt.toISOString(),
+        userCount: Number(count?.n ?? 0),
+      }),
+    );
+  },
+);
+
+// --- Invite revoke / resend ---
+
+router.post(
+  "/admin/invites/:id/revoke",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const id = parseId(req);
+    const [invite] = await db.select().from(invitesTable).where(eq(invitesTable.id, id));
+    if (!invite) {
+      res.status(404).json({ message: "Invite not found" });
+      return;
+    }
+    if (invite.usedAt) {
+      res.status(400).json({ message: "This invite has already been accepted." });
+      return;
+    }
+    const [updated] = await db
+      .update(invitesTable)
+      .set({ revokedAt: new Date() })
+      .where(eq(invitesTable.id, id))
+      .returning();
+    res.json(
+      RevokeInviteResponse.parse(
+        serializeInvite(updated!, await orgNameFor(updated!.orgId), false),
+      ),
+    );
+  },
+);
+
+router.post(
+  "/admin/invites/:id/resend",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const id = parseId(req);
+    const [invite] = await db.select().from(invitesTable).where(eq(invitesTable.id, id));
+    if (!invite) {
+      res.status(404).json({ message: "Invite not found" });
+      return;
+    }
+    if (invite.usedAt) {
+      res.status(400).json({ message: "This invite has already been accepted." });
+      return;
+    }
+    // A fresh token invalidates any previously shared link and clears revocation.
+    const token = randomBytes(24).toString("base64url");
+    const expiresAt = new Date(Date.now() + 14 * 24 * 3600_000);
+    const [updated] = await db
+      .update(invitesTable)
+      .set({ token, expiresAt, revokedAt: null })
+      .where(eq(invitesTable.id, id))
+      .returning();
+    const inviteLink = `/accept-invite?token=${token}`;
+    await sendEmail(
+      inviteEmail({
+        to: updated!.email,
+        inviteUrl: inviteLink,
+        role: updated!.role,
+        inviterName: req.portalUser!.name ?? "An administrator",
+      }),
+    );
+    res.json(
+      ResendInviteResponse.parse(
+        serializeInvite(updated!, await orgNameFor(updated!.orgId), true),
+      ),
+    );
+  },
+);
+
+// --- Ticket taxonomy: categories & environments ---
+
+function serializeTaxonomy(row: TicketCategoryRow | TicketEnvironmentRow): Record<string, unknown> {
+  return { id: row.id, key: row.key, label: row.label, sortOrder: row.sortOrder, active: row.active };
+}
+
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 48);
+}
+
+function uniqueKey(base: string, taken: Set<string>): string {
+  let key = base;
+  let n = 2;
+  while (taken.has(key)) key = `${base}_${n++}`;
+  return key;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" && err !== null && (err as { code?: string }).code === "23505"
+  );
+}
+
+router.get(
+  "/admin/categories",
+  requireAuth,
+  requireRole("ekai_agent", "admin"),
+  async (_req, res): Promise<void> => {
+    const rows = await db
+      .select()
+      .from(ticketCategoriesTable)
+      .orderBy(asc(ticketCategoriesTable.sortOrder), asc(ticketCategoriesTable.label));
+    res.json(ListCategoriesResponse.parse(rows.map(serializeTaxonomy)));
+  },
+);
+
+router.post(
+  "/admin/categories",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const parsed = CreateCategoryBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ message: parsed.error.message });
+      return;
+    }
+    const label = parsed.data.label.trim();
+    const base = slugify(parsed.data.key ?? label);
+    if (!base) {
+      res.status(400).json({ message: "Enter a label with letters or numbers." });
+      return;
+    }
+    const existing = await db.select().from(ticketCategoriesTable);
+    const taken = new Set(existing.map((e) => e.key));
+    if (taken.has(base) && parsed.data.key) {
+      res.status(400).json({ message: `The key "${base}" is already in use.` });
+      return;
+    }
+    const key = uniqueKey(base, taken);
+    const nextSort = existing.reduce((max, e) => Math.max(max, e.sortOrder), 0) + 1;
+    try {
+      const [row] = await db
+        .insert(ticketCategoriesTable)
+        .values({ key, label, sortOrder: nextSort, active: true })
+        .returning();
+      res.status(201).json(CreateCategoryResponse.parse(serializeTaxonomy(row!)));
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        res.status(409).json({ message: `The key "${key}" is already in use.` });
+        return;
+      }
+      throw err;
+    }
+  },
+);
+
+router.patch(
+  "/admin/categories/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const id = parseId(req);
+    const parsed = UpdateCategoryBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ message: parsed.error.message });
+      return;
+    }
+    const updates: Record<string, unknown> = {};
+    if (parsed.data.label !== undefined) updates.label = parsed.data.label.trim();
+    if (parsed.data.sortOrder !== undefined) updates.sortOrder = parsed.data.sortOrder;
+    if (parsed.data.active !== undefined) updates.active = parsed.data.active;
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ message: "No changes provided." });
+      return;
+    }
+    const [row] = await db
+      .update(ticketCategoriesTable)
+      .set(updates)
+      .where(eq(ticketCategoriesTable.id, id))
+      .returning();
+    if (!row) {
+      res.status(404).json({ message: "Category not found" });
+      return;
+    }
+    res.json(UpdateCategoryResponse.parse(serializeTaxonomy(row)));
+  },
+);
+
+router.get(
+  "/admin/environments",
+  requireAuth,
+  requireRole("ekai_agent", "admin"),
+  async (_req, res): Promise<void> => {
+    const rows = await db
+      .select()
+      .from(ticketEnvironmentsTable)
+      .orderBy(asc(ticketEnvironmentsTable.sortOrder), asc(ticketEnvironmentsTable.label));
+    res.json(ListEnvironmentsResponse.parse(rows.map(serializeTaxonomy)));
+  },
+);
+
+router.post(
+  "/admin/environments",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const parsed = CreateEnvironmentBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ message: parsed.error.message });
+      return;
+    }
+    const label = parsed.data.label.trim();
+    const base = slugify(parsed.data.key ?? label);
+    if (!base) {
+      res.status(400).json({ message: "Enter a label with letters or numbers." });
+      return;
+    }
+    const existing = await db.select().from(ticketEnvironmentsTable);
+    const taken = new Set(existing.map((e) => e.key));
+    if (taken.has(base) && parsed.data.key) {
+      res.status(400).json({ message: `The key "${base}" is already in use.` });
+      return;
+    }
+    const key = uniqueKey(base, taken);
+    const nextSort = existing.reduce((max, e) => Math.max(max, e.sortOrder), 0) + 1;
+    try {
+      const [row] = await db
+        .insert(ticketEnvironmentsTable)
+        .values({ key, label, sortOrder: nextSort, active: true })
+        .returning();
+      res.status(201).json(CreateEnvironmentResponse.parse(serializeTaxonomy(row!)));
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        res.status(409).json({ message: `The key "${key}" is already in use.` });
+        return;
+      }
+      throw err;
+    }
+  },
+);
+
+router.patch(
+  "/admin/environments/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const id = parseId(req);
+    const parsed = UpdateEnvironmentBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ message: parsed.error.message });
+      return;
+    }
+    const updates: Record<string, unknown> = {};
+    if (parsed.data.label !== undefined) updates.label = parsed.data.label.trim();
+    if (parsed.data.sortOrder !== undefined) updates.sortOrder = parsed.data.sortOrder;
+    if (parsed.data.active !== undefined) updates.active = parsed.data.active;
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ message: "No changes provided." });
+      return;
+    }
+    const [row] = await db
+      .update(ticketEnvironmentsTable)
+      .set(updates)
+      .where(eq(ticketEnvironmentsTable.id, id))
+      .returning();
+    if (!row) {
+      res.status(404).json({ message: "Environment not found" });
+      return;
+    }
+    res.json(UpdateEnvironmentResponse.parse(serializeTaxonomy(row)));
+  },
+);
+
+// --- Severities (taxonomy + SLA targets) ---
+
+function serializeSeverity(r: SlaConfig): Record<string, unknown> {
+  return {
+    id: r.id,
+    key: r.severity,
+    label: r.label,
+    rank: r.rank,
+    isUrgent: r.isUrgent,
+    resolutionOptional: r.resolutionOptional,
+    firstResponseMinutes: r.firstResponseMinutes,
+    resolutionMinutes: r.resolutionMinutes,
+    use24x7: r.use24x7,
+    active: r.active,
+  };
+}
+
+router.get(
+  "/admin/severities",
+  requireAuth,
+  requireRole("ekai_agent", "admin"),
+  async (_req, res): Promise<void> => {
+    const rows = await db.select().from(slaConfigTable).orderBy(asc(slaConfigTable.rank));
+    res.json(ListSeveritiesResponse.parse(rows.map(serializeSeverity)));
+  },
+);
+
+router.post(
+  "/admin/severities",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const parsed = CreateSeverityBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ message: parsed.error.message });
+      return;
+    }
+    const label = parsed.data.label.trim();
+    const base = slugify(parsed.data.key ?? label);
+    if (!base) {
+      res.status(400).json({ message: "Enter a label with letters or numbers." });
+      return;
+    }
+    const existing = await db.select().from(slaConfigTable);
+    const taken = new Set(existing.map((e) => e.severity));
+    if (taken.has(base) && parsed.data.key) {
+      res.status(400).json({ message: `The key "${base}" is already in use.` });
+      return;
+    }
+    const key = uniqueKey(base, taken);
+    const nextRank =
+      parsed.data.rank ?? existing.reduce((max, e) => Math.max(max, e.rank), 0) + 1;
+    let row;
+    try {
+      [row] = await db
         .insert(slaConfigTable)
         .values({
-          severity: target.severity as SlaConfig["severity"],
-          firstResponseMinutes: target.firstResponseMinutes,
-          resolutionMinutes: target.resolutionMinutes,
-          use24x7: target.use24x7,
+          severity: key,
+          label,
+          rank: nextRank,
+          isUrgent: parsed.data.isUrgent,
+          resolutionOptional: parsed.data.resolutionOptional,
+          firstResponseMinutes: parsed.data.firstResponseMinutes,
+          resolutionMinutes: parsed.data.resolutionMinutes ?? null,
+          use24x7: parsed.data.use24x7,
+          active: true,
         })
-        .onConflictDoUpdate({
-          target: slaConfigTable.severity,
-          set: {
-            firstResponseMinutes: target.firstResponseMinutes,
-            resolutionMinutes: target.resolutionMinutes,
-            use24x7: target.use24x7,
-          },
-        });
+        .returning();
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        res.status(409).json({ message: `The key "${key}" is already in use.` });
+        return;
+      }
+      throw err;
     }
     await refreshSlaClockCache();
-    const rows = await db.select().from(slaConfigTable);
-    res.json(GetSlaConfigResponse.parse(serializeSla(rows)));
+    res.status(201).json(CreateSeverityResponse.parse(serializeSeverity(row!)));
+  },
+);
+
+router.patch(
+  "/admin/severities/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const id = parseId(req);
+    const parsed = UpdateSeverityBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ message: parsed.error.message });
+      return;
+    }
+    const updates: Record<string, unknown> = {};
+    if (parsed.data.label !== undefined) updates.label = parsed.data.label.trim();
+    if (parsed.data.rank !== undefined) updates.rank = parsed.data.rank;
+    if (parsed.data.isUrgent !== undefined) updates.isUrgent = parsed.data.isUrgent;
+    if (parsed.data.resolutionOptional !== undefined)
+      updates.resolutionOptional = parsed.data.resolutionOptional;
+    if (parsed.data.firstResponseMinutes !== undefined)
+      updates.firstResponseMinutes = parsed.data.firstResponseMinutes;
+    if (parsed.data.resolutionMinutes !== undefined)
+      updates.resolutionMinutes = parsed.data.resolutionMinutes;
+    if (parsed.data.use24x7 !== undefined) updates.use24x7 = parsed.data.use24x7;
+    if (parsed.data.active !== undefined) updates.active = parsed.data.active;
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ message: "No changes provided." });
+      return;
+    }
+    const [row] = await db
+      .update(slaConfigTable)
+      .set(updates)
+      .where(eq(slaConfigTable.id, id))
+      .returning();
+    if (!row) {
+      res.status(404).json({ message: "Severity not found" });
+      return;
+    }
+    await refreshSlaClockCache();
+    res.json(UpdateSeverityResponse.parse(serializeSeverity(row)));
   },
 );
 

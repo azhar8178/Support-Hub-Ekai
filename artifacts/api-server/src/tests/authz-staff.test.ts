@@ -170,16 +170,12 @@ describe("admin routes are staff/admin only", () => {
         request(app).post("/api/admin/orgs").set(h).send({ name: `Sneaky Org ${fx.suffix}` }),
     },
     {
-      name: "PUT /admin/sla-config",
+      name: "POST /admin/severities",
       run: (h: Record<string, string>) =>
         request(app)
-          .put("/api/admin/sla-config")
+          .post("/api/admin/severities")
           .set(h)
-          .send({
-            targets: [
-              { severity: "P1", firstResponseMinutes: 1, resolutionMinutes: 1, use24x7: true },
-            ],
-          }),
+          .send({ label: `Sneaky Sev ${fx.suffix}`, firstResponseMinutes: 1 }),
     },
     { name: "GET /admin/reports", run: (h: Record<string, string>) => request(app).get("/api/admin/reports").set(h) },
   ];
@@ -199,15 +195,38 @@ describe("admin routes are staff/admin only", () => {
   it("customer gets 403 on staff-readable admin endpoints too", async () => {
     const orgs = await request(app).get("/api/admin/orgs").set(asUser(customer));
     expect(orgs.status).toBe(403);
-    const sla = await request(app).get("/api/admin/sla-config").set(asUser(customer));
-    expect(sla.status).toBe(403);
+    const sev = await request(app).get("/api/admin/severities").set(asUser(customer));
+    expect(sev.status).toBe(403);
+    const cats = await request(app).get("/api/admin/categories").set(asUser(customer));
+    expect(cats.status).toBe(403);
+    const envs = await request(app).get("/api/admin/environments").set(asUser(customer));
+    expect(envs.status).toBe(403);
   });
 
-  it("agent can read orgs and SLA config (staff-readable)", async () => {
+  it("agent can read orgs, severities, categories and environments (staff-readable)", async () => {
     const orgs = await request(app).get("/api/admin/orgs").set(asUser(agent));
     expect(orgs.status).toBe(200);
-    const sla = await request(app).get("/api/admin/sla-config").set(asUser(agent));
-    expect(sla.status).toBe(200);
+    const sev = await request(app).get("/api/admin/severities").set(asUser(agent));
+    expect(sev.status).toBe(200);
+    const cats = await request(app).get("/api/admin/categories").set(asUser(agent));
+    expect(cats.status).toBe(200);
+    const envs = await request(app).get("/api/admin/environments").set(asUser(agent));
+    expect(envs.status).toBe(200);
+  });
+
+  it("admin-only writes: agent and customer cannot create categories/environments", async () => {
+    for (const u of [customer, agent]) {
+      const cat = await request(app)
+        .post("/api/admin/categories")
+        .set(asUser(u))
+        .send({ label: `Nope ${fx.suffix}` });
+      expect(cat.status).toBe(403);
+      const env = await request(app)
+        .post("/api/admin/environments")
+        .set(asUser(u))
+        .send({ label: `Nope ${fx.suffix}` });
+      expect(env.status).toBe(403);
+    }
   });
 
   it("admin can read the user list", async () => {

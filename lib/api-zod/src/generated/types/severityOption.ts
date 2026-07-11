@@ -5,14 +5,21 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
-import type { SlaTargetSeverity } from './slaTargetSeverity';
 
-export interface SlaTarget {
-  severity: SlaTargetSeverity;
+/**
+ * An active severity with its SLA targets, for forms and filters
+ */
+export interface SeverityOption {
+  key: string;
+  label: string;
+  /** Lower rank = more severe (1 = top) */
+  rank: number;
+  isUrgent: boolean;
+  resolutionOptional: boolean;
   /** Business minutes unless use24x7 */
   firstResponseMinutes: number;
   /**
-     * Null means Planned (P4)
+     * Null means Planned
      * @nullable
      */
   resolutionMinutes: number | null;

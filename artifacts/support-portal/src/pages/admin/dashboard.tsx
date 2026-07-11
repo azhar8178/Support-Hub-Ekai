@@ -4,23 +4,42 @@ import {
   useUpdateUser,
   useListInvites,
   useCreateInvite,
+  useRevokeInvite,
+  useResendInvite,
   useListOrgs,
   useCreateOrg,
-  useGetSlaConfig,
-  useUpdateSlaConfig,
+  useUpdateOrg,
+  useListSeverities,
+  useCreateSeverity,
+  useUpdateSeverity,
+  useListCategories,
+  useCreateCategory,
+  useUpdateCategory,
+  useListEnvironments,
+  useCreateEnvironment,
+  useUpdateEnvironment,
   useGetReports,
   useGetKbDeflectionStats,
+  getListInvitesQueryKey,
+  getListOrgsQueryKey,
+  getListSeveritiesQueryKey,
+  getListCategoriesQueryKey,
+  getListEnvironmentsQueryKey,
+  getGetTicketConfigQueryKey,
   PortalUserRole,
   InviteRole,
-  SlaTargetSeverity
+  type Severity,
+  type TaxonomyOption,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { 
-  Users, Building, Mail, ShieldAlert, BarChart3, Plus, Search, 
-  Check, X, Loader2, Copy, AlertTriangle, TrendingUp, Clock, BookOpen
+  Users, Building, Mail, SlidersHorizontal, BarChart3, Plus, Search, 
+  Check, X, Loader2, Copy, AlertTriangle, TrendingUp, Clock, BookOpen,
+  Pencil, RotateCcw, Archive, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,7 +77,7 @@ export default function AdminDashboardPage() {
             <TabsTrigger value="users" className="data-[state=active]:bg-slate-100 rounded-md px-4"><Users className="h-4 w-4 mr-2" /> Users</TabsTrigger>
             <TabsTrigger value="invites" className="data-[state=active]:bg-slate-100 rounded-md px-4"><Mail className="h-4 w-4 mr-2" /> Invites</TabsTrigger>
             <TabsTrigger value="orgs" className="data-[state=active]:bg-slate-100 rounded-md px-4"><Building className="h-4 w-4 mr-2" /> Organizations</TabsTrigger>
-            <TabsTrigger value="sla" className="data-[state=active]:bg-slate-100 rounded-md px-4"><ShieldAlert className="h-4 w-4 mr-2" /> SLA Config</TabsTrigger>
+            <TabsTrigger value="config" className="data-[state=active]:bg-slate-100 rounded-md px-4"><SlidersHorizontal className="h-4 w-4 mr-2" /> Ticket Config</TabsTrigger>
             <TabsTrigger value="reports" className="data-[state=active]:bg-slate-100 rounded-md px-4"><BarChart3 className="h-4 w-4 mr-2" /> Reports</TabsTrigger>
           </TabsList>
 
@@ -74,8 +93,8 @@ export default function AdminDashboardPage() {
             <OrganizationsTab />
           </TabsContent>
 
-          <TabsContent value="sla" className="space-y-4 m-0 border-0 p-0">
-            <SlaConfigTab />
+          <TabsContent value="config" className="space-y-6 m-0 border-0 p-0">
+            <TicketConfigTab />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-4 m-0 border-0 p-0">
@@ -230,6 +249,8 @@ function InvitesTab() {
   const { data: invites, isLoading } = useListInvites();
   const { data: orgs } = useListOrgs();
   const createInvite = useCreateInvite();
+  const revokeInvite = useRevokeInvite();
+  const resendInvite = useResendInvite();
   const [isOpen, setIsOpen] = useState(false);
   const [lastCreatedUrl, setLastCreatedUrl] = useState<string | null>(null);
 
@@ -260,7 +281,7 @@ function InvitesTab() {
       
       setLastCreatedUrl(res.inviteUrl);
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ["invites"] });
+      queryClient.invalidateQueries({ queryKey: getListInvitesQueryKey() });
       toast.success("Invite created");
     } catch (err: any) {
       toast.error(err?.message || "Failed to create invite");
@@ -270,6 +291,31 @@ function InvitesTab() {
   const copyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
     toast.success("Invite URL copied to clipboard");
+  };
+
+  const handleRevoke = async (id: number) => {
+    try {
+      await revokeInvite.mutateAsync({ id });
+      queryClient.invalidateQueries({ queryKey: getListInvitesQueryKey() });
+      toast.success("Invite revoked");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to revoke invite");
+    }
+  };
+
+  const handleResend = async (id: number) => {
+    try {
+      const res = await resendInvite.mutateAsync({ id });
+      queryClient.invalidateQueries({ queryKey: getListInvitesQueryKey() });
+      if (res.inviteUrl) {
+        navigator.clipboard.writeText(res.inviteUrl);
+        toast.success("Fresh link generated and copied to clipboard");
+      } else {
+        toast.success("Fresh link generated");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to resend invite");
+    }
   };
 
   return (
@@ -388,8 +434,11 @@ function InvitesTab() {
               <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-500">No active invites</TableCell></TableRow>
             ) : (
               invites?.map(inv => {
-                const isExpired = new Date(inv.expiresAt) < new Date();
-                const isUsed = !!inv.usedAt;
+                const isAccepted = !!inv.usedAt;
+                const isRevoked = !!inv.revokedAt;
+                const isExpired = !isAccepted && !isRevoked && new Date(inv.expiresAt) < new Date();
+                const canManage = !isAccepted && !isRevoked;
+                const isBusy = revokeInvite.isPending || resendInvite.isPending;
                 return (
                   <TableRow key={inv.id}>
                     <TableCell className="pl-6 font-medium text-[#0F1F3D]">{inv.email}</TableCell>
@@ -398,16 +447,27 @@ function InvitesTab() {
                       <div className="text-xs text-slate-500">{inv.orgName || '-'}</div>
                     </TableCell>
                     <TableCell>
-                      {isUsed ? <Badge variant="outline" className="bg-slate-100 text-slate-600">Used</Badge> : 
-                       isExpired ? <Badge variant="outline" className="bg-red-50 text-red-700">Expired</Badge> : 
+                      {isAccepted ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Accepted</Badge> :
+                       isRevoked ? <Badge variant="outline" className="bg-slate-100 text-slate-600">Revoked</Badge> :
+                       isExpired ? <Badge variant="outline" className="bg-red-50 text-red-700">Expired</Badge> :
                        <Badge variant="outline" className="bg-blue-50 text-blue-700">Pending</Badge>}
                     </TableCell>
                     <TableCell className="text-xs text-slate-500">{formatDate(inv.createdAt)}</TableCell>
                     <TableCell className="text-right pr-6">
-                      {!isUsed && !isExpired && inv.inviteUrl && (
-                        <Button variant="ghost" size="sm" onClick={() => copyUrl(inv.inviteUrl!)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50">
-                          <Copy className="h-4 w-4 mr-2" /> Copy Link
-                        </Button>
+                      {canManage && (
+                        <div className="flex items-center justify-end gap-1">
+                          {inv.inviteUrl && (
+                            <Button variant="ghost" size="sm" onClick={() => copyUrl(inv.inviteUrl!)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" data-testid={`button-copy-invite-${inv.id}`}>
+                              <Copy className="h-4 w-4 mr-2" /> Copy Link
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" disabled={isBusy} onClick={() => handleResend(inv.id)} className="text-slate-600 hover:text-[#0F1F3D] hover:bg-slate-50" data-testid={`button-resend-invite-${inv.id}`}>
+                            <Send className="h-4 w-4 mr-2" /> Resend
+                          </Button>
+                          <Button variant="ghost" size="sm" disabled={isBusy} onClick={() => handleRevoke(inv.id)} className="text-red-600 hover:text-red-800 hover:bg-red-50" data-testid={`button-revoke-invite-${inv.id}`}>
+                            <X className="h-4 w-4 mr-2" /> Revoke
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -430,7 +490,11 @@ const orgSchema = z.object({
 function OrganizationsTab() {
   const { data: orgs, isLoading } = useListOrgs();
   const createOrg = useCreateOrg();
+  const updateOrg = useUpdateOrg();
   const [isOpen, setIsOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDomain, setEditDomain] = useState("");
 
   const form = useForm<z.infer<typeof orgSchema>>({
     resolver: zodResolver(orgSchema),
@@ -441,11 +505,42 @@ function OrganizationsTab() {
     try {
       await createOrg.mutateAsync({ data: values });
       toast.success("Organization created");
-      queryClient.invalidateQueries({ queryKey: ["orgs"] });
+      queryClient.invalidateQueries({ queryKey: getListOrgsQueryKey() });
       setIsOpen(false);
       form.reset();
     } catch (err: any) {
       toast.error(err?.message || "Failed to create organization");
+    }
+  };
+
+  const startEdit = (id: number, name: string, domain: string | null) => {
+    setEditingId(id);
+    setEditName(name);
+    setEditDomain(domain ?? "");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditName("");
+    setEditDomain("");
+  };
+
+  const saveEdit = async (id: number) => {
+    const name = editName.trim();
+    if (name.length < 2) {
+      toast.error("Name required");
+      return;
+    }
+    try {
+      await updateOrg.mutateAsync({
+        id,
+        data: { name, domain: editDomain.trim() ? editDomain.trim() : null },
+      });
+      toast.success("Organization updated");
+      queryClient.invalidateQueries({ queryKey: getListOrgsQueryKey() });
+      cancelEdit();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update organization");
     }
   };
 
@@ -506,26 +601,54 @@ function OrganizationsTab() {
               <TableHead>Organization Name</TableHead>
               <TableHead>Domain</TableHead>
               <TableHead className="text-center">Users</TableHead>
-              <TableHead className="text-right pr-6">Created</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead className="text-right pr-6">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></TableCell></TableRow>
             ) : orgs?.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-500">No organizations found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="h-24 text-center text-slate-500">No organizations found</TableCell></TableRow>
             ) : (
-              orgs?.map(org => (
-                <TableRow key={org.id}>
-                  <TableCell className="pl-6 font-medium text-slate-500">#{org.id}</TableCell>
-                  <TableCell className="font-semibold text-[#0F1F3D]">{org.name}</TableCell>
-                  <TableCell className="text-sm text-slate-600">{org.domain || '-'}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="secondary" className="bg-slate-100">{org.userCount}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right pr-6 text-sm text-slate-500">{formatDate(org.createdAt)}</TableCell>
-                </TableRow>
-              ))
+              orgs?.map(org => {
+                const isEditing = editingId === org.id;
+                return (
+                  <TableRow key={org.id}>
+                    <TableCell className="pl-6 font-medium text-slate-500">#{org.id}</TableCell>
+                    <TableCell className="font-semibold text-[#0F1F3D]">
+                      {isEditing ? (
+                        <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8 w-48" data-testid={`input-org-name-${org.id}`} />
+                      ) : org.name}
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-600">
+                      {isEditing ? (
+                        <Input value={editDomain} onChange={e => setEditDomain(e.target.value)} placeholder="acme.com" className="h-8 w-40" data-testid={`input-org-domain-${org.id}`} />
+                      ) : (org.domain || '-')}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="secondary" className="bg-slate-100">{org.userCount}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-500">{formatDate(org.createdAt)}</TableCell>
+                    <TableCell className="text-right pr-6">
+                      {isEditing ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" disabled={updateOrg.isPending} onClick={() => saveEdit(org.id)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-save-org-${org.id}`}>
+                            <Check className="h-4 w-4 mr-2" /> Save
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-slate-500 hover:text-slate-700" data-testid={`button-cancel-org-${org.id}`}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={() => startEdit(org.id, org.name, org.domain)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" data-testid={`button-edit-org-${org.id}`}>
+                          <Pencil className="h-4 w-4 mr-2" /> Rename
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -534,128 +657,527 @@ function OrganizationsTab() {
   );
 }
 
-// --- SLA CONFIG TAB ---
-function SlaConfigTab() {
-  const { data: config, isLoading } = useGetSlaConfig();
-  const updateConfig = useUpdateSlaConfig();
-  
-  // We'll manage the draft state locally
-  const [draft, setDraft] = useState<Record<string, { resp: string, res: string, use24x7: boolean }>>({});
-  
-  // Initialize draft when data loads
-  if (config && Object.keys(draft).length === 0) {
-    const initial: any = {};
-    config.forEach((t) => {
-      initial[t.severity] = {
-        resp: t.firstResponseMinutes.toString(),
-        res: t.resolutionMinutes === null ? "planned" : t.resolutionMinutes.toString(),
-        use24x7: t.use24x7
-      };
-    });
-    setDraft(initial);
-  }
+// --- TICKET CONFIG TAB (severities, categories, environments) ---
+const RESOLUTION_OPTIONS = [
+  { value: "planned", label: "Planned / no target" },
+  { value: "60", label: "1 Hour (60m)" },
+  { value: "120", label: "2 Hours (120m)" },
+  { value: "240", label: "4 Hours (240m)" },
+  { value: "480", label: "8 Hours (480m)" },
+  { value: "1440", label: "24 Hours (1440m)" },
+  { value: "2880", label: "48 Hours (2880m)" },
+];
 
-  const handleSave = async () => {
-    const targets = ["P1", "P2", "P3", "P4"].map(sev => ({
-      severity: sev as SlaTargetSeverity,
-      firstResponseMinutes: parseInt(draft[sev].resp) || 60,
-      resolutionMinutes: draft[sev].res === "planned" ? null : (parseInt(draft[sev].res) || 240),
-      use24x7: draft[sev].use24x7
-    }));
+function TicketConfigTab() {
+  return (
+    <div className="space-y-6">
+      <SeveritiesSection />
+      <TaxonomySection
+        title="Categories"
+        description="Categories customers pick when raising a ticket."
+        useList={useListCategories}
+        useCreate={useCreateCategory}
+        useUpdate={useUpdateCategory}
+        listQueryKey={getListCategoriesQueryKey()}
+      />
+      <TaxonomySection
+        title="Environments"
+        description="Affected environments customers can choose from."
+        useList={useListEnvironments}
+        useCreate={useCreateEnvironment}
+        useUpdate={useUpdateEnvironment}
+        listQueryKey={getListEnvironmentsQueryKey()}
+      />
+    </div>
+  );
+}
 
+// --- SEVERITIES ---
+type SeverityDraft = {
+  label: string;
+  firstResponseMinutes: string;
+  resolutionMinutes: string; // "planned" or minutes
+  rank: string;
+  isUrgent: boolean;
+  resolutionOptional: boolean;
+  use24x7: boolean;
+};
+
+function severityToDraft(s: Severity): SeverityDraft {
+  return {
+    label: s.label,
+    firstResponseMinutes: s.firstResponseMinutes.toString(),
+    resolutionMinutes: s.resolutionMinutes === null ? "planned" : s.resolutionMinutes.toString(),
+    rank: s.rank.toString(),
+    isUrgent: s.isUrgent,
+    resolutionOptional: s.resolutionOptional,
+    use24x7: s.use24x7,
+  };
+}
+
+function SeveritiesSection() {
+  const { data: severities, isLoading, isError } = useListSeverities();
+  const createSeverity = useCreateSeverity();
+  const updateSeverity = useUpdateSeverity();
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [draft, setDraft] = useState<SeverityDraft | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [newDraft, setNewDraft] = useState<SeverityDraft>({
+    label: "",
+    firstResponseMinutes: "60",
+    resolutionMinutes: "planned",
+    rank: "",
+    isUrgent: false,
+    resolutionOptional: false,
+    use24x7: false,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: getListSeveritiesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTicketConfigQueryKey() });
+  };
+
+  const parseResolution = (v: string) => (v === "planned" ? null : parseInt(v) || null);
+
+  const startEdit = (s: Severity) => {
+    setEditingId(s.id);
+    setDraft(severityToDraft(s));
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setDraft(null);
+  };
+
+  const saveEdit = async (id: number) => {
+    if (!draft) return;
+    const fr = parseInt(draft.firstResponseMinutes);
+    if (!draft.label.trim() || !fr || fr < 1) {
+      toast.error("Label and a first-response target (min 1) are required");
+      return;
+    }
     try {
-      await updateConfig.mutateAsync({ data: { targets } });
-      toast.success("SLA targets updated");
-      queryClient.invalidateQueries({ queryKey: ["sla-config"] });
+      await updateSeverity.mutateAsync({
+        id,
+        data: {
+          label: draft.label.trim(),
+          firstResponseMinutes: fr,
+          resolutionMinutes: parseResolution(draft.resolutionMinutes),
+          rank: draft.rank.trim() ? parseInt(draft.rank) : undefined,
+          isUrgent: draft.isUrgent,
+          resolutionOptional: draft.resolutionOptional,
+          use24x7: draft.use24x7,
+        },
+      });
+      toast.success("Severity updated");
+      invalidate();
+      cancelEdit();
     } catch (err: any) {
-      toast.error(err?.message || "Failed to update SLA config");
+      toast.error(err?.message || "Failed to update severity");
     }
   };
 
-  const updateDraft = (sev: string, field: string, val: string | boolean) => {
-    setDraft(prev => ({ ...prev, [sev]: { ...prev[sev], [field]: val } }));
+  const toggleActive = async (s: Severity) => {
+    try {
+      await updateSeverity.mutateAsync({ id: s.id, data: { active: !s.active } });
+      toast.success(s.active ? "Severity retired" : "Severity restored");
+      invalidate();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update severity");
+    }
   };
 
-  if (isLoading || Object.keys(draft).length === 0) {
-    return <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></div>;
-  }
+  const handleCreate = async () => {
+    const fr = parseInt(newDraft.firstResponseMinutes);
+    if (!newDraft.label.trim() || !fr || fr < 1) {
+      toast.error("Label and a first-response target (min 1) are required");
+      return;
+    }
+    try {
+      await createSeverity.mutateAsync({
+        data: {
+          label: newDraft.label.trim(),
+          firstResponseMinutes: fr,
+          resolutionMinutes: parseResolution(newDraft.resolutionMinutes),
+          rank: newDraft.rank.trim() ? parseInt(newDraft.rank) : undefined,
+          isUrgent: newDraft.isUrgent,
+          resolutionOptional: newDraft.resolutionOptional,
+          use24x7: newDraft.use24x7,
+        },
+      });
+      toast.success("Severity added");
+      invalidate();
+      setIsOpen(false);
+      setNewDraft({ label: "", firstResponseMinutes: "60", resolutionMinutes: "planned", rank: "", isUrgent: false, resolutionOptional: false, use24x7: false });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to add severity");
+    }
+  };
+
+  const severityFields = (d: SeverityDraft, set: (patch: Partial<SeverityDraft>) => void, idPrefix: string) => (
+    <div className="space-y-4 py-2">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label>Label</Label>
+          <Input value={d.label} onChange={e => set({ label: e.target.value })} placeholder="P1 Critical" data-testid={`${idPrefix}-label`} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Rank (lower = more severe)</Label>
+          <Input type="number" min="1" value={d.rank} onChange={e => set({ rank: e.target.value })} placeholder="auto" data-testid={`${idPrefix}-rank`} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label>First response (mins)</Label>
+          <Input type="number" min="1" value={d.firstResponseMinutes} onChange={e => set({ firstResponseMinutes: e.target.value })} data-testid={`${idPrefix}-firstresponse`} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Resolution target</Label>
+          <Select value={d.resolutionMinutes} onValueChange={v => set({ resolutionMinutes: v })}>
+            <SelectTrigger data-testid={`${idPrefix}-resolution`}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {RESOLUTION_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-3 pt-1">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Schedule</Label>
+            <p className="text-xs text-slate-500">{d.use24x7 ? "24x7 (wall clock)" : "Business hours (M-F)"}</p>
+          </div>
+          <Switch checked={d.use24x7} onCheckedChange={c => set({ use24x7: c })} className="data-[state=checked]:bg-indigo-500" />
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Urgent</Label>
+            <p className="text-xs text-slate-500">Drives urgent alerts for new tickets</p>
+          </div>
+          <Switch checked={d.isUrgent} onCheckedChange={c => set({ isUrgent: c })} className="data-[state=checked]:bg-red-500" />
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Resolution optional</Label>
+            <p className="text-xs text-slate-500">No resolution SLA is enforced</p>
+          </div>
+          <Switch checked={d.resolutionOptional} onCheckedChange={c => set({ resolutionOptional: c })} className="data-[state=checked]:bg-emerald-500" />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <Card className="border-slate-200 shadow-sm max-w-4xl">
+    <Card className="border-slate-200 shadow-sm">
       <CardHeader className="pb-4 border-b border-slate-100 flex flex-row items-center justify-between">
         <div>
-          <CardTitle>SLA Configuration</CardTitle>
-          <CardDescription>Global targets for ticket response and resolution times.</CardDescription>
+          <CardTitle>Severities</CardTitle>
+          <CardDescription>Severity levels and their SLA response/resolution targets.</CardDescription>
         </div>
-        <Button onClick={handleSave} disabled={updateConfig.isPending} className="bg-[#2563EB]">
-          {updateConfig.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Save Changes"}
-        </Button>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-[#2563EB] hover:bg-[#1d4ed8]" data-testid="button-add-severity"><Plus className="mr-2 h-4 w-4" /> Add Severity</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Severity</DialogTitle>
+              <DialogDescription>Leave rank blank to append at the end.</DialogDescription>
+            </DialogHeader>
+            {severityFields(newDraft, patch => setNewDraft(prev => ({ ...prev, ...patch })), "input-new-severity")}
+            <Button className="w-full bg-[#2563EB]" disabled={createSeverity.isPending} onClick={handleCreate} data-testid="button-save-new-severity">
+              {createSeverity.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Add Severity"}
+            </Button>
+          </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableHead className="pl-6 w-[150px]">Severity</TableHead>
-              <TableHead>First Response (mins)</TableHead>
-              <TableHead>Resolution (mins)</TableHead>
+              <TableHead className="pl-6">Severity</TableHead>
+              <TableHead>Rank</TableHead>
+              <TableHead>First Response</TableHead>
+              <TableHead>Resolution</TableHead>
               <TableHead>Schedule</TableHead>
+              <TableHead>Flags</TableHead>
+              <TableHead className="text-right pr-6">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {["P1", "P2", "P3", "P4"].map(sev => {
-              const label = { P1: "P1 Critical", P2: "P2 High", P3: "P3 Normal", P4: "P4 Low" }[sev];
-              const colorClass = { P1: "text-red-700 bg-red-50", P2: "text-orange-700 bg-orange-50", P3: "text-amber-700 bg-amber-50", P4: "text-slate-700 bg-slate-100" }[sev];
-              return (
-                <TableRow key={sev}>
-                  <TableCell className="pl-6">
-                    <Badge variant="outline" className={`font-medium border-0 ${colorClass}`}>{label}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Input 
-                      type="number" 
-                      min="1" 
-                      className="w-32" 
-                      value={draft[sev].resp} 
-                      onChange={(e) => updateDraft(sev, "resp", e.target.value)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Select value={draft[sev].res} onValueChange={(v) => updateDraft(sev, "res", v)}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="planned" className="italic text-slate-500">Planned</SelectItem>
-                        <SelectItem value="60">1 Hour (60m)</SelectItem>
-                        <SelectItem value="120">2 Hours (120m)</SelectItem>
-                        <SelectItem value="240">4 Hours (240m)</SelectItem>
-                        <SelectItem value="480">8 Hours (480m)</SelectItem>
-                        <SelectItem value="1440">24 Hours (1440m)</SelectItem>
-                        <SelectItem value="2880">48 Hours (2880m)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Switch 
-                        checked={draft[sev].use24x7} 
-                        onCheckedChange={(c) => updateDraft(sev, "use24x7", c)} 
-                        className="data-[state=checked]:bg-indigo-500"
-                      />
-                      <span className="text-xs text-slate-500 font-medium">
-                        {draft[sev].use24x7 ? "24x7 (Wall Clock)" : "Business Hrs (M-F)"}
-                      </span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {isLoading ? (
+              <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></TableCell></TableRow>
+            ) : isError ? (
+              <TableRow><TableCell colSpan={7} className="h-24 text-center text-red-600">Failed to load severities</TableCell></TableRow>
+            ) : severities?.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="h-24 text-center text-slate-500">No severities configured</TableCell></TableRow>
+            ) : (
+              severities?.map(s => {
+                const isEditing = editingId === s.id && draft;
+                const set = (patch: Partial<SeverityDraft>) => setDraft(prev => (prev ? { ...prev, ...patch } : prev));
+                return (
+                  <TableRow key={s.id} className={s.active ? "" : "bg-slate-50/60"}>
+                    {isEditing ? (
+                      <>
+                        <TableCell className="pl-6"><Input value={draft!.label} onChange={e => set({ label: e.target.value })} className="h-8 w-40" data-testid={`input-severity-label-${s.id}`} /></TableCell>
+                        <TableCell><Input type="number" min="1" value={draft!.rank} onChange={e => set({ rank: e.target.value })} className="h-8 w-16" data-testid={`input-severity-rank-${s.id}`} /></TableCell>
+                        <TableCell><Input type="number" min="1" value={draft!.firstResponseMinutes} onChange={e => set({ firstResponseMinutes: e.target.value })} className="h-8 w-20" data-testid={`input-severity-fr-${s.id}`} /></TableCell>
+                        <TableCell>
+                          <Select value={draft!.resolutionMinutes} onValueChange={v => set({ resolutionMinutes: v })}>
+                            <SelectTrigger className="h-8 w-40" data-testid={`select-severity-res-${s.id}`}><SelectValue /></SelectTrigger>
+                            <SelectContent>{RESOLUTION_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Switch checked={draft!.use24x7} onCheckedChange={c => set({ use24x7: c })} className="data-[state=checked]:bg-indigo-500" />
+                            <span className="text-xs text-slate-500">{draft!.use24x7 ? "24x7" : "Bus hrs"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1.5">
+                            <label className="flex items-center gap-2 text-xs text-slate-600"><Switch checked={draft!.isUrgent} onCheckedChange={c => set({ isUrgent: c })} className="data-[state=checked]:bg-red-500 scale-90" /> Urgent</label>
+                            <label className="flex items-center gap-2 text-xs text-slate-600"><Switch checked={draft!.resolutionOptional} onCheckedChange={c => set({ resolutionOptional: c })} className="data-[state=checked]:bg-emerald-500 scale-90" /> Res. optional</label>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" disabled={updateSeverity.isPending} onClick={() => saveEdit(s.id)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-save-severity-${s.id}`}><Check className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-slate-500" data-testid={`button-cancel-severity-${s.id}`}><X className="h-4 w-4" /></Button>
+                          </div>
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell className="pl-6">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-medium ${s.active ? "text-[#0F1F3D]" : "text-slate-400"}`}>{s.label}</span>
+                            <span className="text-xs text-slate-400">{s.key}</span>
+                            {!s.active && <Badge variant="outline" className="bg-slate-100 text-slate-500">Retired</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600">{s.rank}</TableCell>
+                        <TableCell className="text-sm text-slate-600">{s.firstResponseMinutes}m</TableCell>
+                        <TableCell className="text-sm text-slate-600">{s.resolutionMinutes === null ? <span className="italic text-slate-500">Planned</span> : `${s.resolutionMinutes}m`}</TableCell>
+                        <TableCell className="text-sm text-slate-600">{s.use24x7 ? "24x7" : "Bus hrs"}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {s.isUrgent && <Badge variant="outline" className="bg-red-50 text-red-700">Urgent</Badge>}
+                            {s.resolutionOptional && <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Res. optional</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => startEdit(s)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" data-testid={`button-edit-severity-${s.id}`}><Pencil className="h-4 w-4 mr-2" /> Edit</Button>
+                            {s.active ? (
+                              <Button variant="ghost" size="sm" disabled={updateSeverity.isPending} onClick={() => toggleActive(s)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-retire-severity-${s.id}`}><Archive className="h-4 w-4 mr-2" /> Retire</Button>
+                            ) : (
+                              <Button variant="ghost" size="sm" disabled={updateSeverity.isPending} onClick={() => toggleActive(s)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-restore-severity-${s.id}`}><RotateCcw className="h-4 w-4 mr-2" /> Restore</Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </>
+                    )}
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
         <div className="p-4 bg-amber-50 border-t border-slate-100 flex gap-3 text-amber-800 text-sm">
           <AlertTriangle className="h-5 w-5 shrink-0" />
-          <p>Business hours are calculated as 09:00 - 18:00 UTC, Monday through Friday. Tickets raised outside business hours on non-24x7 SLAs will pause their countdown until the next business day.</p>
+          <p>Business hours are 09:00 - 18:00 UTC, Monday through Friday. Retiring a severity hides it from new tickets but keeps existing tickets intact — restore it any time.</p>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- TAXONOMY (categories / environments) ---
+type TaxonomyListHook = typeof useListCategories;
+type TaxonomyCreateHook = typeof useCreateCategory;
+type TaxonomyUpdateHook = typeof useUpdateCategory;
+
+function TaxonomySection({
+  title,
+  description,
+  useList,
+  useCreate,
+  useUpdate,
+  listQueryKey,
+}: {
+  title: string;
+  description: string;
+  useList: TaxonomyListHook;
+  useCreate: TaxonomyCreateHook;
+  useUpdate: TaxonomyUpdateHook;
+  listQueryKey: readonly unknown[];
+}) {
+  const { data: items, isLoading, isError } = useList();
+  const createItem = useCreate();
+  const updateItem = useUpdate();
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editSortOrder, setEditSortOrder] = useState("");
+
+  const singular = title.replace(/ies$/, "y").replace(/s$/, "");
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: listQueryKey as unknown[] });
+    queryClient.invalidateQueries({ queryKey: getGetTicketConfigQueryKey() });
+  };
+
+  const handleCreate = async () => {
+    if (!newLabel.trim()) {
+      toast.error("Label required");
+      return;
+    }
+    try {
+      await createItem.mutateAsync({ data: { label: newLabel.trim() } });
+      toast.success(`${singular} added`);
+      invalidate();
+      setIsOpen(false);
+      setNewLabel("");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to add");
+    }
+  };
+
+  const startEdit = (item: TaxonomyOption) => {
+    setEditingId(item.id);
+    setEditLabel(item.label);
+    setEditSortOrder(item.sortOrder.toString());
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditLabel("");
+    setEditSortOrder("");
+  };
+
+  const saveEdit = async (id: number) => {
+    if (!editLabel.trim()) {
+      toast.error("Label required");
+      return;
+    }
+    try {
+      await updateItem.mutateAsync({
+        id,
+        data: { label: editLabel.trim(), sortOrder: editSortOrder.trim() ? parseInt(editSortOrder) : undefined },
+      });
+      toast.success(`${singular} updated`);
+      invalidate();
+      cancelEdit();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update");
+    }
+  };
+
+  const toggleActive = async (item: TaxonomyOption) => {
+    try {
+      await updateItem.mutateAsync({ id: item.id, data: { active: !item.active } });
+      toast.success(item.active ? `${singular} retired` : `${singular} restored`);
+      invalidate();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update");
+    }
+  };
+
+  return (
+    <Card className="border-slate-200 shadow-sm">
+      <CardHeader className="pb-4 border-b border-slate-100 flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-[#2563EB] hover:bg-[#1d4ed8]" data-testid={`button-add-${title.toLowerCase()}`}><Plus className="mr-2 h-4 w-4" /> Add {singular}</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add {singular}</DialogTitle>
+              <DialogDescription>The stable key is derived from the label automatically.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1.5 py-2">
+              <Label>Label</Label>
+              <Input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder={`New ${singular.toLowerCase()}`} data-testid={`input-new-${title.toLowerCase()}`} />
+            </div>
+            <Button className="w-full bg-[#2563EB]" disabled={createItem.isPending} onClick={handleCreate} data-testid={`button-save-new-${title.toLowerCase()}`}>
+              {createItem.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : `Add ${singular}`}
+            </Button>
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader className="bg-slate-50">
+            <TableRow>
+              <TableHead className="pl-6">Label</TableHead>
+              <TableHead>Key</TableHead>
+              <TableHead className="w-[120px]">Sort Order</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right pr-6">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></TableCell></TableRow>
+            ) : isError ? (
+              <TableRow><TableCell colSpan={5} className="h-24 text-center text-red-600">Failed to load</TableCell></TableRow>
+            ) : items?.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-500">Nothing configured yet</TableCell></TableRow>
+            ) : (
+              items?.map(item => {
+                const isEditing = editingId === item.id;
+                return (
+                  <TableRow key={item.id} className={item.active ? "" : "bg-slate-50/60"}>
+                    <TableCell className="pl-6">
+                      {isEditing ? (
+                        <Input value={editLabel} onChange={e => setEditLabel(e.target.value)} className="h-8 w-48" data-testid={`input-taxonomy-label-${item.id}`} />
+                      ) : (
+                        <span className={`font-medium ${item.active ? "text-[#0F1F3D]" : "text-slate-400"}`}>{item.label}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-400">{item.key}</TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input type="number" value={editSortOrder} onChange={e => setEditSortOrder(e.target.value)} className="h-8 w-20" data-testid={`input-taxonomy-sort-${item.id}`} />
+                      ) : (
+                        <span className="text-sm text-slate-600">{item.sortOrder}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.active ? (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Active</Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-slate-100 text-slate-500">Retired</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right pr-6">
+                      {isEditing ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" disabled={updateItem.isPending} onClick={() => saveEdit(item.id)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-save-taxonomy-${item.id}`}><Check className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-slate-500" data-testid={`button-cancel-taxonomy-${item.id}`}><X className="h-4 w-4" /></Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => startEdit(item)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" data-testid={`button-edit-taxonomy-${item.id}`}><Pencil className="h-4 w-4 mr-2" /> Edit</Button>
+                          {item.active ? (
+                            <Button variant="ghost" size="sm" disabled={updateItem.isPending} onClick={() => toggleActive(item)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-retire-taxonomy-${item.id}`}><Archive className="h-4 w-4 mr-2" /> Retire</Button>
+                          ) : (
+                            <Button variant="ghost" size="sm" disabled={updateItem.isPending} onClick={() => toggleActive(item)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-restore-taxonomy-${item.id}`}><RotateCcw className="h-4 w-4 mr-2" /> Restore</Button>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

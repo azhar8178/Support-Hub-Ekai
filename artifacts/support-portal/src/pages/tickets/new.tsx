@@ -10,9 +10,7 @@ import {
   getListKbArticlesQueryKey,
   useRecordKbSuggestionEvents,
   useRecordKbSearch,
-  TicketInputSeverity,
-  TicketInputCategory,
-  TicketInputEnvironment
+  useGetTicketConfig,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -47,9 +45,9 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(100, "Title is too long"),
   description: z.string().min(20, "Please provide a detailed description (at least 20 characters)"),
-  severity: z.nativeEnum(TicketInputSeverity),
-  category: z.nativeEnum(TicketInputCategory),
-  environment: z.nativeEnum(TicketInputEnvironment),
+  severity: z.string().min(1, "Select a severity"),
+  category: z.string().min(1, "Select a category"),
+  environment: z.string().min(1, "Select an environment"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -64,12 +62,13 @@ export default function TicketNewPage() {
     defaultValues: {
       title: "",
       description: "",
-      severity: TicketInputSeverity.P3,
-      category: TicketInputCategory.infrastructure,
-      environment: TicketInputEnvironment.multiple,
+      severity: "",
+      category: "",
+      environment: "",
     },
   });
 
+  const { data: ticketConfig, isLoading: configLoading } = useGetTicketConfig();
   const createTicket = useCreateTicket();
   const addAttachment = useAddTicketAttachment();
 
@@ -270,17 +269,16 @@ export default function TicketNewPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[#0F1F3D]">Severity</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={configLoading}>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select severity" />
+                          <SelectTrigger data-testid="select-severity">
+                            <SelectValue placeholder={configLoading ? "Loading..." : "Select severity"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="P1">P1 — Critical</SelectItem>
-                          <SelectItem value="P2">P2 — High</SelectItem>
-                          <SelectItem value="P3">P3 — Normal</SelectItem>
-                          <SelectItem value="P4">P4 — Low</SelectItem>
+                          {ticketConfig?.severities.map((s) => (
+                            <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -294,18 +292,16 @@ export default function TicketNewPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[#0F1F3D]">Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={configLoading}>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
+                          <SelectTrigger data-testid="select-category">
+                            <SelectValue placeholder={configLoading ? "Loading..." : "Select category"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="infrastructure">Infrastructure</SelectItem>
-                          <SelectItem value="platform">Platform</SelectItem>
-                          <SelectItem value="configuration">Configuration</SelectItem>
-                          <SelectItem value="billing">Billing</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          {ticketConfig?.categories.map((c) => (
+                            <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -319,18 +315,16 @@ export default function TicketNewPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[#0F1F3D]">Affected Environment</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={configLoading}>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select environment" />
+                          <SelectTrigger data-testid="select-environment">
+                            <SelectValue placeholder={configLoading ? "Loading..." : "Select environment"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="aws">AWS</SelectItem>
-                          <SelectItem value="azure">Azure</SelectItem>
-                          <SelectItem value="gcp">GCP</SelectItem>
-                          <SelectItem value="snowflake">Snowflake</SelectItem>
-                          <SelectItem value="multiple">Multiple / General</SelectItem>
+                          {ticketConfig?.environments.map((e) => (
+                            <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
