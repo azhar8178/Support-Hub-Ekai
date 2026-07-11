@@ -1,0 +1,199 @@
+Build a full-stack customer support portal for a B2B SaaS company called Ekai.ai, 
+deployed at support.ekai.ai. Ekai builds a semantic modeling layer for enterprise 
+AI agents on data platforms (AWS, Azure, GCP, Snowflake). Their customers are 
+enterprise IT/data teams.
+
+---
+
+TECH STACK
+- Frontend: Next.js 14 (App Router) + Tailwind CSS
+- Backend: Next.js API routes
+- Database: PostgreSQL (via Prisma ORM)
+- Auth: NextAuth.js with email/password + magic link
+- Email: Resend (for notifications and magic links)
+- Hosting: self deployed on aws ec2 (deployable, with environment variables)
+
+---
+
+USERS & ROLES
+
+Three roles:
+1. CUSTOMER — raises tickets, views own tickets, reads knowledge base
+2. EKAI_AGENT — views/responds to all tickets, updates status, manages KB
+3. ADMIN — full access including user management, SLA config, reporting
+
+Customer accounts are invite-only (admin sends invite link, no self-signup).
+
+---
+
+PAGES & FEATURES
+
+1. LOGIN PAGE (/)
+   - Email + password login
+   - Magic link option ("email me a login link")
+   - Ekai.ai branding, clean minimal design
+   - No public signup — invite only
+
+2. CUSTOMER DASHBOARD (/dashboard)
+   - Summary cards: Open tickets, In Progress, Resolved (last 30 days)
+   - Recent tickets table with: ticket ID, title, severity, status, last updated
+   - Quick action: "Raise New Ticket" button
+   - Notification bell for ticket updates
+
+3. RAISE TICKET (/tickets/new)
+   - Form fields:
+     * Title (text)
+     * Description (rich text / textarea)
+     * Severity: P1 Critical / P2 High / P3 Medium / P4 Low
+     * Category: Infrastructure / Platform / Configuration / Billing / Other
+     * Affected environment: AWS / Azure / GCP / Snowflake / Multiple
+     * Attachments (optional, file upload)
+   - On submit: ticket created, confirmation email sent to customer,
+     alert email sent to Ekai support team
+
+4. TICKET DETAIL (/tickets/[id])
+   - Full ticket info: ID, severity badge, status, category, environment, 
+     created date, last updated
+   - SLA indicator: shows response/resolution target and time remaining 
+     (or breached, in red)
+   - Conversation thread: chronological messages between customer and Ekai agent
+   - Add reply (textarea + submit)
+   - File attachments visible inline
+   - Status history timeline at the bottom
+   - EKAI_AGENT view adds: status change dropdown, internal notes 
+     (not visible to customer), assign to agent
+
+5. KNOWLEDGE BASE (/kb)
+   - Searchable articles organised by category:
+     * Getting Started
+     * Infrastructure & Deployment
+     * Troubleshooting
+     * Security & Compliance
+     * Release Notes
+   - Article view page: markdown-rendered content, last updated date, 
+     feedback (helpful / not helpful)
+   - ADMIN can create/edit/delete articles via a simple markdown editor
+
+6. AGENT DASHBOARD (/agent) — EKAI_AGENT + ADMIN only
+   - All tickets queue, filterable by: severity, status, customer, assignee, 
+     date range
+   - SLA breach alerts highlighted in red
+   - Bulk actions: assign, change status
+   - Metrics strip: open P1s, SLA breaches today, avg response time this week
+
+7. ADMIN PANEL (/admin)
+   - User management: invite customer (sends invite email), 
+     manage Ekai agents, deactivate users
+   - Customer management: create customer org, assign users to org
+   - SLA configuration: set response/resolution targets per severity
+   - Basic reporting: ticket volume by week, resolution times, 
+     SLA compliance percentage
+
+---
+
+SLA LOGIC
+
+Implement SLA tracking automatically:
+
+Severity | First Response | Resolution
+P1       | 15 minutes     | 4 hours
+P2       | 1 hour         | 1 business day (8 hrs)
+P3       | 4 hours        | 3 business days (24 hrs)
+P4       | 1 business day | Next sprint (show as "Planned")
+
+- SLA clock starts when ticket is created
+- SLA paused when status = "Awaiting Customer"
+- SLA clock resumes when customer replies
+- Show countdown timer on ticket detail (green > 50% time remaining, 
+  amber < 25%, red = breached)
+- Business hours: 09:00–18:00 UTC Mon–Fri for P2/P3/P4 
+  (P1 is 24/7 clock)
+
+---
+
+TICKET STATUS FLOW
+
+New → Triaged → In Progress → Awaiting Customer → Resolved → Closed
+
+- Only EKAI_AGENT/ADMIN can change status
+- Customer replying to an "Awaiting Customer" ticket auto-moves it to "In Progress"
+- Auto-close: if status = "Resolved" and no customer reply in 5 business days, 
+  move to "Closed"
+- Closed tickets are read-only
+
+---
+
+NOTIFICATIONS (EMAIL)
+
+Trigger emails for:
+- Customer: ticket created confirmation (with ticket ID and SLA target)
+- Customer: new reply from Ekai agent
+- Customer: status changed
+- Ekai team: new P1 or P2 ticket raised (send to support@ekai.ai)
+- Ekai team: SLA breach warning at 75% time elapsed
+- Customer: invite to create account
+
+---
+
+DESIGN
+
+- Color scheme: deep navy (#0F1F3D) primary, electric blue (#2563EB) accent, 
+  white backgrounds, light grey (#F8FAFC) for cards
+- Typography: Inter font
+- Severity badges: P1 = red, P2 = orange, P3 = yellow, P4 = grey
+- Status badges: New = blue, In Progress = indigo, Awaiting Customer = amber, 
+  Resolved = green, Closed = grey
+- Responsive: works on desktop and tablet
+- Clean, enterprise-appropriate — not flashy
+
+---
+
+DATABASE SCHEMA (Prisma)
+
+Models needed:
+- User (id, email, name, role, orgId, createdAt, lastLogin)
+- Organisation (id, name, domain, createdAt)
+- Ticket (id, title, description, severity, status, category, environment, 
+  orgId, raisedById, assignedToId, createdAt, updatedAt, 
+  slaResponseDeadline, slaResolutionDeadline, slaResponseMet, slaResolutionMet,
+  firstResponseAt, resolvedAt)
+- Message (id, ticketId, authorId, content, isInternal, createdAt)
+- Attachment (id, ticketId, messageId, filename, url, createdAt)
+- KBArticle (id, title, content, category, authorId, published, 
+  createdAt, updatedAt)
+- AuditLog (id, userId, action, entityType, entityId, createdAt)
+- Invite (id, email, orgId, role, token, expiresAt, usedAt)
+
+---
+
+SEED DATA
+
+Create seed data including:
+- 1 admin user: admin@ekai.ai
+- 1 Ekai agent: support@ekai.ai  
+- 2 customer orgs with 1 user each
+- 5 sample tickets across different severities and statuses
+- 3 KB articles (lorem ipsum content is fine)
+
+---
+
+ENVIRONMENT VARIABLES NEEDED
+
+DATABASE_URL
+NEXTAUTH_SECRET
+NEXTAUTH_URL
+RESEND_API_KEY
+SUPPORT_EMAIL (support@ekai.ai)
+
+---
+
+DELIVERABLE
+
+A fully working Next.js application that:
+1. Runs on Replit with a single npm run dev
+2. Has a working PostgreSQL database via Prisma
+3. All pages and flows described above are functional
+4. Auth is working (login, session, role-based access)
+5. Email notifications fire correctly via Resend
+6. SLA countdown logic is working on ticket detail pages
+7. README.md with setup instructions and env var descriptions
