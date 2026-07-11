@@ -745,6 +745,45 @@ function KbDeflectionSection() {
             </Table>
           </div>
         )}
+        {stats.uncoveredQueries.length > 0 && (
+          <div data-testid="uncovered-topics">
+            <h4 className="text-sm font-semibold text-[#0F1F3D] mb-1">Top Uncovered Topics</h4>
+            <p className="text-xs text-slate-500 mb-2">
+              What people searched while drafting a ticket, where no article helped — write these next.
+            </p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Search query</TableHead>
+                  <TableHead className="text-right">Drafts</TableHead>
+                  <TableHead className="text-right">Coverage</TableHead>
+                  <TableHead className="text-right">Last searched</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stats.uncoveredQueries.map((q) => (
+                  <TableRow key={q.query}>
+                    <TableCell className="font-medium text-slate-700">{q.query}</TableCell>
+                    <TableCell className="text-right">{q.drafts}</TableCell>
+                    <TableCell className="text-right">
+                      {q.zeroResultDrafts > 0 ? (
+                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                          No articles suggested
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                          Suggested, not opened
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right text-xs text-slate-500">{formatDate(q.lastSearchedAt)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
         {stats.draftsWithSuggestions === 0 && (
           <p className="text-sm text-slate-500">
             No suggestion activity recorded yet. Metrics appear once customers start drafting tickets.

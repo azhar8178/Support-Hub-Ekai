@@ -35,6 +35,7 @@ import type {
   KbArticleUpdate,
   KbDeflectionStats,
   KbFeedback,
+  KbSearchInput,
   KbSuggestionEventsInput,
   ListKbArticlesParams,
   ListTicketsParams,
@@ -2026,6 +2027,77 @@ export const useRecordKbSuggestionEvents = <TError = ErrorType<ApiMessage>,
         TContext
       > => {
       return useMutation(getRecordKbSuggestionEventsMutationOptions(options));
+    }
+
+export const getRecordKbSearchUrl = () => {
+
+
+
+
+  return `/api/kb/suggestions/search`
+}
+
+/**
+ * @summary Record the latest KB search typed while drafting a ticket (upserted per draft)
+ */
+export const recordKbSearch = async (kbSearchInput: KbSearchInput, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getRecordKbSearchUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(kbSearchInput)
+  }
+);}
+
+
+
+
+
+export const getRecordKbSearchMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordKbSearch>>, TError,{data: BodyType<KbSearchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordKbSearch>>, TError,{data: BodyType<KbSearchInput>}, TContext> => {
+
+const mutationKey = ['recordKbSearch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordKbSearch>>, {data: BodyType<KbSearchInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordKbSearch(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordKbSearchMutationResult = NonNullable<Awaited<ReturnType<typeof recordKbSearch>>>
+    export type RecordKbSearchMutationBody = BodyType<KbSearchInput>
+    export type RecordKbSearchMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Record the latest KB search typed while drafting a ticket (upserted per draft)
+ */
+export const useRecordKbSearch = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordKbSearch>>, TError,{data: BodyType<KbSearchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordKbSearch>>,
+        TError,
+        {data: BodyType<KbSearchInput>},
+        TContext
+      > => {
+      return useMutation(getRecordKbSearchMutationOptions(options));
     }
 
 export const getListAgentsUrl = () => {

@@ -9,6 +9,7 @@ import {
   useListKbArticles,
   getListKbArticlesQueryKey,
   useRecordKbSuggestionEvents,
+  useRecordKbSearch,
   TicketInputSeverity,
   TicketInputCategory,
   TicketInputEnvironment
@@ -92,6 +93,20 @@ export default function TicketNewPage() {
   const seenArticleIds = useRef<Set<number>>(new Set());
   const clickedArticleIds = useRef<Set<number>>(new Set());
 
+  // Content-gap tracking: log the latest settled search (and how many
+  // suggestions it returned) so admins can spot topics with no helpful article.
+  const recordSearch = useRecordKbSearch();
+  const lastLoggedSearch = useRef<string>("");
+  useEffect(() => {
+    if (!kbSearchEnabled || !suggestions.isSuccess || suggestions.isPlaceholderData) return;
+    const resultCount = (suggestions.data ?? []).length;
+    const key = `${debouncedTitle}|${resultCount}`;
+    if (lastLoggedSearch.current === key) return;
+    lastLoggedSearch.current = key;
+    recordSearch.mutate({ data: { draftId, query: debouncedTitle, resultCount } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kbSearchEnabled, debouncedTitle, suggestions.isSuccess, suggestions.isPlaceholderData, suggestions.data]);
+
   useEffect(() => {
     const newIds = suggestedArticles
       .map((a) => a.id)
@@ -150,7 +165,12 @@ export default function TicketNewPage() {
       const ticket = await createTicket.mutateAsync({
         data: {
           ...values,
-          kbDraftId: seenArticleIds.current.size > 0 ? draftId : undefined,
+          // Link the draft when suggestions appeared OR a search was logged, so
+          // zero-suggestion drafts that still filed a ticket count as settled.
+          kbDraftId:
+            seenArticleIds.current.size > 0 || lastLoggedSearch.current !== ""
+              ? draftId
+              : undefined,
         }
       });
 

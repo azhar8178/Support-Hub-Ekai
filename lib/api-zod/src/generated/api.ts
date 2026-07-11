@@ -732,6 +732,31 @@ export const RecordKbSuggestionEventsResponse = zod.object({
 
 
 /**
+ * @summary Record the latest KB search typed while drafting a ticket (upserted per draft)
+ */
+export const recordKbSearchBodyDraftIdMin = 8;
+export const recordKbSearchBodyDraftIdMax = 64;
+
+export const recordKbSearchBodyQueryMin = 3;
+export const recordKbSearchBodyQueryMax = 200;
+
+export const recordKbSearchBodyResultCountMin = 0;
+
+
+
+export const RecordKbSearchBody = zod.object({
+  "draftId": zod.string().min(recordKbSearchBodyDraftIdMin).max(recordKbSearchBodyDraftIdMax),
+  "query": zod.string().min(recordKbSearchBodyQueryMin).max(recordKbSearchBodyQueryMax),
+  "resultCount": zod.number().min(recordKbSearchBodyResultCountMin)
+})
+
+export const RecordKbSearchResponse = zod.object({
+  "message": zod.string(),
+  "code": zod.string().nullish()
+})
+
+
+/**
  * @summary List Ekai agents and admins for assignment (agents/admins only)
  */
 export const ListAgentsResponseItem = zod.object({
@@ -938,7 +963,13 @@ export const GetKbDeflectionStatsResponse = zod.object({
   "title": zod.string(),
   "impressions": zod.number().describe('Distinct drafts where this article was suggested'),
   "clicks": zod.number().describe('Distinct drafts where this article was opened')
-}))
+})),
+  "uncoveredQueries": zod.array(zod.object({
+  "query": zod.string(),
+  "drafts": zod.number().describe('Distinct settled drafts that searched this and never opened an article'),
+  "zeroResultDrafts": zod.number().describe('Of those, drafts where the search returned no suggestions at all'),
+  "lastSearchedAt": zod.string()
+})).describe('Top settled search topics with no helpful article (zero suggestions, or suggestions nobody opened)')
 })
 
 

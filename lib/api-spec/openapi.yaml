@@ -549,6 +549,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /kb/suggestions/search:
+    post:
+      operationId: recordKbSearch
+      tags: [kb]
+      summary: Record the latest KB search typed while drafting a ticket (upserted per draft)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KbSearchInput"
+      responses:
+        "200":
+          description: Search recorded (latest query wins per draft)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "400":
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /team/agents:
     get:
       operationId: listAgents
@@ -1060,6 +1084,21 @@ components:
               eventType: { type: string, enum: [impression, click] }
             required: [articleId, eventType]
       required: [draftId, events]
+    KbSearchInput:
+      type: object
+      properties:
+        draftId: { type: string, minLength: 8, maxLength: 64 }
+        query: { type: string, minLength: 3, maxLength: 200 }
+        resultCount: { type: integer, minimum: 0 }
+      required: [draftId, query, resultCount]
+    KbUncoveredQuery:
+      type: object
+      properties:
+        query: { type: string }
+        drafts: { type: integer, description: "Distinct settled drafts that searched this and never opened an article" }
+        zeroResultDrafts: { type: integer, description: "Of those, drafts where the search returned no suggestions at all" }
+        lastSearchedAt: { type: string }
+      required: [query, drafts, zeroResultDrafts, lastSearchedAt]
     KbDeflectionArticleStat:
       type: object
       properties:
@@ -1081,7 +1120,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/KbDeflectionArticleStat"
-      required: [draftsWithSuggestions, draftsWithClicks, ticketsFiledAfterSuggestions, ticketsFiledAfterClick, draftsAbandonedAfterClick, deflectionRatePct, topArticles]
+        uncoveredQueries:
+          type: array
+          items:
+            $ref: "#/components/schemas/KbUncoveredQuery"
+          description: "Top settled search topics with no helpful article (zero suggestions, or suggestions nobody opened)"
+      required: [draftsWithSuggestions, draftsWithClicks, ticketsFiledAfterSuggestions, ticketsFiledAfterClick, draftsAbandonedAfterClick, deflectionRatePct, topArticles, uncoveredQueries]
     SlaTarget:
       type: object
       properties:

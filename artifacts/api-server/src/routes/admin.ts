@@ -4,6 +4,7 @@ import {
   db,
   invitesTable,
   kbArticlesTable,
+  kbSearchLogTable,
   kbSuggestionEventsTable,
   organisationsTable,
   slaConfigTable,
@@ -454,6 +455,45 @@ router.get(
       .orderBy(sql`clicks desc, impressions desc`)
       .limit(5);
 
+    // Content gaps: settled drafts whose last search never led to an opened
+    // article — either no suggestions appeared at all, or nobody clicked them.
+    // Done in SQL against the same per-draft rollup so the raw tables never
+    // get loaded into memory.
+    const uncoveredRows = await db
+      .select({
+        queryKey: sql<string>`lower(trim(${kbSearchLogTable.query}))`.as("query_key"),
+        display: sql<string>`max(trim(${kbSearchLogTable.query}))`.as("display"),
+        drafts: sql<number>`count(*)`.as("drafts"),
+        zeroResultDrafts:
+          sql<number>`count(*) filter (where ${kbSearchLogTable.resultCount} = 0)`.as(
+            "zero_result_drafts",
+          ),
+        lastSearchedAt: sql<string>`max(${kbSearchLogTable.updatedAt})`.as("last_searched_at"),
+      })
+      .from(kbSearchLogTable)
+      .leftJoin(perDraft, eq(kbSearchLogTable.draftId, perDraft.draftId))
+      .where(
+        sql`coalesce(${perDraft.hasClick}, false) = false
+            and trim(${kbSearchLogTable.query}) <> ''
+            and (
+              coalesce(${perDraft.hasFiled}, false)
+              or greatest(
+                ${kbSearchLogTable.updatedAt},
+                coalesce(${perDraft.lastEventAt}, ${kbSearchLogTable.updatedAt})
+              ) < ${settleCutoff}
+            )`,
+      )
+      .groupBy(sql`query_key`)
+      .orderBy(sql`drafts desc, zero_result_drafts desc, last_searched_at desc`)
+      .limit(10);
+
+    const uncoveredQueries = uncoveredRows.map((r) => ({
+      query: r.display,
+      drafts: Number(r.drafts),
+      zeroResultDrafts: Number(r.zeroResultDrafts),
+      lastSearchedAt: new Date(r.lastSearchedAt).toISOString(),
+    }));
+
     const topArticles = topRows.map((r) => ({
       articleId: r.articleId!,
       title: r.title ?? "Deleted article",
@@ -470,6 +510,7 @@ router.get(
         draftsAbandonedAfterClick,
         deflectionRatePct,
         topArticles,
+        uncoveredQueries,
       }),
     );
   },

@@ -3,6 +3,7 @@ import {
   db,
   kbArticlesTable,
   kbFeedbackTable,
+  kbSearchLogTable,
   kbSuggestionEventsTable,
   usersTable,
   type KbCategory,
@@ -13,6 +14,7 @@ import {
   GetKbArticleResponse,
   ListKbArticlesQueryParams,
   ListKbArticlesResponse,
+  RecordKbSearchBody,
   RecordKbSuggestionEventsBody,
   SubmitKbFeedbackBody,
   UpdateKbArticleBody,
@@ -212,6 +214,31 @@ router.post("/kb/suggestions/events", requireAuth, async (req, res): Promise<voi
     await db.insert(kbSuggestionEventsTable).values(rows).onConflictDoNothing();
   }
   res.json({ message: "Events recorded" });
+});
+
+// Upsert the latest search per draft: the final query a user typed is the
+// content-gap signal when no suggestion helped.
+router.post("/kb/suggestions/search", requireAuth, async (req, res): Promise<void> => {
+  const user = req.portalUser!;
+  const parsed = RecordKbSearchBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const { draftId, resultCount } = parsed.data;
+  const query = parsed.data.query.trim();
+  if (query.length < 3) {
+    res.status(400).json({ message: "Query too short" });
+    return;
+  }
+  await db
+    .insert(kbSearchLogTable)
+    .values({ draftId, userId: user.id, query, resultCount })
+    .onConflictDoUpdate({
+      target: kbSearchLogTable.draftId,
+      set: { query, resultCount, updatedAt: new Date() },
+    });
+  res.json({ message: "Search recorded" });
 });
 
 router.post("/kb/articles/:id/feedback", requireAuth, async (req, res): Promise<void> => {

@@ -3,6 +3,7 @@ import request from "supertest";
 import {
   db,
   kbArticlesTable,
+  kbSearchLogTable,
   kbSuggestionEventsTable,
   notificationsTable,
   ticketsTable,
@@ -46,7 +47,17 @@ let article: KbArticle;
 const filedDraftId = `test-filed-${fx.suffix}`;
 const abandonedDraftId = `test-abandoned-${fx.suffix}`;
 const ancientDraftId = `test-ancient-${fx.suffix}`;
-const draftIds = [filedDraftId, abandonedDraftId, ancientDraftId];
+const zeroResultDraftId = `test-zerores-${fx.suffix}`;
+const notClickedDraftId = `test-noclick-${fx.suffix}`;
+const activeDraftId = `test-active-${fx.suffix}`;
+const draftIds = [
+  filedDraftId,
+  abandonedDraftId,
+  ancientDraftId,
+  zeroResultDraftId,
+  notClickedDraftId,
+  activeDraftId,
+];
 
 let createdTicketId: number | null = null;
 
@@ -77,6 +88,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await db.delete(kbSearchLogTable).where(inArray(kbSearchLogTable.draftId, draftIds));
   await db.delete(kbSuggestionEventsTable).where(inArray(kbSuggestionEventsTable.draftId, draftIds));
   if (createdTicketId != null) {
     await db.delete(notificationsTable).where(eq(notificationsTable.ticketId, createdTicketId));
@@ -230,6 +242,103 @@ describe("KB suggestion deflection tracking", () => {
       .from(kbSuggestionEventsTable)
       .where(inArray(kbSuggestionEventsTable.draftId, [filedDraftId, abandonedDraftId]));
     expect(recentRows.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("upserts the latest search per draft", async () => {
+    const res1 = await request(app)
+      .post("/api/kb/suggestions/search")
+      .set(asUser(customer))
+      .send({ draftId: filedDraftId, query: `early partial ${fx.suffix}`, resultCount: 0 });
+    expect(res1.status).toBe(200);
+
+    const finalQuery = `deflection filed query ${fx.suffix}`;
+    const res2 = await request(app)
+      .post("/api/kb/suggestions/search")
+      .set(asUser(customer))
+      .send({ draftId: filedDraftId, query: finalQuery, resultCount: 2 });
+    expect(res2.status).toBe(200);
+
+    const rows = await db
+      .select()
+      .from(kbSearchLogTable)
+      .where(eq(kbSearchLogTable.draftId, filedDraftId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.query).toBe(finalQuery);
+    expect(rows[0]!.resultCount).toBe(2);
+  });
+
+  it("rejects invalid search payloads", async () => {
+    const res = await request(app)
+      .post("/api/kb/suggestions/search")
+      .set(asUser(customer))
+      .send({ draftId: filedDraftId, query: "ab", resultCount: 0 });
+    expect(res.status).toBe(400);
+  });
+
+  it("surfaces uncovered topics: zero-result and never-clicked settled drafts", async () => {
+    const oldDate = new Date(Date.now() - 60 * 60 * 1000);
+    const zeroQuery = `kafka broker flapping ${fx.suffix}`;
+    const noClickQuery = `snowflake warehouse suspended ${fx.suffix}`;
+    const activeQuery = `still typing this one ${fx.suffix}`;
+
+    await db.insert(kbSearchLogTable).values([
+      // Settled by inactivity, search returned nothing.
+      {
+        draftId: zeroResultDraftId,
+        userId: customer.id,
+        query: zeroQuery,
+        resultCount: 0,
+        createdAt: oldDate,
+        updatedAt: oldDate,
+      },
+      // Settled by inactivity, suggestions shown but never opened.
+      {
+        draftId: notClickedDraftId,
+        userId: customer.id,
+        query: noClickQuery,
+        resultCount: 1,
+        createdAt: oldDate,
+        updatedAt: oldDate,
+      },
+      // Fresh draft: must NOT appear (user may still be typing).
+      {
+        draftId: activeDraftId,
+        userId: customer.id,
+        query: activeQuery,
+        resultCount: 0,
+      },
+    ]);
+    await db.insert(kbSuggestionEventsTable).values({
+      draftId: notClickedDraftId,
+      eventType: "impression",
+      articleId: article.id,
+      userId: customer.id,
+      createdAt: oldDate,
+    });
+
+    const res = await request(app).get("/api/admin/kb-deflection").set(asUser(admin));
+    expect(res.status).toBe(200);
+
+    const queries = res.body.uncoveredQueries as Array<{
+      query: string;
+      drafts: number;
+      zeroResultDrafts: number;
+      lastSearchedAt: string;
+    }>;
+
+    const zero = queries.find((q) => q.query === zeroQuery);
+    expect(zero).toBeDefined();
+    expect(zero!.drafts).toBe(1);
+    expect(zero!.zeroResultDrafts).toBe(1);
+
+    const noClick = queries.find((q) => q.query === noClickQuery);
+    expect(noClick).toBeDefined();
+    expect(noClick!.drafts).toBe(1);
+    expect(noClick!.zeroResultDrafts).toBe(0);
+
+    // Clicked drafts are covered; active drafts aren't settled yet.
+    expect(queries.find((q) => q.query.includes(`deflection filed query ${fx.suffix}`))).toBeUndefined();
+    expect(queries.find((q) => q.query === activeQuery)).toBeUndefined();
   });
 
   it("blocks non-admins from deflection stats", async () => {

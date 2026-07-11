@@ -588,6 +588,30 @@ export interface KbSuggestionEventsInput {
   events: KbSuggestionEventsInputEventsItem[];
 }
 
+export interface KbSearchInput {
+  /**
+     * @minLength 8
+     * @maxLength 64
+     */
+  draftId: string;
+  /**
+     * @minLength 3
+     * @maxLength 200
+     */
+  query: string;
+  /** @minimum 0 */
+  resultCount: number;
+}
+
+export interface KbUncoveredQuery {
+  query: string;
+  /** Distinct settled drafts that searched this and never opened an article */
+  drafts: number;
+  /** Of those, drafts where the search returned no suggestions at all */
+  zeroResultDrafts: number;
+  lastSearchedAt: string;
+}
+
 export interface KbDeflectionArticleStat {
   articleId: number;
   title: string;
@@ -614,6 +638,8 @@ export interface KbDeflectionStats {
      */
   deflectionRatePct: number | null;
   topArticles: KbDeflectionArticleStat[];
+  /** Top settled search topics with no helpful article (zero suggestions, or suggestions nobody opened) */
+  uncoveredQueries: KbUncoveredQuery[];
 }
 
 export type SlaTargetSeverity = typeof SlaTargetSeverity[keyof typeof SlaTargetSeverity];

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { KbDeflectionArticleStat } from './kbDeflectionArticleStat';
+import type { KbUncoveredQuery } from './kbUncoveredQuery';
 
 export interface KbDeflectionStats {
   /** Distinct drafts where suggestions were shown */
@@ -24,4 +25,6 @@ export interface KbDeflectionStats {
      */
   deflectionRatePct: number | null;
   topArticles: KbDeflectionArticleStat[];
+  /** Top settled search topics with no helpful article (zero suggestions, or suggestions nobody opened) */
+  uncoveredQueries: KbUncoveredQuery[];
 }

@@ -84,3 +84,28 @@ export const kbSuggestionEventsTable = pgTable(
 
 export type KbSuggestionEvent = typeof kbSuggestionEventsTable.$inferSelect;
 export type InsertKbSuggestionEvent = typeof kbSuggestionEventsTable.$inferInsert;
+
+// One row per draft session: the latest KB search a user typed while drafting a
+// ticket, plus how many suggestions it returned. Upserted on draftId so the row
+// always reflects the final/settled query — the KB content gap signal.
+export const kbSearchLogTable = pgTable(
+  "kb_search_log",
+  {
+    id: serial("id").primaryKey(),
+    draftId: text("draft_id").notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+    query: text("query").notNull(),
+    resultCount: integer("result_count").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [unique("kb_search_log_draft_unique").on(t.draftId)],
+);
+
+export type KbSearchLog = typeof kbSearchLogTable.$inferSelect;
+export type InsertKbSearchLog = typeof kbSearchLogTable.$inferInsert;
