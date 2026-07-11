@@ -100,6 +100,11 @@ export async function applyStatusChange(
     title: `Ticket #${ticket.id} is now ${STATUS_LABELS[toStatus]}`,
     body: `"${ticket.title}" status changed from ${STATUS_LABELS[ticket.status]} to ${STATUS_LABELS[toStatus]}.`,
     ticketId: ticket.id,
+    meta: {
+      ticketTitle: ticket.title,
+      fromStatus: STATUS_LABELS[ticket.status],
+      toStatus: STATUS_LABELS[toStatus],
+    },
   });
 
   return updated!;
@@ -113,6 +118,7 @@ export async function notifyTicketCreated(ticket: Ticket, raiser: User): Promise
     title: `Ticket #${ticket.id} received`,
     body: `We have received "${ticket.title}" (${ticket.severity}). Our team will respond within the SLA for this severity.`,
     ticketId: ticket.id,
+    meta: { ticketTitle: ticket.title, ticketSeverity: ticket.severity },
   });
   // Alert the support team.
   const staff = (await getAgentAndAdminIds()).filter((id) => id !== raiser.id);
@@ -122,6 +128,7 @@ export async function notifyTicketCreated(ticket: Ticket, raiser: User): Promise
       title: `New ${ticket.severity} ticket #${ticket.id}`,
       body: `${raiser.name} raised a ${ticket.severity} ticket: "${ticket.title}".`,
       ticketId: ticket.id,
+      meta: { ticketTitle: ticket.title, ticketSeverity: ticket.severity, raiserName: raiser.name },
     });
   } else {
     await notifyUsers(staff, {
@@ -129,6 +136,7 @@ export async function notifyTicketCreated(ticket: Ticket, raiser: User): Promise
       title: `New ticket #${ticket.id}`,
       body: `${raiser.name} raised a ${ticket.severity} ticket: "${ticket.title}".`,
       ticketId: ticket.id,
+      meta: { ticketTitle: ticket.title, ticketSeverity: ticket.severity, raiserName: raiser.name },
     });
   }
 }

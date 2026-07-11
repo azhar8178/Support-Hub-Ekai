@@ -56,3 +56,9 @@ timeoutMs = 120000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+EMAIL_FROM = ""
+PORTAL_URL = ""

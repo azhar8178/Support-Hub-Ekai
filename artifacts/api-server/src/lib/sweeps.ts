@@ -41,6 +41,7 @@ export async function runSweep(): Promise<void> {
       title: `SLA warning on ticket #${ticket.id}`,
       body: `75% of the ${which} SLA window has elapsed for "${ticket.title}" (${ticket.severity}).`,
       ticketId: ticket.id,
+      meta: { ticketTitle: ticket.title, ticketSeverity: ticket.severity, which },
     });
     await db
       .update(ticketsTable)

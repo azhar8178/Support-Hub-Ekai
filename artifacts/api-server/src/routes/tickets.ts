@@ -304,6 +304,7 @@ router.post("/tickets/:id/messages", requireAuth, async (req, res): Promise<void
         title: `New reply on ticket #${ticket.id}`,
         body: `${user.name} replied to "${ticket.title}".`,
         ticketId: ticket.id,
+        meta: { ticketTitle: ticket.title, agentName: user.name },
       });
     }
   }
@@ -318,6 +319,7 @@ router.post("/tickets/:id/messages", requireAuth, async (req, res): Promise<void
       title: `Customer reply on ticket #${ticket.id}`,
       body: `${user.name} replied to "${ticket.title}".`,
       ticketId: ticket.id,
+      meta: { ticketTitle: ticket.title, agentName: user.name },
     });
   }
 

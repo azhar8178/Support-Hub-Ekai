@@ -28,6 +28,7 @@ import {
 import { requireAuth, requireRole } from "../middlewares/requireAuth";
 import { serializeUser } from "../lib/serializers";
 import { notifyUsers } from "../lib/notify";
+import { sendEmail, inviteEmail } from "../lib/email";
 import { refreshSlaClockCache } from "../lib/sla";
 import { logger } from "../lib/logger";
 
@@ -165,13 +166,21 @@ router.post(
       })
       .returning();
 
-    // Email provider not wired up yet: log the intent and notify the admin
-    // in-app so the trigger point is in place.
-    logger.info({ to: email, type: "invite" }, "email notification (stub, no provider configured)");
+    // Send the invite email directly (not through the in-app notification pipeline).
+    const inviteLink = `/accept-invite?token=${token}`;
+    await sendEmail(
+      inviteEmail({
+        to: email,
+        inviteUrl: inviteLink,
+        role: parsed.data.role,
+        inviterName: req.portalUser!.name ?? "An administrator",
+      }),
+    );
+    // In-app confirmation for the admin who sent the invite.
     await notifyUsers([req.portalUser!.id], {
       type: "invite",
-      title: `Invite created for ${email}`,
-      body: "No email provider is configured yet - copy the invite link and share it manually.",
+      title: `Invite sent to ${email}`,
+      body: `An invitation email has been sent to ${email}. The link expires in 14 days.`,
     });
 
     let orgName: string | null = null;
