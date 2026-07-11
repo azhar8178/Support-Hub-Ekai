@@ -1,45 +1,26 @@
-# [Project name]
+# Ekai Support Portal
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+## Overview
+Customer support portal for Ekai.ai (B2B SaaS — semantic modeling layer for enterprise AI agents across AWS/Azure/GCP/Snowflake). Invite-only access with three roles: `customer`, `ekai_agent`, `admin`.
 
-## Run & Operate
+## Architecture
+- **artifacts/api-server** — Express 5 API (port from `PORT`), Replit-managed Clerk auth via proxy middleware, Drizzle ORM.
+- **artifacts/support-portal** — React + Vite frontend (wouter, TanStack Query, Tailwind, shadcn/ui), Clerk React.
+- **lib/db** — Drizzle schema (orgs, users, invites, tickets + messages/attachments/status history, KB articles + feedback, SLA config, notifications).
+- **lib/api-spec/openapi.yaml** — API contract; codegen produces `@workspace/api-zod` (zod schemas) and `@workspace/api-client-react` (TanStack Query hooks). Regenerate after spec changes.
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+## Key behaviors
+- **Auth**: invite-only. Users are provisioned by invite; Clerk sign-in links to a portal user by `clerkUserId` or email. Non-invited Clerk users get 403 `not_invited`.
+- **SLA**: P1 15min/4h (24x7); P2 60/480; P3 240/1440; P4 540/none (business hours 09:00–18:00 UTC Mon–Fri). SLA pauses on `awaiting_customer`, resumes and shifts deadlines on customer reply. 75% warning notifications via background sweep (60s interval).
+- **Status flow**: new → triaged → in_progress → awaiting_customer → resolved → closed. Customer reply on awaiting_customer auto-moves to in_progress. Resolved auto-closes after 5 business days. Closed is read-only.
+- **Notifications**: in-app rows in `notifications` table; email delivery is a pluggable `NotificationChannel` interface (`api-server/src/lib/notify.ts`) with a logging stub — swap in a real provider later.
+- **Seed** (first boot, when users table is empty): admin@ekai.ai, support@ekai.ai, 2 customer orgs w/ 1 user each, 5 tickets, 3 KB articles, 1 pending demo invite (`demo-invite-token-priya`).
 
-## Stack
-
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
-
-## Where things live
-
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
-
-## Architecture decisions
-
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
-
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
+## Conventions
+- Attachments stored base64 in Postgres (5MB cap per file).
+- Backend zod validation uses generated `@workspace/api-zod` schemas; responses `parse`d before sending.
+- Design: deep navy `#0F1F3D`, electric blue `#2563EB`, light grey `#F8FAFC` cards, Inter font. No emojis in UI.
+- After backend changes: restart workflow `artifacts/api-server: API Server` (dev script builds with esbuild, then runs).
 
 ## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+(none recorded yet)

@@ -1,5 +1,8 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { seedIfEmpty } from "./lib/seed";
+import { refreshSlaClockCache } from "./lib/sla";
+import { startSweeps } from "./lib/sweeps";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +25,9 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  seedIfEmpty()
+    .then(() => refreshSlaClockCache())
+    .then(() => startSweeps())
+    .catch((err2) => logger.error({ err: err2 }, "seed failed"));
 });

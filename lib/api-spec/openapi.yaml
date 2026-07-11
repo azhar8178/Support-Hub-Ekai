@@ -3,20 +3,25 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Ekai Support Portal API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: tickets
+  - name: dashboard
+  - name: notifications
+  - name: kb
+  - name: admin
+  - name: team
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +29,618 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the current portal user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalUser"
+        "403":
+          description: Authenticated with Clerk but not invited to the portal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /invites/accept:
+    post:
+      operationId: acceptInvite
+      tags: [auth]
+      summary: Accept an invite token and join the portal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteAcceptance"
+      responses:
+        "200":
+          description: Invite accepted; portal user created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalUser"
+        "400":
+          description: Invalid or expired invite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /invites/preview:
+    get:
+      operationId: previewInvite
+      tags: [auth]
+      summary: Preview invite details by token (pre-auth)
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Invite details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitePreview"
+        "400":
+          description: Invalid or expired invite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /tickets:
+    get:
+      operationId: listTickets
+      tags: [tickets]
+      summary: List tickets (customers see own org; agents/admins see all)
+      parameters:
+        - name: severity
+          in: query
+          schema: { type: string, enum: [P1, P2, P3, P4] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [new, triaged, in_progress, awaiting_customer, resolved, closed] }
+        - name: orgId
+          in: query
+          schema: { type: integer }
+        - name: assignedToId
+          in: query
+          schema: { type: integer }
+        - name: unassigned
+          in: query
+          schema: { type: boolean }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: createdFrom
+          in: query
+          schema: { type: string }
+        - name: createdTo
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tickets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ticket"
+    post:
+      operationId: createTicket
+      tags: [tickets]
+      summary: Raise a new ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketInput"
+      responses:
+        "201":
+          description: Created ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+  /tickets/bulk:
+    post:
+      operationId: bulkUpdateTickets
+      tags: [tickets]
+      summary: Bulk assign or change status (agents/admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketBulkAction"
+      responses:
+        "200":
+          description: Updated tickets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ticket"
+  /tickets/{id}:
+    get:
+      operationId: getTicket
+      tags: [tickets]
+      summary: Ticket detail with thread, attachments, and history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Ticket detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /tickets/{id}/messages:
+    post:
+      operationId: addTicketMessage
+      tags: [tickets]
+      summary: Add a reply or internal note to a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketMessageInput"
+      responses:
+        "201":
+          description: Created message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketMessage"
+  /tickets/{id}/status:
+    post:
+      operationId: changeTicketStatus
+      tags: [tickets]
+      summary: Change ticket status (agents/admins only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketStatusChange"
+      responses:
+        "200":
+          description: Updated ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+  /tickets/{id}/assign:
+    post:
+      operationId: assignTicket
+      tags: [tickets]
+      summary: Assign ticket to an agent (agents/admins only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketAssignment"
+      responses:
+        "200":
+          description: Updated ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+  /tickets/{id}/attachments:
+    post:
+      operationId: addTicketAttachment
+      tags: [tickets]
+      summary: Attach a file to a ticket (base64 payload, max 5 MB)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketAttachmentInput"
+      responses:
+        "201":
+          description: Created attachment metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketAttachment"
+  /attachments/{id}/content:
+    get:
+      operationId: getAttachmentContent
+      tags: [tickets]
+      summary: Download attachment content (base64)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Attachment with content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketAttachmentContent"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Customer dashboard summary cards
+      responses:
+        "200":
+          description: Summary counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /agent/metrics:
+    get:
+      operationId: getAgentMetrics
+      tags: [dashboard]
+      summary: Agent dashboard metrics strip (agents/admins only)
+      responses:
+        "200":
+          description: Agent metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentMetrics"
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List in-app notifications for the current user
+      responses:
+        "200":
+          description: Notifications, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppNotification"
+  /notifications/read:
+    post:
+      operationId: markNotificationsRead
+      tags: [notifications]
+      summary: Mark notifications as read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationReadRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /kb/articles:
+    get:
+      operationId: listKbArticles
+      tags: [kb]
+      summary: List/search knowledge base articles
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: category
+          in: query
+          schema: { type: string, enum: [getting_started, infrastructure_deployment, troubleshooting, security_compliance, release_notes] }
+        - name: includeUnpublished
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KbArticleSummary"
+    post:
+      operationId: createKbArticle
+      tags: [kb]
+      summary: Create a KB article (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KbArticleInput"
+      responses:
+        "201":
+          description: Created article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KbArticle"
+  /kb/articles/{id}:
+    get:
+      operationId: getKbArticle
+      tags: [kb]
+      summary: Get a KB article
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KbArticle"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+    patch:
+      operationId: updateKbArticle
+      tags: [kb]
+      summary: Update a KB article (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KbArticleUpdate"
+      responses:
+        "200":
+          description: Updated article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KbArticle"
+    delete:
+      operationId: deleteKbArticle
+      tags: [kb]
+      summary: Delete a KB article (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /kb/articles/{id}/feedback:
+    post:
+      operationId: submitKbFeedback
+      tags: [kb]
+      summary: Submit helpful / not helpful feedback
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Updated article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KbArticle"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KbFeedback"
+  /team/agents:
+    get:
+      operationId: listAgents
+      tags: [team]
+      summary: List Ekai agents and admins for assignment (agents/admins only)
+      responses:
+        "200":
+          description: Agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PortalUser"
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      summary: List all portal users (admin only)
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PortalUser"
+  /admin/users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [admin]
+      summary: Update user role, org, or active state (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortalUserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalUser"
+  /admin/invites:
+    get:
+      operationId: listInvites
+      tags: [admin]
+      summary: List invites (admin only)
+      responses:
+        "200":
+          description: Invites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invite"
+    post:
+      operationId: createInvite
+      tags: [admin]
+      summary: Invite a user (admin only); returns invite link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteInput"
+      responses:
+        "201":
+          description: Created invite (token included once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invite"
+  /admin/orgs:
+    get:
+      operationId: listOrgs
+      tags: [admin]
+      summary: List customer organisations (agents/admins only)
+      responses:
+        "200":
+          description: Organisations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Organisation"
+    post:
+      operationId: createOrg
+      tags: [admin]
+      summary: Create a customer organisation (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganisationInput"
+      responses:
+        "201":
+          description: Created organisation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organisation"
+  /admin/sla-config:
+    get:
+      operationId: getSlaConfig
+      tags: [admin]
+      summary: Get SLA targets per severity (agents/admins only)
+      responses:
+        "200":
+          description: SLA configuration
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SlaTarget"
+    put:
+      operationId: updateSlaConfig
+      tags: [admin]
+      summary: Update SLA targets (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlaConfigUpdate"
+      responses:
+        "200":
+          description: Updated SLA configuration
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SlaTarget"
+  /admin/reports:
+    get:
+      operationId: getReports
+      tags: [admin]
+      summary: Reporting summary (admin only)
+      responses:
+        "200":
+          description: Reports
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSummary"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +650,342 @@ components:
           type: string
       required:
         - status
-
+    ApiMessage:
+      type: object
+      properties:
+        message: { type: string }
+        code: { type: ["string", "null"] }
+      required: [message]
+    PortalUser:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [customer, ekai_agent, admin] }
+        orgId: { type: ["integer", "null"] }
+        orgName: { type: ["string", "null"] }
+        active: { type: boolean }
+        createdAt: { type: string }
+        lastLogin: { type: ["string", "null"] }
+      required: [id, email, name, role, orgId, orgName, active, createdAt, lastLogin]
+    PortalUserUpdate:
+      type: object
+      properties:
+        role: { type: string, enum: [customer, ekai_agent, admin] }
+        orgId: { type: ["integer", "null"] }
+        active: { type: boolean }
+        name: { type: string }
+    Organisation:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        domain: { type: ["string", "null"] }
+        createdAt: { type: string }
+        userCount: { type: integer }
+      required: [id, name, domain, createdAt, userCount]
+    OrganisationInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        domain: { type: string }
+      required: [name]
+    Invite:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        role: { type: string, enum: [customer, ekai_agent, admin] }
+        orgId: { type: ["integer", "null"] }
+        orgName: { type: ["string", "null"] }
+        token: { type: ["string", "null"] }
+        inviteUrl: { type: ["string", "null"] }
+        expiresAt: { type: string }
+        usedAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+      required: [id, email, role, orgId, orgName, token, inviteUrl, expiresAt, usedAt, createdAt]
+    InviteInput:
+      type: object
+      properties:
+        email: { type: string, minLength: 3 }
+        role: { type: string, enum: [customer, ekai_agent, admin] }
+        orgId: { type: ["integer", "null"] }
+      required: [email, role]
+    InviteAcceptance:
+      type: object
+      properties:
+        token: { type: string, minLength: 1 }
+      required: [token]
+    InvitePreview:
+      type: object
+      properties:
+        email: { type: string }
+        role: { type: string, enum: [customer, ekai_agent, admin] }
+        orgName: { type: ["string", "null"] }
+        expiresAt: { type: string }
+      required: [email, role, orgName, expiresAt]
+    SlaInfo:
+      type: object
+      description: Computed SLA state for a ticket
+      properties:
+        responseDeadline: { type: ["string", "null"] }
+        resolutionDeadline: { type: ["string", "null"] }
+        responseMet: { type: ["boolean", "null"] }
+        resolutionMet: { type: ["boolean", "null"] }
+        paused: { type: boolean }
+        resolutionPlanned: { type: boolean, description: "True for P4 resolution (shown as Planned)" }
+        responsePctElapsed: { type: ["number", "null"], description: "0-100+, null once met" }
+        resolutionPctElapsed: { type: ["number", "null"] }
+        responseBreached: { type: boolean }
+        resolutionBreached: { type: boolean }
+      required: [responseDeadline, resolutionDeadline, responseMet, resolutionMet, paused, resolutionPlanned, responsePctElapsed, resolutionPctElapsed, responseBreached, resolutionBreached]
+    Ticket:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        severity: { type: string, enum: [P1, P2, P3, P4] }
+        status: { type: string, enum: [new, triaged, in_progress, awaiting_customer, resolved, closed] }
+        category: { type: string, enum: [infrastructure, platform, configuration, billing, other] }
+        environment: { type: string, enum: [aws, azure, gcp, snowflake, multiple] }
+        orgId: { type: integer }
+        orgName: { type: string }
+        raisedById: { type: integer }
+        raisedByName: { type: string }
+        assignedToId: { type: ["integer", "null"] }
+        assignedToName: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        firstResponseAt: { type: ["string", "null"] }
+        resolvedAt: { type: ["string", "null"] }
+        sla:
+          $ref: "#/components/schemas/SlaInfo"
+      required: [id, title, description, severity, status, category, environment, orgId, orgName, raisedById, raisedByName, assignedToId, assignedToName, createdAt, updatedAt, firstResponseAt, resolvedAt, sla]
+    TicketInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+        severity: { type: string, enum: [P1, P2, P3, P4] }
+        category: { type: string, enum: [infrastructure, platform, configuration, billing, other] }
+        environment: { type: string, enum: [aws, azure, gcp, snowflake, multiple] }
+      required: [title, description, severity, category, environment]
+    TicketMessage:
+      type: object
+      properties:
+        id: { type: integer }
+        ticketId: { type: integer }
+        authorId: { type: integer }
+        authorName: { type: string }
+        authorRole: { type: string, enum: [customer, ekai_agent, admin] }
+        content: { type: string }
+        isInternal: { type: boolean }
+        createdAt: { type: string }
+      required: [id, ticketId, authorId, authorName, authorRole, content, isInternal, createdAt]
+    TicketMessageInput:
+      type: object
+      properties:
+        content: { type: string, minLength: 1 }
+        isInternal: { type: boolean, default: false }
+      required: [content]
+    TicketStatusChange:
+      type: object
+      properties:
+        status: { type: string, enum: [new, triaged, in_progress, awaiting_customer, resolved, closed] }
+      required: [status]
+    TicketAssignment:
+      type: object
+      properties:
+        assignedToId: { type: ["integer", "null"] }
+      required: [assignedToId]
+    TicketBulkAction:
+      type: object
+      properties:
+        ticketIds:
+          type: array
+          items: { type: integer }
+          minItems: 1
+        status: { type: string, enum: [new, triaged, in_progress, awaiting_customer, resolved, closed] }
+        assignedToId: { type: ["integer", "null"] }
+      required: [ticketIds]
+    TicketAttachment:
+      type: object
+      properties:
+        id: { type: integer }
+        ticketId: { type: integer }
+        messageId: { type: ["integer", "null"] }
+        filename: { type: string }
+        contentType: { type: string }
+        sizeBytes: { type: integer }
+        createdAt: { type: string }
+      required: [id, ticketId, messageId, filename, contentType, sizeBytes, createdAt]
+    TicketAttachmentInput:
+      type: object
+      properties:
+        filename: { type: string, minLength: 1 }
+        contentType: { type: string, minLength: 1 }
+        data: { type: string, description: "Base64-encoded file content, max 5 MB decoded" }
+        messageId: { type: ["integer", "null"] }
+      required: [filename, contentType, data]
+    TicketAttachmentContent:
+      type: object
+      properties:
+        id: { type: integer }
+        filename: { type: string }
+        contentType: { type: string }
+        data: { type: string, description: "Base64-encoded file content" }
+      required: [id, filename, contentType, data]
+    StatusHistoryEntry:
+      type: object
+      properties:
+        id: { type: integer }
+        ticketId: { type: integer }
+        fromStatus: { type: ["string", "null"] }
+        toStatus: { type: string }
+        changedById: { type: ["integer", "null"] }
+        changedByName: { type: string }
+        createdAt: { type: string }
+      required: [id, ticketId, fromStatus, toStatus, changedById, changedByName, createdAt]
+    TicketDetail:
+      type: object
+      properties:
+        ticket:
+          $ref: "#/components/schemas/Ticket"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/TicketMessage"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/TicketAttachment"
+        statusHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusHistoryEntry"
+      required: [ticket, messages, attachments, statusHistory]
+    DashboardSummary:
+      type: object
+      properties:
+        openCount: { type: integer, description: "new + triaged" }
+        inProgressCount: { type: integer, description: "in_progress + awaiting_customer" }
+        resolvedLast30Days: { type: integer }
+        recentTickets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ticket"
+      required: [openCount, inProgressCount, resolvedLast30Days, recentTickets]
+    AgentMetrics:
+      type: object
+      properties:
+        openP1Count: { type: integer }
+        slaBreachesToday: { type: integer }
+        avgFirstResponseHoursThisWeek: { type: ["number", "null"] }
+        openTicketCount: { type: integer }
+        unassignedCount: { type: integer }
+      required: [openP1Count, slaBreachesToday, avgFirstResponseHoursThisWeek, openTicketCount, unassignedCount]
+    AppNotification:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { type: string, enum: [ticket_created, agent_reply, status_changed, new_critical_ticket, sla_warning, invite] }
+        title: { type: string }
+        body: { type: string }
+        ticketId: { type: ["integer", "null"] }
+        emailTo: { type: ["string", "null"], description: "Where the email would be sent once a provider is wired up" }
+        read: { type: boolean }
+        createdAt: { type: string }
+      required: [id, type, title, body, ticketId, emailTo, read, createdAt]
+    NotificationReadRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items: { type: integer }
+        all: { type: boolean, default: false }
+    KbArticleSummary:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        category: { type: string, enum: [getting_started, infrastructure_deployment, troubleshooting, security_compliance, release_notes] }
+        excerpt: { type: string }
+        published: { type: boolean }
+        helpfulCount: { type: integer }
+        notHelpfulCount: { type: integer }
+        updatedAt: { type: string }
+      required: [id, title, category, excerpt, published, helpfulCount, notHelpfulCount, updatedAt]
+    KbArticle:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        content: { type: string, description: "Markdown content" }
+        category: { type: string, enum: [getting_started, infrastructure_deployment, troubleshooting, security_compliance, release_notes] }
+        authorId: { type: ["integer", "null"] }
+        authorName: { type: string }
+        published: { type: boolean }
+        helpfulCount: { type: integer }
+        notHelpfulCount: { type: integer }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+      required: [id, title, content, category, authorId, authorName, published, helpfulCount, notHelpfulCount, createdAt, updatedAt]
+    KbArticleInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        content: { type: string, minLength: 1 }
+        category: { type: string, enum: [getting_started, infrastructure_deployment, troubleshooting, security_compliance, release_notes] }
+        published: { type: boolean, default: true }
+      required: [title, content, category]
+    KbArticleUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        content: { type: string, minLength: 1 }
+        category: { type: string, enum: [getting_started, infrastructure_deployment, troubleshooting, security_compliance, release_notes] }
+        published: { type: boolean }
+    KbFeedback:
+      type: object
+      properties:
+        helpful: { type: boolean }
+      required: [helpful]
+    SlaTarget:
+      type: object
+      properties:
+        severity: { type: string, enum: [P1, P2, P3, P4] }
+        firstResponseMinutes: { type: integer, description: "Business minutes unless use24x7" }
+        resolutionMinutes: { type: ["integer", "null"], description: "Null means Planned (P4)" }
+        use24x7: { type: boolean, description: "True = wall-clock, false = business hours 09:00-18:00 UTC Mon-Fri" }
+      required: [severity, firstResponseMinutes, resolutionMinutes, use24x7]
+    SlaConfigUpdate:
+      type: object
+      properties:
+        targets:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlaTarget"
+          minItems: 1
+      required: [targets]
+    WeeklyVolumePoint:
+      type: object
+      properties:
+        weekStart: { type: string }
+        created: { type: integer }
+        resolved: { type: integer }
+      required: [weekStart, created, resolved]
+    ReportSummary:
+      type: object
+      properties:
+        weeklyVolume:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeeklyVolumePoint"
+        avgResolutionHours: { type: ["number", "null"] }
+        slaResponseCompliancePct: { type: ["number", "null"] }
+        slaResolutionCompliancePct: { type: ["number", "null"] }
+        totalTickets: { type: integer }
+        openTickets: { type: integer }
+      required: [weeklyVolume, avgResolutionHours, slaResponseCompliancePct, slaResolutionCompliancePct, totalTickets, openTickets]
