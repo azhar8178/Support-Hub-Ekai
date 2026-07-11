@@ -2,10 +2,11 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest
 import { db, pushTokensTable, notificationsTable, type User } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { Fixtures } from "./fixtures";
-import { sendExpoPushToUsers } from "../lib/push";
+import { sendExpoPushToUsers, checkPushReceipts, RECEIPT_DELAY_MS } from "../lib/push";
 import { notifyUsers, type NotificationPayload } from "../lib/notify";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+const EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts";
 
 const fx = new Fixtures();
 
@@ -222,6 +223,238 @@ describe("sendExpoPushToUsers", () => {
 
     await expect(sendExpoPushToUsers([user.id], payload)).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+function receiptsResponse(receipts: Record<string, unknown>): Response {
+  return new Response(JSON.stringify({ data: receipts }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+describe("checkPushReceipts", () => {
+  it("fetches receipts for the given ticket IDs with the right request shape", async () => {
+    const fetchMock = vi.fn(async () => receiptsResponse({ "r-1": { status: "ok" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await checkPushReceipts(new Map([["r-1", token("receipt-shape")]]));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit];
+    expect(url).toBe(EXPO_RECEIPTS_URL);
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>)["content-type"]).toBe("application/json");
+    expect(JSON.parse(init.body as string)).toEqual({ ids: ["r-1"] });
+  });
+
+  it("does nothing for an empty ticket map", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await checkPushReceipts(new Map());
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("prunes tokens whose receipts report DeviceNotRegistered, keeping the rest", async () => {
+    const dead = token("receipt-dead");
+    const alive = token("receipt-alive");
+    await addToken(user.id, dead);
+    await addToken(user.id, alive);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        receiptsResponse({
+          "r-dead": {
+            status: "error",
+            message: "device gone",
+            details: { error: "DeviceNotRegistered" },
+          },
+          "r-alive": { status: "ok" },
+        }),
+      ),
+    );
+
+    await checkPushReceipts(
+      new Map([
+        ["r-dead", dead],
+        ["r-alive", alive],
+      ]),
+    );
+
+    const remaining = await tokensFor(user.id);
+    expect(remaining).toContain(alive);
+    expect(remaining).not.toContain(dead);
+  });
+
+  it("does not prune tokens for other receipt errors (e.g. InvalidCredentials)", async () => {
+    const t = token("receipt-creds");
+    await addToken(user.id, t);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        receiptsResponse({
+          "r-creds": {
+            status: "error",
+            message: "bad push credentials",
+            details: { error: "InvalidCredentials" },
+          },
+        }),
+      ),
+    );
+
+    await checkPushReceipts(new Map([["r-creds", t]]));
+
+    expect(await tokensFor(user.id)).toContain(t);
+  });
+
+  it("does not prune when a receipt is missing from the response", async () => {
+    const t = token("receipt-missing");
+    await addToken(user.id, t);
+
+    vi.stubGlobal("fetch", vi.fn(async () => receiptsResponse({})));
+
+    await checkPushReceipts(new Map([["r-missing", t]]));
+
+    expect(await tokensFor(user.id)).toContain(t);
+  });
+
+  it("logs and returns (no throw) when the receipts endpoint responds with an HTTP error", async () => {
+    const t = token("receipt-http");
+    await addToken(user.id, t);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("Internal Server Error", { status: 500 })),
+    );
+
+    await expect(checkPushReceipts(new Map([["r-http", t]]))).resolves.toBeUndefined();
+    expect(await tokensFor(user.id)).toContain(t);
+  });
+
+  it("logs and returns (no throw) when the receipts request fails on the network", async () => {
+    const t = token("receipt-net");
+    await addToken(user.id, t);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("ECONNRESET");
+      }),
+    );
+
+    await expect(checkPushReceipts(new Map([["r-net", t]]))).resolves.toBeUndefined();
+    expect(await tokensFor(user.id)).toContain(t);
+  });
+
+  it("splits receipt requests into chunks of at most 300 IDs", async () => {
+    const total = 301;
+    const entries = Array.from(
+      { length: total },
+      (_, i) => [`r-chunk-${i}`, token(`receipt-chunk-${i}`)] as const,
+    );
+
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const { ids } = JSON.parse(init.body as string) as { ids: string[] };
+      return receiptsResponse(Object.fromEntries(ids.map((id) => [id, { status: "ok" }])));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await checkPushReceipts(new Map(entries));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const sizes = fetchMock.mock.calls.map(
+      (c) => (JSON.parse((c[1] as RequestInit).body as string) as { ids: string[] }).ids.length,
+    );
+    expect(sizes).toEqual([300, 1]);
+  });
+});
+
+describe("receipt check scheduling after a send", () => {
+  it("fetches receipts for successful tickets after the delay and prunes late DeviceNotRegistered", async () => {
+    vi.useFakeTimers();
+    try {
+      const dead = token("late-dead");
+      const alive = token("late-alive");
+      await addToken(user.id, dead);
+      await addToken(user.id, alive);
+
+      const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
+        if (url === EXPO_PUSH_URL) {
+          const chunk = JSON.parse(init.body as string) as { to: string }[];
+          return okResponse(
+            chunk.map((m) => ({ status: "ok", id: m.to === dead ? "t-dead" : "t-alive" })),
+          );
+        }
+        return receiptsResponse({
+          "t-dead": {
+            status: "error",
+            message: "gone",
+            details: { error: "DeviceNotRegistered" },
+          },
+          "t-alive": { status: "ok" },
+        });
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await sendExpoPushToUsers([user.id], payload);
+
+      // Only the send has happened so far — no receipts call before the delay.
+      const receiptCalls = () =>
+        fetchMock.mock.calls.filter((c) => c[0] === EXPO_RECEIPTS_URL).length;
+      expect(receiptCalls()).toBe(0);
+
+      await vi.advanceTimersByTimeAsync(RECEIPT_DELAY_MS);
+
+      expect(receiptCalls()).toBe(1);
+      const receiptCall = fetchMock.mock.calls.find((c) => c[0] === EXPO_RECEIPTS_URL)!;
+      const { ids } = JSON.parse((receiptCall[1] as RequestInit).body as string) as {
+        ids: string[];
+      };
+      expect(new Set(ids)).toEqual(new Set(["t-dead", "t-alive"]));
+
+      // The prune is a real async DB delete fired inside the timer callback;
+      // switch back to real timers and poll until it lands.
+      vi.useRealTimers();
+      const deadline = Date.now() + 5000;
+      let remaining = await tokensFor(user.id);
+      while (remaining.includes(dead) && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50));
+        remaining = await tokensFor(user.id);
+      }
+      expect(remaining).toContain(alive);
+      expect(remaining).not.toContain(dead);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not schedule a receipt check when no tickets came back with IDs", async () => {
+    vi.useFakeTimers();
+    try {
+      const t = token("no-ids");
+      await addToken(user.id, t);
+
+      const fetchMock = vi.fn(async () =>
+        okResponse([
+          { status: "error", message: "rate limited", details: { error: "MessageRateExceeded" } },
+        ]),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      await sendExpoPushToUsers([user.id], payload);
+      await vi.advanceTimersByTimeAsync(RECEIPT_DELAY_MS * 2);
+
+      expect(
+        (fetchMock.mock.calls as unknown[][]).every((c) => c[0] === EXPO_PUSH_URL),
+      ).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
