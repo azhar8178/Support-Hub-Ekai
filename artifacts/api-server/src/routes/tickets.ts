@@ -23,7 +23,13 @@ import {
   ListTicketsResponse,
   BulkUpdateTicketsResponse,
 } from "@workspace/api-zod";
+import { randomUUID } from "crypto";
 import { isStaff, requireAuth, requireRole } from "../middlewares/requireAuth";
+import {
+  ObjectNotFoundError,
+  readAttachmentObject,
+  saveAttachmentObject,
+} from "../lib/objectStorage";
 import { loadTicketDto, loadTicketsWhere } from "../lib/serializers";
 import { computeInitialDeadlines } from "../lib/sla";
 import { applyStatusChange, notifyTicketCreated } from "../lib/ticketActions";
@@ -410,7 +416,8 @@ router.post("/tickets/:id/attachments", requireAuth, async (req, res): Promise<v
     res.status(400).json({ message: parsed.error.message });
     return;
   }
-  const sizeBytes = Math.floor((parsed.data.data.length * 3) / 4);
+  const fileBytes = Buffer.from(parsed.data.data, "base64");
+  const sizeBytes = fileBytes.length;
   if (sizeBytes > MAX_ATTACHMENT_BYTES) {
     res.status(400).json({ message: "Attachments are limited to 5 MB." });
     return;
@@ -429,6 +436,9 @@ router.post("/tickets/:id/attachments", requireAuth, async (req, res): Promise<v
       return;
     }
   }
+  // File bytes go to object storage; the DB row keeps only metadata + storage key.
+  const storageKey = `attachments/${result.ticket.id}/${randomUUID()}`;
+  await saveAttachmentObject(storageKey, fileBytes, parsed.data.contentType);
   const [attachment] = await db
     .insert(ticketAttachmentsTable)
     .values({
@@ -437,7 +447,7 @@ router.post("/tickets/:id/attachments", requireAuth, async (req, res): Promise<v
       filename: parsed.data.filename,
       contentType: parsed.data.contentType,
       sizeBytes,
-      data: parsed.data.data,
+      storageKey,
     })
     .returning();
   res.status(201).json({
@@ -482,11 +492,21 @@ router.get("/attachments/:id/content", requireAuth, async (req, res): Promise<vo
       return;
     }
   }
+  let fileBytes: Buffer;
+  try {
+    fileBytes = await readAttachmentObject(attachment.storageKey);
+  } catch (err) {
+    if (err instanceof ObjectNotFoundError) {
+      res.status(404).json({ message: "Attachment content is no longer available." });
+      return;
+    }
+    throw err;
+  }
   res.json({
     id: attachment.id,
     filename: attachment.filename,
     contentType: attachment.contentType,
-    data: attachment.data,
+    data: fileBytes.toString("base64"),
   });
 });
 

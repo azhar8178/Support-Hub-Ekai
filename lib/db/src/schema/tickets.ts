@@ -81,7 +81,8 @@ export const ticketAttachmentsTable = pgTable("ticket_attachments", {
   filename: text("filename").notNull(),
   contentType: text("content_type").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
-  data: text("data").notNull(), // base64
+  // Object storage key under PRIVATE_OBJECT_DIR; file bytes live in App Storage, not the DB.
+  storageKey: text("storage_key").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

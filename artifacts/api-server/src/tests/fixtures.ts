@@ -14,6 +14,8 @@ import {
   type User,
 } from "@workspace/db";
 import { inArray, or } from "drizzle-orm";
+import { randomUUID } from "crypto";
+import { deleteAttachmentObject, saveAttachmentObject } from "../lib/objectStorage";
 
 /**
  * Tracks every row a test creates so cleanup removes exactly (and only)
@@ -23,6 +25,7 @@ export class Fixtures {
   private orgIds: number[] = [];
   private userIds: number[] = [];
   private ticketIds: number[] = [];
+  private storageKeys: string[] = [];
   readonly suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
   async createOrg(name: string): Promise<Organisation> {
@@ -111,6 +114,9 @@ export class Fixtures {
     messageId?: number | null;
     filename?: string;
   }): Promise<TicketAttachment> {
+    const storageKey = `attachments/${input.ticketId}/test-${randomUUID()}`;
+    await saveAttachmentObject(storageKey, Buffer.from("aGVsbG8=", "base64"), "text/plain");
+    this.storageKeys.push(storageKey);
     const [attachment] = await db
       .insert(ticketAttachmentsTable)
       .values({
@@ -119,7 +125,7 @@ export class Fixtures {
         filename: input.filename ?? "test.txt",
         contentType: "text/plain",
         sizeBytes: 5,
-        data: "aGVsbG8=",
+        storageKey,
       })
       .returning();
     return attachment!;
@@ -127,6 +133,9 @@ export class Fixtures {
 
   /** Delete everything this fixture set created, respecting FK order. */
   async cleanup(): Promise<void> {
+    await Promise.all(
+      this.storageKeys.map((key) => deleteAttachmentObject(key).catch(() => undefined)),
+    );
     if (this.ticketIds.length > 0 || this.userIds.length > 0) {
       const conds = [];
       if (this.ticketIds.length > 0)
