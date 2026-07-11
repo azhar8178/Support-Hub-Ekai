@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,13 +6,16 @@ import { z } from "zod";
 import { 
   useCreateTicket, 
   useAddTicketAttachment,
+  useListKbArticles,
+  getListKbArticlesQueryKey,
   TicketInputSeverity,
   TicketInputCategory,
   TicketInputEnvironment
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
+import { useDebounce } from "@/hooks/use-debounce";
 
-import { ArrowLeft, Paperclip, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Paperclip, X, Loader2, BookOpen, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,6 +70,20 @@ export default function TicketNewPage() {
 
   const createTicket = useCreateTicket();
   const addAttachment = useAddTicketAttachment();
+
+  const title = form.watch("title");
+  const debouncedTitle = useDebounce(title.trim(), 350);
+  const kbSearchEnabled = debouncedTitle.length >= 3;
+  const kbParams = useMemo(() => ({ search: debouncedTitle }), [debouncedTitle]);
+  const suggestions = useListKbArticles(kbParams, {
+    query: {
+      queryKey: getListKbArticlesQueryKey(kbParams),
+      enabled: kbSearchEnabled,
+      placeholderData: (prev) => prev,
+    },
+  });
+  const suggestedArticles = kbSearchEnabled ? (suggestions.data ?? []).slice(0, 3) : [];
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -160,6 +177,40 @@ export default function TicketNewPage() {
                   </FormItem>
                 )}
               />
+
+              {suggestedArticles.length > 0 && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50/70 overflow-hidden" data-testid="kb-suggestions">
+                  <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+                    <BookOpen className="h-4 w-4 text-[#2563EB]" />
+                    <span className="text-sm font-semibold text-[#0F1F3D]">These articles might help</span>
+                  </div>
+                  <div className="divide-y divide-slate-200">
+                    {suggestedArticles.map((article) => (
+                      <a
+                        key={article.id}
+                        href={`${basePath}/kb/${article.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-testid={`kb-suggestion-${article.id}`}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-white transition-colors group"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-[#0F1F3D] group-hover:text-[#2563EB] transition-colors truncate">
+                            {article.title}
+                          </p>
+                          {article.excerpt && (
+                            <p className="text-xs text-slate-500 truncate mt-0.5">{article.excerpt}</p>
+                          )}
+                        </div>
+                        <ExternalLink className="h-3.5 w-3.5 text-slate-400 shrink-0 group-hover:text-[#2563EB] transition-colors" />
+                      </a>
+                    ))}
+                  </div>
+                  <p className="px-4 py-2 text-[11px] text-slate-400 border-t border-slate-200">
+                    Articles open in a new tab — your draft stays here.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField
