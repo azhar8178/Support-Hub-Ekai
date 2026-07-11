@@ -75,6 +75,15 @@ function PortalTabs() {
         }}
       />
       <Tabs.Screen
+        name="help"
+        options={{
+          title: 'Help',
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="book-open" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
           title: 'Notifications',

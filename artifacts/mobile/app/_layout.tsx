@@ -68,6 +68,7 @@ export default function RootLayout() {
                     <Stack.Screen name="(auth)/sign-in" />
                     <Stack.Screen name="(tabs)" />
                     <Stack.Screen name="ticket/[id]" />
+                    <Stack.Screen name="kb/[id]" />
                     <Stack.Screen name="new-ticket" options={{ presentation: 'modal' }} />
                   </Stack>
                 </KeyboardProvider>

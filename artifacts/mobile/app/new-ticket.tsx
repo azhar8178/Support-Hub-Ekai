@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -8,12 +8,16 @@ import {
   TicketCategory,
   TicketEnvironment,
   TicketSeverity,
+  getListKbArticlesQueryKey,
   getListTicketsQueryKey,
   useCreateTicket,
+  useListKbArticles,
 } from '@workspace/api-client-react';
 import { SEVERITY_META } from '@/components/TicketBadges';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
+import { kbCategoryLabel } from '@/components/kb';
 import { useColors } from '@/hooks/useColors';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useScreenInsets } from '@/hooks/useWebInsets';
 
 const SEVERITY_HELP: Record<string, string> = {
@@ -58,6 +62,18 @@ export default function NewTicketScreen() {
   });
 
   const canSubmit = title.trim().length > 0 && description.trim().length > 0 && !createTicket.isPending;
+
+  const debouncedTitle = useDebouncedValue(title.trim(), 350);
+  const kbSearchEnabled = debouncedTitle.length >= 3;
+  const kbParams = useMemo(() => ({ search: debouncedTitle }), [debouncedTitle]);
+  const suggestions = useListKbArticles(kbParams, {
+    query: {
+      queryKey: getListKbArticlesQueryKey(kbParams),
+      enabled: kbSearchEnabled,
+      placeholderData: (prev) => prev,
+    },
+  });
+  const suggestedArticles = kbSearchEnabled ? (suggestions.data ?? []).slice(0, 3) : [];
 
   const onSubmit = () => {
     if (!canSubmit) return;
@@ -111,6 +127,50 @@ export default function NewTicketScreen() {
           onChangeText={setTitle}
           maxLength={200}
         />
+
+        {suggestedArticles.length > 0 ? (
+          <View
+            style={[
+              styles.suggestBox,
+              { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+            ]}
+          >
+            <View style={styles.suggestHeader}>
+              <Feather name="book-open" size={14} color={colors.accent} />
+              <Text style={[styles.suggestTitle, { color: colors.foreground }]}>
+                These articles might help
+              </Text>
+            </View>
+            {suggestedArticles.map((article, i) => (
+              <Pressable
+                key={article.id}
+                testID={`kb-suggestion-${article.id}`}
+                onPress={() => router.push(`/kb/${article.id}`)}
+                style={({ pressed }) => [
+                  styles.suggestItem,
+                  {
+                    borderTopColor: colors.border,
+                    borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <View style={styles.suggestItemText}>
+                  <Text
+                    style={[styles.suggestItemTitle, { color: colors.foreground }]}
+                    numberOfLines={1}
+                  >
+                    {article.title}
+                  </Text>
+                  <Text style={[styles.suggestItemMeta, { color: colors.mutedForeground }]}>
+                    {kbCategoryLabel(article.category)}
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         <Text style={[styles.label, { color: colors.foreground }]}>Description</Text>
         <TextInput
@@ -337,5 +397,40 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
+  },
+  suggestBox: {
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  suggestHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  suggestTitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  suggestItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  suggestItemText: {
+    flex: 1,
+    gap: 1,
+  },
+  suggestItemTitle: {
+    fontSize: 13.5,
+    fontFamily: 'Inter_500Medium',
+  },
+  suggestItemMeta: {
+    fontSize: 11.5,
+    fontFamily: 'Inter_400Regular',
   },
 });
