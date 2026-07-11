@@ -649,6 +649,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CustomerDetail"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Deactivate a customer account (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Customer deactivated
   /admin/users:
     get:
       operationId: listUsers

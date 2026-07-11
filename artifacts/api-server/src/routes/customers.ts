@@ -212,4 +212,31 @@ router.patch(
   },
 );
 
+/** Deactivate a customer account (admin only). */
+router.delete(
+  "/customers/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const id = parseId(req);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ message: "Invalid customer id" });
+      return;
+    }
+    const [existing] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, id));
+    if (!existing || existing.role !== "customer") {
+      res.status(404).json({ message: "Customer not found" });
+      return;
+    }
+    await db
+      .update(usersTable)
+      .set({ active: false })
+      .where(eq(usersTable.id, id));
+    res.status(204).end();
+  },
+);
+
 export default router;

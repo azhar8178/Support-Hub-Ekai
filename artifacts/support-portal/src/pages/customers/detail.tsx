@@ -1,19 +1,39 @@
 import { useEffect, useState } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import {
   useGetCustomer,
   useUpdateCustomer,
+  useDeleteCustomer,
+  useListOrgs,
   getGetCustomerQueryKey,
   getListCustomersQueryKey,
 } from "@workspace/api-client-react";
+import { useGetCurrentUser } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Loader2, Save, Mail, Building2 } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Mail, Building2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SeverityBadge, StatusBadge } from "@/components/ticket-badges";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
@@ -22,6 +42,7 @@ import { Link } from "wouter";
 export default function CustomerDetailPage() {
   const { id } = useParams();
   const customerId = Number(id);
+  const [, setLocation] = useLocation();
 
   const { data: customer, isLoading, error } = useGetCustomer(customerId, {
     query: {
@@ -30,15 +51,21 @@ export default function CustomerDetailPage() {
     },
   });
 
+  const { data: currentUser } = useGetCurrentUser();
+  const { data: orgs } = useListOrgs();
   const updateCustomer = useUpdateCustomer();
+  const deleteCustomer = useDeleteCustomer();
 
   const [name, setName] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
+  const [orgId, setOrgId] = useState<string>("none");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (customer) {
       setName(customer.name);
       setInternalNotes(customer.internalNotes ?? "");
+      setOrgId(customer.orgId ? String(customer.orgId) : "none");
     }
   }, [customer]);
 
@@ -51,11 +78,24 @@ export default function CustomerDetailPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetCustomerQueryKey(customerId) });
-          // Also refresh the directory so an edited name/activity shows immediately on return.
           queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
           toast.success("Customer updated");
         },
         onError: (err: any) => toast.error(err?.message || "Failed to update customer"),
+      }
+    );
+  };
+
+  const handleDeactivate = () => {
+    deleteCustomer.mutate(
+      { id: customerId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
+          toast.success(`${customer?.name} has been deactivated`);
+          setLocation("/customers");
+        },
+        onError: (err: any) => toast.error(err?.message || "Failed to deactivate customer"),
       }
     );
   };
@@ -80,6 +120,8 @@ export default function CustomerDetailPage() {
     );
   }
 
+  const isAdmin = currentUser?.role === "admin";
+
   return (
     <div className="flex flex-col h-full bg-stone-50/50">
       {/* Header bar */}
@@ -89,18 +131,29 @@ export default function CustomerDetailPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-[#0F1F3D] tracking-tight">{customer.name}</h1>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <h1 className="text-xl font-bold text-[#0F1F3D] tracking-tight truncate">{customer.name}</h1>
           {customer.active ? (
-            <Badge variant="outline" className="font-medium bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50">
+            <Badge variant="outline" className="font-medium bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 shrink-0">
               Active
             </Badge>
           ) : (
-            <Badge variant="outline" className="font-medium bg-stone-100 text-stone-600 border-stone-200 hover:bg-stone-100">
+            <Badge variant="outline" className="font-medium bg-stone-100 text-stone-600 border-stone-200 hover:bg-stone-100 shrink-0">
               Inactive
             </Badge>
           )}
         </div>
+        {isAdmin && customer.active && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 shrink-0"
+            onClick={() => setConfirmDelete(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Deactivate
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 overflow-auto p-6">
@@ -195,33 +248,75 @@ export default function CustomerDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="customer-org" className="text-sm font-medium text-[#0F1F3D]">Company</Label>
+                  <Select value={orgId} onValueChange={setOrgId} disabled={!isAdmin}>
+                    <SelectTrigger id="customer-org" className="bg-white">
+                      <SelectValue placeholder="Select company..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No company</SelectItem>
+                      {orgs?.map((org) => (
+                        <SelectItem key={org.id} value={String(org.id)}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="internal-notes" className="text-sm font-medium text-[#0F1F3D]">Internal notes</Label>
                   <Textarea
                     id="internal-notes"
                     value={internalNotes}
                     onChange={(e) => setInternalNotes(e.target.value)}
                     placeholder="Staff-only notes to help recognise this customer..."
-                    className="min-h-[140px] bg-white resize-y"
+                    className="min-h-[120px] bg-white resize-y"
                   />
                   <p className="text-xs text-stone-500">Only visible to Ekai staff.</p>
                 </div>
                 <Button
                   onClick={handleSave}
                   disabled={updateCustomer.isPending}
-                  className="w-full bg-[#EFB323] hover:bg-[#D69E1E]"
+                  className="w-full bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D]"
                 >
                   {updateCustomer.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Save className="h-4 w-4 mr-2" />
                   )}
-                  Save
+                  Save changes
                 </Button>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+
+      {/* Deactivate confirmation */}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate {customer.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will prevent them from signing in to the portal. Their tickets and history are preserved.
+              You can reactivate them later by editing their account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteCustomer.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeactivate}
+              disabled={deleteCustomer.isPending}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600 text-white"
+            >
+              {deleteCustomer.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

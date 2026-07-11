@@ -914,6 +914,16 @@ export const UpdateCustomerResponse = zod.object({
 
 
 /**
+ * @summary Deactivate a customer account (admin only)
+ */
+export const DeleteCustomerParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteCustomerResponse = zod.void()
+
+
+/**
  * @summary List all portal users (admin only)
  */
 export const ListUsersResponseItem = zod.object({
