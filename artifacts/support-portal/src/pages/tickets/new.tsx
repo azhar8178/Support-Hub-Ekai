@@ -198,14 +198,14 @@ export default function TicketNewPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-6">
-        <Button variant="ghost" asChild className="mb-4 -ml-4 text-slate-500 hover:text-[#0F1F3D]">
+        <Button variant="ghost" asChild className="mb-4 -ml-4 text-stone-500 hover:text-[#0F1F3D]">
           <Link href="/tickets">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Tickets
           </Link>
         </Button>
         <h1 className="text-3xl font-bold tracking-tight text-[#0F1F3D]">Raise New Ticket</h1>
-        <p className="text-slate-500 mt-2">Submit a request to the Ekai engineering team.</p>
+        <p className="text-stone-500 mt-2">Submit a request to the Ekai engineering team.</p>
       </div>
 
       <Card>
@@ -228,12 +228,12 @@ export default function TicketNewPage() {
               />
 
               {suggestedArticles.length > 0 && (
-                <div className="rounded-lg border border-slate-200 bg-slate-50/70 overflow-hidden" data-testid="kb-suggestions">
+                <div className="rounded-lg border border-stone-200 bg-stone-50/70 overflow-hidden" data-testid="kb-suggestions">
                   <div className="flex items-center gap-2 px-4 pt-3 pb-1">
-                    <BookOpen className="h-4 w-4 text-[#2563EB]" />
+                    <BookOpen className="h-4 w-4 text-[#EFB323]" />
                     <span className="text-sm font-semibold text-[#0F1F3D]">These articles might help</span>
                   </div>
-                  <div className="divide-y divide-slate-200">
+                  <div className="divide-y divide-stone-200">
                     {suggestedArticles.map((article) => (
                       <a
                         key={article.id}
@@ -245,18 +245,18 @@ export default function TicketNewPage() {
                         className="flex items-center gap-3 px-4 py-3 hover:bg-white transition-colors group"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-[#0F1F3D] group-hover:text-[#2563EB] transition-colors truncate">
+                          <p className="text-sm font-medium text-[#0F1F3D] group-hover:text-[#B45309] transition-colors truncate">
                             {article.title}
                           </p>
                           {article.excerpt && (
-                            <p className="text-xs text-slate-500 truncate mt-0.5">{article.excerpt}</p>
+                            <p className="text-xs text-stone-500 truncate mt-0.5">{article.excerpt}</p>
                           )}
                         </div>
-                        <ExternalLink className="h-3.5 w-3.5 text-slate-400 shrink-0 group-hover:text-[#2563EB] transition-colors" />
+                        <ExternalLink className="h-3.5 w-3.5 text-stone-400 shrink-0 group-hover:text-[#EFB323] transition-colors" />
                       </a>
                     ))}
                   </div>
-                  <p className="px-4 py-2 text-[11px] text-slate-400 border-t border-slate-200">
+                  <p className="px-4 py-2 text-[11px] text-stone-400 border-t border-stone-200">
                     Articles open in a new tab — your draft stays here.
                   </p>
                 </div>
@@ -358,7 +358,7 @@ export default function TicketNewPage() {
                     <Button 
                       type="button" 
                       variant="outline" 
-                      className="border-slate-200 text-[#0F1F3D]"
+                      className="border-stone-200 text-[#0F1F3D]"
                       onClick={() => document.getElementById("file-upload")?.click()}
                     >
                       <Paperclip className="h-4 w-4 mr-2" />
@@ -371,20 +371,20 @@ export default function TicketNewPage() {
                       multiple 
                       onChange={handleFileChange}
                     />
-                    <span className="text-sm text-slate-500">Max 5MB per file</span>
+                    <span className="text-sm text-stone-500">Max 5MB per file</span>
                   </div>
                 </div>
 
                 {attachments.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-4">
                     {attachments.map((att, idx) => (
-                      <div key={idx} className="flex items-center bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-sm max-w-[250px]">
-                        <Paperclip className="h-3 w-3 text-slate-400 mr-2 shrink-0" />
-                        <span className="truncate flex-1 text-slate-700">{att.file.name}</span>
+                      <div key={idx} className="flex items-center bg-stone-50 border border-stone-200 rounded px-3 py-1.5 text-sm max-w-[250px]">
+                        <Paperclip className="h-3 w-3 text-stone-400 mr-2 shrink-0" />
+                        <span className="truncate flex-1 text-stone-700">{att.file.name}</span>
                         <button 
                           type="button" 
                           onClick={() => removeAttachment(idx)}
-                          className="ml-2 text-slate-400 hover:text-red-500 focus:outline-none shrink-0"
+                          className="ml-2 text-stone-400 hover:text-red-500 focus:outline-none shrink-0"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -394,7 +394,7 @@ export default function TicketNewPage() {
                 )}
               </div>
 
-              <div className="pt-6 border-t border-slate-100 flex justify-end gap-4">
+              <div className="pt-6 border-t border-stone-100 flex justify-end gap-4">
                 <Button 
                   type="button" 
                   variant="outline" 
@@ -405,7 +405,7 @@ export default function TicketNewPage() {
                 </Button>
                 <Button 
                   type="submit" 
-                  className="bg-[#2563EB] hover:bg-[#1d4ed8]"
+                  className="bg-[#EFB323] hover:bg-[#D69E1E]"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (

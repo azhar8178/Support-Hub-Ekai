@@ -16,13 +16,13 @@ const CATEGORY_MAP = {
   [KbArticleSummaryCategory.getting_started]: {
     label: "Getting Started",
     icon: Book,
-    color: "bg-blue-100 text-blue-700",
+    color: "bg-amber-100 text-amber-700",
     desc: "Basics of the Ekai semantic modeling layer"
   },
   [KbArticleSummaryCategory.infrastructure_deployment]: {
     label: "Infrastructure & Deployment",
     icon: Server,
-    color: "bg-indigo-100 text-indigo-700",
+    color: "bg-amber-100 text-amber-700",
     desc: "Deploying across AWS, Azure, GCP, and Snowflake"
   },
   [KbArticleSummaryCategory.troubleshooting]: {
@@ -67,21 +67,21 @@ export default function KbListPage() {
   });
 
   return (
-    <div className="flex flex-col min-h-full bg-slate-50/50">
+    <div className="flex flex-col min-h-full bg-stone-50/50">
       {/* Hero Section */}
-      <div className="bg-[#0F1F3D] py-16 px-6 text-center border-b border-slate-200">
+      <div className="bg-[#0F1F3D] py-16 px-6 text-center border-b border-stone-200">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-4">
           Ekai Knowledge Base
         </h1>
-        <p className="text-slate-300 max-w-2xl mx-auto mb-8 text-lg">
+        <p className="text-stone-300 max-w-2xl mx-auto mb-8 text-lg">
           Find deployment guides, troubleshoot integrations, and learn how to scale your semantic modeling layer.
         </p>
         
         <div className="max-w-2xl mx-auto relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-stone-400" />
           <Input 
             placeholder="Search articles, errors, or keywords..." 
-            className="pl-12 h-14 text-base rounded-full shadow-lg border-0 focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+            className="pl-12 h-14 text-base rounded-full shadow-lg border-0 focus-visible:ring-2 focus-visible:ring-[#EFB323]"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -93,7 +93,7 @@ export default function KbListPage() {
         {/* Categories Sidebar */}
         <div className="w-full md:w-64 flex-shrink-0 space-y-2">
           {isAdmin && (
-            <Button asChild className="w-full mb-6 bg-[#2563EB] hover:bg-[#1d4ed8]">
+            <Button asChild className="w-full mb-6 bg-[#EFB323] hover:bg-[#D69E1E]">
               <Link href="/kb/new">
                 <PlusCircle className="h-4 w-4 mr-2" />
                 New Article
@@ -101,12 +101,12 @@ export default function KbListPage() {
             </Button>
           )}
 
-          <h3 className="font-semibold text-sm text-slate-500 uppercase tracking-wider mb-4 px-3">Categories</h3>
+          <h3 className="font-semibold text-sm text-stone-500 uppercase tracking-wider mb-4 px-3">Categories</h3>
           
           <button
             onClick={() => setActiveCategory(null)}
             className={`w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              activeCategory === null ? 'bg-white shadow-sm text-[#2563EB]' : 'text-slate-600 hover:bg-slate-100'
+              activeCategory === null ? 'bg-white shadow-sm text-[#B45309]' : 'text-stone-600 hover:bg-stone-100'
             }`}
           >
             <Book className="h-4 w-4 mr-3 shrink-0" />
@@ -121,10 +121,10 @@ export default function KbListPage() {
                 key={key}
                 onClick={() => setActiveCategory(key)}
                 className={`w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive ? 'bg-white shadow-sm text-[#2563EB]' : 'text-slate-600 hover:bg-slate-100'
+                  isActive ? 'bg-white shadow-sm text-[#B45309]' : 'text-stone-600 hover:bg-stone-100'
                 }`}
               >
-                <Icon className={`h-4 w-4 mr-3 shrink-0 ${isActive ? 'text-[#2563EB]' : 'text-slate-400'}`} />
+                <Icon className={`h-4 w-4 mr-3 shrink-0 ${isActive ? 'text-[#EFB323]' : 'text-stone-400'}`} />
                 {info.label}
               </button>
             );
@@ -137,7 +137,7 @@ export default function KbListPage() {
             <h2 className="text-xl font-bold text-[#0F1F3D]">
               {activeCategory ? CATEGORY_MAP[activeCategory as keyof typeof CATEGORY_MAP].label : "Latest Articles"}
             </h2>
-            <span className="text-sm text-slate-500">
+            <span className="text-sm text-stone-500">
               {isLoading ? "..." : `${articles?.length || 0} articles`}
             </span>
           </div>
@@ -145,18 +145,18 @@ export default function KbListPage() {
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-pulse">
-                  <div className="h-5 bg-slate-200 rounded w-3/4 mb-3"></div>
-                  <div className="h-4 bg-slate-100 rounded w-full mb-2"></div>
-                  <div className="h-4 bg-slate-100 rounded w-2/3"></div>
+                <div key={i} className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm animate-pulse">
+                  <div className="h-5 bg-stone-200 rounded w-3/4 mb-3"></div>
+                  <div className="h-4 bg-stone-100 rounded w-full mb-2"></div>
+                  <div className="h-4 bg-stone-100 rounded w-2/3"></div>
                 </div>
               ))}
             </div>
           ) : articles?.length === 0 ? (
-            <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
-              <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+            <div className="bg-white p-12 rounded-xl border border-stone-200 text-center">
+              <FileText className="h-12 w-12 text-stone-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-[#0F1F3D]">No articles found</h3>
-              <p className="text-slate-500 mt-1">Try adjusting your search or category filter.</p>
+              <p className="text-stone-500 mt-1">Try adjusting your search or category filter.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -164,7 +164,7 @@ export default function KbListPage() {
                 const categoryInfo = CATEGORY_MAP[article.category] ?? CATEGORY_MAP.getting_started;
                 return (
                   <Link key={article.id} href={`/kb/${article.id}`}>
-                    <a className="block bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all group">
+                    <a className="block bg-white p-6 rounded-xl border border-stone-200 shadow-sm hover:shadow-md hover:border-stone-300 transition-all group">
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-3 mb-2">
@@ -172,21 +172,21 @@ export default function KbListPage() {
                               {categoryInfo.label}
                             </span>
                             {!article.published && (
-                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 border border-stone-200">
                                 Draft
                               </span>
                             )}
                           </div>
-                          <h3 className="text-lg font-semibold text-[#0F1F3D] group-hover:text-[#2563EB] transition-colors mb-2 line-clamp-1">
+                          <h3 className="text-lg font-semibold text-[#0F1F3D] group-hover:text-[#B45309] transition-colors mb-2 line-clamp-1">
                             {article.title}
                           </h3>
-                          <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                          <p className="text-sm text-stone-600 line-clamp-2 leading-relaxed">
                             {article.excerpt}
                           </p>
                         </div>
                       </div>
                       
-                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+                      <div className="mt-4 pt-4 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500 font-medium">
                         <span>Updated {formatDate(article.updatedAt)}</span>
                         <div className="flex items-center gap-4">
                           <span className="flex items-center text-emerald-600">

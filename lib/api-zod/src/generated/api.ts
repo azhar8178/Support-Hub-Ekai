@@ -774,6 +774,146 @@ export const ListAgentsResponse = zod.array(ListAgentsResponseItem)
 
 
 /**
+ * @summary List customer contacts with ticket activity (staff only)
+ */
+export const ListCustomersQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "orgId": zod.coerce.number().optional()
+})
+
+export const ListCustomersResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "orgId": zod.number().nullable(),
+  "orgName": zod.string().nullable(),
+  "active": zod.boolean(),
+  "createdAt": zod.string(),
+  "lastLogin": zod.string().nullable(),
+  "ticketCount": zod.number(),
+  "openTicketCount": zod.number(),
+  "lastActivityAt": zod.string().nullable()
+})
+export const ListCustomersResponse = zod.array(ListCustomersResponseItem)
+
+
+/**
+ * @summary Get a customer contact with ticket history and notes (staff only)
+ */
+export const GetCustomerParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCustomerResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "orgId": zod.number().nullable(),
+  "orgName": zod.string().nullable(),
+  "active": zod.boolean(),
+  "createdAt": zod.string(),
+  "lastLogin": zod.string().nullable(),
+  "ticketCount": zod.number(),
+  "openTicketCount": zod.number(),
+  "lastActivityAt": zod.string().nullable(),
+  "internalNotes": zod.string().nullable(),
+  "tickets": zod.array(zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "severity": zod.string(),
+  "status": zod.enum(['new', 'triaged', 'in_progress', 'awaiting_customer', 'resolved', 'closed']),
+  "category": zod.string(),
+  "environment": zod.string(),
+  "orgId": zod.number(),
+  "orgName": zod.string(),
+  "raisedById": zod.number(),
+  "raisedByName": zod.string(),
+  "assignedToId": zod.number().nullable(),
+  "assignedToName": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "firstResponseAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "sla": zod.object({
+  "responseDeadline": zod.string().nullable(),
+  "resolutionDeadline": zod.string().nullable(),
+  "responseMet": zod.boolean().nullable(),
+  "resolutionMet": zod.boolean().nullable(),
+  "paused": zod.boolean(),
+  "resolutionPlanned": zod.boolean().describe('True for P4 resolution (shown as Planned)'),
+  "responsePctElapsed": zod.number().nullable().describe('0-100+, null once met'),
+  "resolutionPctElapsed": zod.number().nullable(),
+  "responseBreached": zod.boolean(),
+  "resolutionBreached": zod.boolean()
+}).describe('Computed SLA state for a ticket')
+}))
+})
+
+
+/**
+ * @summary Update a customer's name or internal notes (staff only)
+ */
+export const UpdateCustomerParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateCustomerBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "internalNotes": zod.string().nullish()
+})
+
+export const UpdateCustomerResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "orgId": zod.number().nullable(),
+  "orgName": zod.string().nullable(),
+  "active": zod.boolean(),
+  "createdAt": zod.string(),
+  "lastLogin": zod.string().nullable(),
+  "ticketCount": zod.number(),
+  "openTicketCount": zod.number(),
+  "lastActivityAt": zod.string().nullable(),
+  "internalNotes": zod.string().nullable(),
+  "tickets": zod.array(zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "severity": zod.string(),
+  "status": zod.enum(['new', 'triaged', 'in_progress', 'awaiting_customer', 'resolved', 'closed']),
+  "category": zod.string(),
+  "environment": zod.string(),
+  "orgId": zod.number(),
+  "orgName": zod.string(),
+  "raisedById": zod.number(),
+  "raisedByName": zod.string(),
+  "assignedToId": zod.number().nullable(),
+  "assignedToName": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "firstResponseAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "sla": zod.object({
+  "responseDeadline": zod.string().nullable(),
+  "resolutionDeadline": zod.string().nullable(),
+  "responseMet": zod.boolean().nullable(),
+  "resolutionMet": zod.boolean().nullable(),
+  "paused": zod.boolean(),
+  "resolutionPlanned": zod.boolean().describe('True for P4 resolution (shown as Planned)'),
+  "responsePctElapsed": zod.number().nullable().describe('0-100+, null once met'),
+  "resolutionPctElapsed": zod.number().nullable(),
+  "responseBreached": zod.boolean(),
+  "resolutionBreached": zod.boolean()
+}).describe('Computed SLA state for a ticket')
+}))
+})
+
+
+/**
  * @summary List all portal users (admin only)
  */
 export const ListUsersResponseItem = zod.object({

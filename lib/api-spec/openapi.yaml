@@ -587,6 +587,66 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PortalUser"
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List customer contacts with ticket activity (staff only)
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: orgId
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get a customer contact with ticket history and notes (staff only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Customer detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerDetail"
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer's name or internal notes (staff only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdate"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerDetail"
   /admin/users:
     get:
       operationId: listUsers
@@ -1016,6 +1076,46 @@ components:
         name: { type: string, minLength: 1 }
         domain: { type: string }
       required: [name]
+    Customer:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        orgId: { type: ["integer", "null"] }
+        orgName: { type: ["string", "null"] }
+        active: { type: boolean }
+        createdAt: { type: string }
+        lastLogin: { type: ["string", "null"] }
+        ticketCount: { type: integer }
+        openTicketCount: { type: integer }
+        lastActivityAt: { type: ["string", "null"] }
+      required: [id, name, email, orgId, orgName, active, createdAt, lastLogin, ticketCount, openTicketCount, lastActivityAt]
+    CustomerDetail:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        orgId: { type: ["integer", "null"] }
+        orgName: { type: ["string", "null"] }
+        active: { type: boolean }
+        createdAt: { type: string }
+        lastLogin: { type: ["string", "null"] }
+        ticketCount: { type: integer }
+        openTicketCount: { type: integer }
+        lastActivityAt: { type: ["string", "null"] }
+        internalNotes: { type: ["string", "null"] }
+        tickets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ticket"
+      required: [id, name, email, orgId, orgName, active, createdAt, lastLogin, ticketCount, openTicketCount, lastActivityAt, internalNotes, tickets]
+    CustomerUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        internalNotes: { type: ["string", "null"] }
     Invite:
       type: object
       properties:

@@ -139,16 +139,16 @@ export default function KbEditorPage() {
   if (isEditing && isLoadingExisting) {
     return (
       <div className="p-8 flex justify-center min-h-[50vh] items-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#2563EB]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#EFB323]" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
+    <div className="flex flex-col h-full bg-stone-50">
+      <div className="bg-white border-b border-stone-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild className="text-slate-500 hover:text-[#0F1F3D] -ml-2">
+          <Button variant="ghost" size="icon" asChild className="text-stone-500 hover:text-[#0F1F3D] -ml-2">
             <Link href="/kb">
               <ArrowLeft className="h-5 w-5" />
             </Link>
@@ -185,7 +185,7 @@ export default function KbEditorPage() {
           <Button 
             onClick={form.handleSubmit(onSubmit)}
             disabled={isSubmitting}
-            className="bg-[#2563EB] hover:bg-[#1d4ed8]"
+            className="bg-[#EFB323] hover:bg-[#D69E1E]"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Save Article
@@ -217,7 +217,7 @@ export default function KbEditorPage() {
                 <Tabs value={isPreview ? "preview" : "edit"} onValueChange={(v) => setIsPreview(v === "preview")} className="mt-8">
                   <div className="flex items-center justify-between mb-2">
                     <FormLabel className="text-[#0F1F3D] font-semibold text-lg">Content</FormLabel>
-                    <TabsList className="bg-slate-100 border border-slate-200 p-0.5 h-auto">
+                    <TabsList className="bg-stone-100 border border-stone-200 p-0.5 h-auto">
                       <TabsTrigger value="edit" className="text-xs py-1.5 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm">Edit Markdown</TabsTrigger>
                       <TabsTrigger value="preview" className="text-xs py-1.5 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                         <Eye className="h-3 w-3 mr-1.5" />
@@ -235,7 +235,7 @@ export default function KbEditorPage() {
                           <FormControl>
                             <Textarea 
                               placeholder="# Introduction\n\nExplain how to..." 
-                              className="min-h-[500px] font-mono text-sm resize-y leading-relaxed p-4 border-slate-200 shadow-sm"
+                              className="min-h-[500px] font-mono text-sm resize-y leading-relaxed p-4 border-stone-200 shadow-sm"
                               {...field} 
                             />
                           </FormControl>
@@ -246,11 +246,11 @@ export default function KbEditorPage() {
                     />
                   </TabsContent>
                   
-                  <TabsContent value="preview" className="m-0 border border-slate-200 bg-white rounded-lg p-8 min-h-[500px] shadow-sm overflow-auto prose prose-slate max-w-none">
+                  <TabsContent value="preview" className="m-0 border border-stone-200 bg-white rounded-lg p-8 min-h-[500px] shadow-sm overflow-auto prose prose-stone max-w-none">
                     {form.watch("content") ? (
                       <ReactMarkdown>{form.watch("content")}</ReactMarkdown>
                     ) : (
-                      <div className="text-slate-400 italic">Nothing to preview yet...</div>
+                      <div className="text-stone-400 italic">Nothing to preview yet...</div>
                     )}
                   </TabsContent>
                 </Tabs>
@@ -259,18 +259,18 @@ export default function KbEditorPage() {
           </div>
 
           <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-6 sticky top-6">
-              <h3 className="font-semibold text-[#0F1F3D] border-b border-slate-100 pb-3">Settings</h3>
+            <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-5 space-y-6 sticky top-6">
+              <h3 className="font-semibold text-[#0F1F3D] border-b border-stone-100 pb-3">Settings</h3>
               
               <FormField
                 control={form.control}
                 name="category"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium text-slate-700">Category</FormLabel>
+                    <FormLabel className="text-sm font-medium text-stone-700">Category</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger className="bg-slate-50">
+                        <SelectTrigger className="bg-stone-50">
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                       </FormControl>
@@ -291,9 +291,9 @@ export default function KbEditorPage() {
                 control={form.control}
                 name="published"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border border-slate-200 p-4 bg-slate-50">
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border border-stone-200 p-4 bg-stone-50">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-sm font-medium text-slate-700">Published</FormLabel>
+                      <FormLabel className="text-sm font-medium text-stone-700">Published</FormLabel>
                       <FormDescription className="text-xs">
                         Visible to customers
                       </FormDescription>

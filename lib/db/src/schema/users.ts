@@ -13,6 +13,8 @@ export const usersTable = pgTable("users", {
   role: text("role").$type<UserRole>().notNull(),
   orgId: integer("org_id").references(() => organisationsTable.id),
   active: boolean("active").notNull().default(true),
+  // Staff-only free-text notes about a customer contact (not visible to the customer).
+  internalNotes: text("internal_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   lastLogin: timestamp("last_login", { withTimezone: true }),
 });

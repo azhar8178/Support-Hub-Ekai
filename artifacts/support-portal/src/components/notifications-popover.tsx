@@ -44,35 +44,35 @@ export function NotificationsPopover() {
   const getIcon = (type: string) => {
     switch (type) {
       case "ticket_created":
-        return <Ticket className="h-4 w-4 text-blue-500" />;
+        return <Ticket className="h-4 w-4 text-amber-500" />;
       case "agent_reply":
         return <MessageSquare className="h-4 w-4 text-emerald-500" />;
       case "sla_warning":
         return <AlertCircle className="h-4 w-4 text-red-500" />;
       case "status_changed":
-        return <Info className="h-4 w-4 text-indigo-500" />;
+        return <Info className="h-4 w-4 text-amber-500" />;
       default:
-        return <Bell className="h-4 w-4 text-slate-500" />;
+        return <Bell className="h-4 w-4 text-stone-500" />;
     }
   };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative text-slate-600 hover:text-[#0F1F3D]">
+        <Button variant="ghost" size="icon" className="relative text-stone-600 hover:text-[#0F1F3D]">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0 shadow-lg border-slate-200">
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+      <PopoverContent align="end" className="w-80 p-0 shadow-lg border-stone-200">
+        <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
           <h3 className="font-semibold text-sm text-[#0F1F3D]">Notifications</h3>
           {unreadCount > 0 && (
             <Button 
               variant="ghost" 
-              className="h-auto p-0 text-xs text-[#2563EB] hover:text-blue-700 hover:bg-transparent"
+              className="h-auto p-0 text-xs text-[#B45309] hover:text-amber-700 hover:bg-transparent"
               onClick={handleMarkAllRead}
               disabled={markRead.isPending}
             >
@@ -83,19 +83,19 @@ export function NotificationsPopover() {
         </div>
         <ScrollArea className="h-[300px]">
           {notifications?.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-500 flex flex-col items-center">
-              <Bell className="h-8 w-8 text-slate-200 mb-3" />
+            <div className="p-8 text-center text-sm text-stone-500 flex flex-col items-center">
+              <Bell className="h-8 w-8 text-stone-200 mb-3" />
               No notifications yet
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-stone-100">
               {notifications?.map((notification) => (
                 <div 
                   key={notification.id} 
-                  className={`p-4 hover:bg-slate-50 transition-colors flex gap-3 ${!notification.read ? 'bg-blue-50/30' : ''}`}
+                  className={`p-4 hover:bg-stone-50 transition-colors flex gap-3 ${!notification.read ? 'bg-amber-50/30' : ''}`}
                 >
                   <div className="mt-1 flex-shrink-0">
-                    <div className={`p-1.5 rounded-full ${!notification.read ? 'bg-white shadow-sm' : 'bg-slate-100'}`}>
+                    <div className={`p-1.5 rounded-full ${!notification.read ? 'bg-white shadow-sm' : 'bg-stone-100'}`}>
                       {getIcon(notification.type)}
                     </div>
                   </div>
@@ -103,17 +103,17 @@ export function NotificationsPopover() {
                     <p className="text-sm font-medium text-[#0F1F3D] mb-1 leading-snug">
                       {notification.title}
                     </p>
-                    <p className="text-xs text-slate-600 mb-2 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-stone-600 mb-2 line-clamp-2 leading-relaxed">
                       {notification.body}
                     </p>
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-slate-400">
+                      <span className="text-[11px] text-stone-400">
                         {formatDateTime(notification.createdAt)}
                       </span>
                       {notification.ticketId && (
                         <Button 
                           variant="link" 
-                          className="h-auto p-0 text-[11px] text-[#2563EB]"
+                          className="h-auto p-0 text-[11px] text-[#B45309]"
                           onClick={() => {
                             if (!notification.read) handleMarkAsRead(notification.id);
                             setOpen(false);
@@ -129,7 +129,7 @@ export function NotificationsPopover() {
                   </div>
                   {!notification.read && (
                     <div className="flex-shrink-0 flex items-center">
-                      <div className="h-2 w-2 rounded-full bg-blue-600" />
+                      <div className="h-2 w-2 rounded-full bg-amber-600" />
                     </div>
                   )}
                 </div>

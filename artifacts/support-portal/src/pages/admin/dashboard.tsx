@@ -70,20 +70,20 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState("users");
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
-      <div className="bg-white border-b border-slate-200 px-8 py-6 shrink-0">
+    <div className="flex flex-col h-full bg-stone-50">
+      <div className="bg-white border-b border-stone-200 px-8 py-6 shrink-0">
         <h1 className="text-2xl font-bold tracking-tight text-[#0F1F3D]">Administration</h1>
-        <p className="text-slate-500 mt-1">Manage users, organizations, invites, and system configuration.</p>
+        <p className="text-stone-500 mt-1">Manage users, organizations, invites, and system configuration.</p>
       </div>
 
       <div className="flex-1 overflow-auto p-8 max-w-[1400px] mx-auto w-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white border border-slate-200 shadow-sm p-1 rounded-lg h-12">
-            <TabsTrigger value="users" className="data-[state=active]:bg-slate-100 rounded-md px-4"><Users className="h-4 w-4 mr-2" /> Users</TabsTrigger>
-            <TabsTrigger value="invites" className="data-[state=active]:bg-slate-100 rounded-md px-4"><Mail className="h-4 w-4 mr-2" /> Invites</TabsTrigger>
-            <TabsTrigger value="orgs" className="data-[state=active]:bg-slate-100 rounded-md px-4"><Building className="h-4 w-4 mr-2" /> Organizations</TabsTrigger>
-            <TabsTrigger value="config" className="data-[state=active]:bg-slate-100 rounded-md px-4"><SlidersHorizontal className="h-4 w-4 mr-2" /> Ticket Config</TabsTrigger>
-            <TabsTrigger value="reports" className="data-[state=active]:bg-slate-100 rounded-md px-4"><BarChart3 className="h-4 w-4 mr-2" /> Reports</TabsTrigger>
+          <TabsList className="bg-white border border-stone-200 shadow-sm p-1 rounded-lg h-12">
+            <TabsTrigger value="users" className="data-[state=active]:bg-stone-100 rounded-md px-4"><Users className="h-4 w-4 mr-2" /> Users</TabsTrigger>
+            <TabsTrigger value="invites" className="data-[state=active]:bg-stone-100 rounded-md px-4"><Mail className="h-4 w-4 mr-2" /> Invites</TabsTrigger>
+            <TabsTrigger value="orgs" className="data-[state=active]:bg-stone-100 rounded-md px-4"><Building className="h-4 w-4 mr-2" /> Organizations</TabsTrigger>
+            <TabsTrigger value="config" className="data-[state=active]:bg-stone-100 rounded-md px-4"><SlidersHorizontal className="h-4 w-4 mr-2" /> Ticket Config</TabsTrigger>
+            <TabsTrigger value="reports" className="data-[state=active]:bg-stone-100 rounded-md px-4"><BarChart3 className="h-4 w-4 mr-2" /> Reports</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="space-y-4 m-0 border-0 p-0">
@@ -154,14 +154,14 @@ function UsersTab() {
   };
 
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardHeader className="pb-4 border-b border-slate-100 flex flex-row items-center justify-between">
+    <Card className="border-stone-200 shadow-sm">
+      <CardHeader className="pb-4 border-b border-stone-100 flex flex-row items-center justify-between">
         <div>
           <CardTitle>Portal Users</CardTitle>
           <CardDescription>Manage access, roles, and organization mapping.</CardDescription>
         </div>
         <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
           <Input 
             placeholder="Search users..." 
             className="pl-9 h-9"
@@ -172,7 +172,7 @@ function UsersTab() {
       </CardHeader>
       <CardContent className="p-0">
         <Table>
-          <TableHeader className="bg-slate-50">
+          <TableHeader className="bg-stone-50">
             <TableRow>
               <TableHead className="pl-6">User</TableHead>
               <TableHead>Role</TableHead>
@@ -183,15 +183,15 @@ function UsersTab() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-amber-500" /></TableCell></TableRow>
             ) : filteredUsers.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-500">No users found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="h-24 text-center text-stone-500">No users found</TableCell></TableRow>
             ) : (
               filteredUsers.map(user => (
                 <TableRow key={user.id}>
                   <TableCell className="pl-6">
                     <div className="font-medium text-[#0F1F3D]">{user.name}</div>
-                    <div className="text-xs text-slate-500">{user.email}</div>
+                    <div className="text-xs text-stone-500">{user.email}</div>
                   </TableCell>
                   <TableCell>
                     <Select value={user.role} onValueChange={(v) => handleRoleChange(user.id, v as PortalUserRole)}>
@@ -211,7 +211,7 @@ function UsersTab() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none" className="italic text-slate-500">No Organization</SelectItem>
+                        <SelectItem value="none" className="italic text-stone-500">No Organization</SelectItem>
                         {orgs?.map(org => (
                           <SelectItem key={org.id} value={org.id.toString()}>{org.name}</SelectItem>
                         ))}
@@ -225,12 +225,12 @@ function UsersTab() {
                         onCheckedChange={(c) => handleActiveToggle(user.id, c)}
                         className="data-[state=checked]:bg-emerald-500"
                       />
-                      <span className={`text-xs font-medium ${user.active ? 'text-emerald-700' : 'text-slate-400'}`}>
+                      <span className={`text-xs font-medium ${user.active ? 'text-emerald-700' : 'text-stone-400'}`}>
                         {user.active ? 'Active' : 'Disabled'}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-slate-500">
+                  <TableCell className="text-xs text-stone-500">
                     {user.lastLogin ? formatDateTime(user.lastLogin) : "Never"}
                   </TableCell>
                 </TableRow>
@@ -324,15 +324,15 @@ function InvitesTab() {
   };
 
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardHeader className="pb-4 border-b border-slate-100 flex flex-row items-center justify-between">
+    <Card className="border-stone-200 shadow-sm">
+      <CardHeader className="pb-4 border-b border-stone-100 flex flex-row items-center justify-between">
         <div>
           <CardTitle>Pending Invites</CardTitle>
           <CardDescription>Generate magic links to onboard new users.</CardDescription>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#2563EB] hover:bg-[#1d4ed8]">
+            <Button className="bg-[#EFB323] hover:bg-[#D69E1E]">
               <Plus className="mr-2 h-4 w-4" /> Create Invite
             </Button>
           </DialogTrigger>
@@ -412,7 +412,7 @@ function InvitesTab() {
                       )}
                     />
                   )}
-                  <Button type="submit" className="w-full bg-[#2563EB]" disabled={createInvite.isPending}>
+                  <Button type="submit" className="w-full bg-[#EFB323]" disabled={createInvite.isPending}>
                     {createInvite.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Generate Link"}
                   </Button>
                 </form>
@@ -423,7 +423,7 @@ function InvitesTab() {
       </CardHeader>
       <CardContent className="p-0">
         <Table>
-          <TableHeader className="bg-slate-50">
+          <TableHeader className="bg-stone-50">
             <TableRow>
               <TableHead className="pl-6">Email</TableHead>
               <TableHead>Role / Org</TableHead>
@@ -434,9 +434,9 @@ function InvitesTab() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-amber-500" /></TableCell></TableRow>
             ) : invites?.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-500">No active invites</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="h-24 text-center text-stone-500">No active invites</TableCell></TableRow>
             ) : (
               invites?.map(inv => {
                 const isAccepted = !!inv.usedAt;
@@ -449,24 +449,24 @@ function InvitesTab() {
                     <TableCell className="pl-6 font-medium text-[#0F1F3D]">{inv.email}</TableCell>
                     <TableCell>
                       <div className="text-sm capitalize">{inv.role.replace('_', ' ')}</div>
-                      <div className="text-xs text-slate-500">{inv.orgName || '-'}</div>
+                      <div className="text-xs text-stone-500">{inv.orgName || '-'}</div>
                     </TableCell>
                     <TableCell>
                       {isAccepted ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Accepted</Badge> :
-                       isRevoked ? <Badge variant="outline" className="bg-slate-100 text-slate-600">Revoked</Badge> :
+                       isRevoked ? <Badge variant="outline" className="bg-stone-100 text-stone-600">Revoked</Badge> :
                        isExpired ? <Badge variant="outline" className="bg-red-50 text-red-700">Expired</Badge> :
-                       <Badge variant="outline" className="bg-blue-50 text-blue-700">Pending</Badge>}
+                       <Badge variant="outline" className="bg-amber-50 text-amber-700">Pending</Badge>}
                     </TableCell>
-                    <TableCell className="text-xs text-slate-500">{formatDate(inv.createdAt)}</TableCell>
+                    <TableCell className="text-xs text-stone-500">{formatDate(inv.createdAt)}</TableCell>
                     <TableCell className="text-right pr-6">
                       {canManage && (
                         <div className="flex items-center justify-end gap-1">
                           {inv.inviteUrl && (
-                            <Button variant="ghost" size="sm" onClick={() => copyUrl(inv.inviteUrl!)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" data-testid={`button-copy-invite-${inv.id}`}>
+                            <Button variant="ghost" size="sm" onClick={() => copyUrl(inv.inviteUrl!)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-copy-invite-${inv.id}`}>
                               <Copy className="h-4 w-4 mr-2" /> Copy Link
                             </Button>
                           )}
-                          <Button variant="ghost" size="sm" disabled={isBusy} onClick={() => handleResend(inv.id)} className="text-slate-600 hover:text-[#0F1F3D] hover:bg-slate-50" data-testid={`button-resend-invite-${inv.id}`}>
+                          <Button variant="ghost" size="sm" disabled={isBusy} onClick={() => handleResend(inv.id)} className="text-stone-600 hover:text-[#0F1F3D] hover:bg-stone-50" data-testid={`button-resend-invite-${inv.id}`}>
                             <Send className="h-4 w-4 mr-2" /> Resend
                           </Button>
                           <Button variant="ghost" size="sm" disabled={isBusy} onClick={() => handleRevoke(inv.id)} className="text-red-600 hover:text-red-800 hover:bg-red-50" data-testid={`button-revoke-invite-${inv.id}`}>
@@ -550,15 +550,15 @@ function OrganizationsTab() {
   };
 
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardHeader className="pb-4 border-b border-slate-100 flex flex-row items-center justify-between">
+    <Card className="border-stone-200 shadow-sm">
+      <CardHeader className="pb-4 border-b border-stone-100 flex flex-row items-center justify-between">
         <div>
           <CardTitle>Organizations</CardTitle>
           <CardDescription>Customer companies that access the portal.</CardDescription>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#2563EB] hover:bg-[#1d4ed8]">
+            <Button className="bg-[#EFB323] hover:bg-[#D69E1E]">
               <Plus className="mr-2 h-4 w-4" /> Add Org
             </Button>
           </DialogTrigger>
@@ -590,7 +590,7 @@ function OrganizationsTab() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full bg-[#2563EB]" disabled={createOrg.isPending}>
+                <Button type="submit" className="w-full bg-[#EFB323]" disabled={createOrg.isPending}>
                   {createOrg.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Create"}
                 </Button>
               </form>
@@ -600,7 +600,7 @@ function OrganizationsTab() {
       </CardHeader>
       <CardContent className="p-0">
         <Table>
-          <TableHeader className="bg-slate-50">
+          <TableHeader className="bg-stone-50">
             <TableRow>
               <TableHead className="pl-6 w-[100px]">ID</TableHead>
               <TableHead>Organization Name</TableHead>
@@ -612,41 +612,41 @@ function OrganizationsTab() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-amber-500" /></TableCell></TableRow>
             ) : orgs?.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="h-24 text-center text-slate-500">No organizations found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="h-24 text-center text-stone-500">No organizations found</TableCell></TableRow>
             ) : (
               orgs?.map(org => {
                 const isEditing = editingId === org.id;
                 return (
                   <TableRow key={org.id}>
-                    <TableCell className="pl-6 font-medium text-slate-500">#{org.id}</TableCell>
+                    <TableCell className="pl-6 font-medium text-stone-500">#{org.id}</TableCell>
                     <TableCell className="font-semibold text-[#0F1F3D]">
                       {isEditing ? (
                         <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8 w-48" data-testid={`input-org-name-${org.id}`} />
                       ) : org.name}
                     </TableCell>
-                    <TableCell className="text-sm text-slate-600">
+                    <TableCell className="text-sm text-stone-600">
                       {isEditing ? (
                         <Input value={editDomain} onChange={e => setEditDomain(e.target.value)} placeholder="acme.com" className="h-8 w-40" data-testid={`input-org-domain-${org.id}`} />
                       ) : (org.domain || '-')}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="secondary" className="bg-slate-100">{org.userCount}</Badge>
+                      <Badge variant="secondary" className="bg-stone-100">{org.userCount}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-slate-500">{formatDate(org.createdAt)}</TableCell>
+                    <TableCell className="text-sm text-stone-500">{formatDate(org.createdAt)}</TableCell>
                     <TableCell className="text-right pr-6">
                       {isEditing ? (
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="sm" disabled={updateOrg.isPending} onClick={() => saveEdit(org.id)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-save-org-${org.id}`}>
                             <Check className="h-4 w-4 mr-2" /> Save
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-slate-500 hover:text-slate-700" data-testid={`button-cancel-org-${org.id}`}>
+                          <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-stone-500 hover:text-stone-700" data-testid={`button-cancel-org-${org.id}`}>
                             <X className="h-4 w-4" />
                           </Button>
                         </div>
                       ) : (
-                        <Button variant="ghost" size="sm" onClick={() => startEdit(org.id, org.name, org.domain)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" data-testid={`button-edit-org-${org.id}`}>
+                        <Button variant="ghost" size="sm" onClick={() => startEdit(org.id, org.name, org.domain)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-edit-org-${org.id}`}>
                           <Pencil className="h-4 w-4 mr-2" /> Rename
                         </Button>
                       )}
@@ -922,21 +922,21 @@ function SeveritiesSection() {
         <div className="flex items-center justify-between">
           <div>
             <Label>Schedule</Label>
-            <p className="text-xs text-slate-500">{d.use24x7 ? "24x7 (wall clock)" : "Business hours (M-F)"}</p>
+            <p className="text-xs text-stone-500">{d.use24x7 ? "24x7 (wall clock)" : "Business hours (M-F)"}</p>
           </div>
-          <Switch checked={d.use24x7} onCheckedChange={c => set({ use24x7: c })} className="data-[state=checked]:bg-indigo-500" />
+          <Switch checked={d.use24x7} onCheckedChange={c => set({ use24x7: c })} className="data-[state=checked]:bg-amber-500" />
         </div>
         <div className="flex items-center justify-between">
           <div>
             <Label>Urgent</Label>
-            <p className="text-xs text-slate-500">Drives urgent alerts for new tickets</p>
+            <p className="text-xs text-stone-500">Drives urgent alerts for new tickets</p>
           </div>
           <Switch checked={d.isUrgent} onCheckedChange={c => set({ isUrgent: c })} className="data-[state=checked]:bg-red-500" />
         </div>
         <div className="flex items-center justify-between">
           <div>
             <Label>Resolution optional</Label>
-            <p className="text-xs text-slate-500">No resolution SLA is enforced</p>
+            <p className="text-xs text-stone-500">No resolution SLA is enforced</p>
           </div>
           <Switch checked={d.resolutionOptional} onCheckedChange={c => set({ resolutionOptional: c })} className="data-[state=checked]:bg-emerald-500" />
         </div>
@@ -945,15 +945,15 @@ function SeveritiesSection() {
   );
 
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardHeader className="pb-4 border-b border-slate-100 flex flex-row items-center justify-between">
+    <Card className="border-stone-200 shadow-sm">
+      <CardHeader className="pb-4 border-b border-stone-100 flex flex-row items-center justify-between">
         <div>
           <CardTitle>Severities</CardTitle>
           <CardDescription>Severity levels and their SLA response/resolution targets.</CardDescription>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#2563EB] hover:bg-[#1d4ed8]" data-testid="button-add-severity"><Plus className="mr-2 h-4 w-4" /> Add Severity</Button>
+            <Button className="bg-[#EFB323] hover:bg-[#D69E1E]" data-testid="button-add-severity"><Plus className="mr-2 h-4 w-4" /> Add Severity</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -961,7 +961,7 @@ function SeveritiesSection() {
               <DialogDescription>Leave rank blank to append at the end.</DialogDescription>
             </DialogHeader>
             {severityFields(newDraft, patch => setNewDraft(prev => ({ ...prev, ...patch })), "input-new-severity")}
-            <Button className="w-full bg-[#2563EB]" disabled={createSeverity.isPending} onClick={handleCreate} data-testid="button-save-new-severity">
+            <Button className="w-full bg-[#EFB323]" disabled={createSeverity.isPending} onClick={handleCreate} data-testid="button-save-new-severity">
               {createSeverity.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Add Severity"}
             </Button>
           </DialogContent>
@@ -969,7 +969,7 @@ function SeveritiesSection() {
       </CardHeader>
       <CardContent className="p-0">
         <Table>
-          <TableHeader className="bg-slate-50">
+          <TableHeader className="bg-stone-50">
             <TableRow>
               <TableHead className="pl-6">Severity</TableHead>
               <TableHead>Rank</TableHead>
@@ -982,17 +982,17 @@ function SeveritiesSection() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-amber-500" /></TableCell></TableRow>
             ) : isError ? (
               <TableRow><TableCell colSpan={7} className="h-24 text-center text-red-600">Failed to load severities</TableCell></TableRow>
             ) : severities?.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="h-24 text-center text-slate-500">No severities configured</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="h-24 text-center text-stone-500">No severities configured</TableCell></TableRow>
             ) : (
               severities?.map(s => {
                 const isEditing = editingId === s.id && draft;
                 const set = (patch: Partial<SeverityDraft>) => setDraft(prev => (prev ? { ...prev, ...patch } : prev));
                 return (
-                  <TableRow key={s.id} className={s.active ? "" : "bg-slate-50/60"}>
+                  <TableRow key={s.id} className={s.active ? "" : "bg-stone-50/60"}>
                     {isEditing ? (
                       <>
                         <TableCell className="pl-6"><Input value={draft!.label} onChange={e => set({ label: e.target.value })} className="h-8 w-40" data-testid={`input-severity-label-${s.id}`} /></TableCell>
@@ -1006,20 +1006,20 @@ function SeveritiesSection() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Switch checked={draft!.use24x7} onCheckedChange={c => set({ use24x7: c })} className="data-[state=checked]:bg-indigo-500" />
-                            <span className="text-xs text-slate-500">{draft!.use24x7 ? "24x7" : "Bus hrs"}</span>
+                            <Switch checked={draft!.use24x7} onCheckedChange={c => set({ use24x7: c })} className="data-[state=checked]:bg-amber-500" />
+                            <span className="text-xs text-stone-500">{draft!.use24x7 ? "24x7" : "Bus hrs"}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-slate-600"><Switch checked={draft!.isUrgent} onCheckedChange={c => set({ isUrgent: c })} className="data-[state=checked]:bg-red-500 scale-90" /> Urgent</label>
-                            <label className="flex items-center gap-2 text-xs text-slate-600"><Switch checked={draft!.resolutionOptional} onCheckedChange={c => set({ resolutionOptional: c })} className="data-[state=checked]:bg-emerald-500 scale-90" /> Res. optional</label>
+                            <label className="flex items-center gap-2 text-xs text-stone-600"><Switch checked={draft!.isUrgent} onCheckedChange={c => set({ isUrgent: c })} className="data-[state=checked]:bg-red-500 scale-90" /> Urgent</label>
+                            <label className="flex items-center gap-2 text-xs text-stone-600"><Switch checked={draft!.resolutionOptional} onCheckedChange={c => set({ resolutionOptional: c })} className="data-[state=checked]:bg-emerald-500 scale-90" /> Res. optional</label>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-6">
                           <div className="flex items-center justify-end gap-1">
                             <Button variant="ghost" size="sm" disabled={updateSeverity.isPending} onClick={() => saveEdit(s.id)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-save-severity-${s.id}`}><Check className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-slate-500" data-testid={`button-cancel-severity-${s.id}`}><X className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-stone-500" data-testid={`button-cancel-severity-${s.id}`}><X className="h-4 w-4" /></Button>
                           </div>
                         </TableCell>
                       </>
@@ -1027,15 +1027,15 @@ function SeveritiesSection() {
                       <>
                         <TableCell className="pl-6">
                           <div className="flex items-center gap-2">
-                            <span className={`font-medium ${s.active ? "text-[#0F1F3D]" : "text-slate-400"}`}>{s.label}</span>
-                            <span className="text-xs text-slate-400">{s.key}</span>
-                            {!s.active && <Badge variant="outline" className="bg-slate-100 text-slate-500">Retired</Badge>}
+                            <span className={`font-medium ${s.active ? "text-[#0F1F3D]" : "text-stone-400"}`}>{s.label}</span>
+                            <span className="text-xs text-stone-400">{s.key}</span>
+                            {!s.active && <Badge variant="outline" className="bg-stone-100 text-stone-500">Retired</Badge>}
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm text-slate-600">{s.rank}</TableCell>
-                        <TableCell className="text-sm text-slate-600">{s.firstResponseMinutes}m</TableCell>
-                        <TableCell className="text-sm text-slate-600">{s.resolutionMinutes === null ? <span className="italic text-slate-500">Planned</span> : `${s.resolutionMinutes}m`}</TableCell>
-                        <TableCell className="text-sm text-slate-600">{s.use24x7 ? "24x7" : "Bus hrs"}</TableCell>
+                        <TableCell className="text-sm text-stone-600">{s.rank}</TableCell>
+                        <TableCell className="text-sm text-stone-600">{s.firstResponseMinutes}m</TableCell>
+                        <TableCell className="text-sm text-stone-600">{s.resolutionMinutes === null ? <span className="italic text-stone-500">Planned</span> : `${s.resolutionMinutes}m`}</TableCell>
+                        <TableCell className="text-sm text-stone-600">{s.use24x7 ? "24x7" : "Bus hrs"}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {s.isUrgent && <Badge variant="outline" className="bg-red-50 text-red-700">Urgent</Badge>}
@@ -1044,7 +1044,7 @@ function SeveritiesSection() {
                         </TableCell>
                         <TableCell className="text-right pr-6">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => startEdit(s)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" data-testid={`button-edit-severity-${s.id}`}><Pencil className="h-4 w-4 mr-2" /> Edit</Button>
+                            <Button variant="ghost" size="sm" onClick={() => startEdit(s)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-edit-severity-${s.id}`}><Pencil className="h-4 w-4 mr-2" /> Edit</Button>
                             {s.active ? (
                               <Button variant="ghost" size="sm" disabled={updateSeverity.isPending || checkingId === s.id} onClick={() => requestRetire(s)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-retire-severity-${s.id}`}>{checkingId === s.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Archive className="h-4 w-4 mr-2" />} Retire</Button>
                             ) : (
@@ -1060,7 +1060,7 @@ function SeveritiesSection() {
             )}
           </TableBody>
         </Table>
-        <div className="p-4 bg-amber-50 border-t border-slate-100 flex gap-3 text-amber-800 text-sm">
+        <div className="p-4 bg-amber-50 border-t border-stone-100 flex gap-3 text-amber-800 text-sm">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <p>Business hours are 09:00 - 18:00 UTC, Monday through Friday. Retiring a severity hides it from new tickets but keeps existing tickets intact — restore it any time.</p>
         </div>
@@ -1202,15 +1202,15 @@ function TaxonomySection({
   };
 
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardHeader className="pb-4 border-b border-slate-100 flex flex-row items-center justify-between">
+    <Card className="border-stone-200 shadow-sm">
+      <CardHeader className="pb-4 border-b border-stone-100 flex flex-row items-center justify-between">
         <div>
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#2563EB] hover:bg-[#1d4ed8]" data-testid={`button-add-${title.toLowerCase()}`}><Plus className="mr-2 h-4 w-4" /> Add {singular}</Button>
+            <Button className="bg-[#EFB323] hover:bg-[#D69E1E]" data-testid={`button-add-${title.toLowerCase()}`}><Plus className="mr-2 h-4 w-4" /> Add {singular}</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -1221,7 +1221,7 @@ function TaxonomySection({
               <Label>Label</Label>
               <Input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder={`New ${singular.toLowerCase()}`} data-testid={`input-new-${title.toLowerCase()}`} />
             </div>
-            <Button className="w-full bg-[#2563EB]" disabled={createItem.isPending} onClick={handleCreate} data-testid={`button-save-new-${title.toLowerCase()}`}>
+            <Button className="w-full bg-[#EFB323]" disabled={createItem.isPending} onClick={handleCreate} data-testid={`button-save-new-${title.toLowerCase()}`}>
               {createItem.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : `Add ${singular}`}
             </Button>
           </DialogContent>
@@ -1229,7 +1229,7 @@ function TaxonomySection({
       </CardHeader>
       <CardContent className="p-0">
         <Table>
-          <TableHeader className="bg-slate-50">
+          <TableHeader className="bg-stone-50">
             <TableRow>
               <TableHead className="pl-6">Label</TableHead>
               <TableHead>Key</TableHead>
@@ -1240,47 +1240,47 @@ function TaxonomySection({
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-amber-500" /></TableCell></TableRow>
             ) : isError ? (
               <TableRow><TableCell colSpan={5} className="h-24 text-center text-red-600">Failed to load</TableCell></TableRow>
             ) : items?.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-500">Nothing configured yet</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="h-24 text-center text-stone-500">Nothing configured yet</TableCell></TableRow>
             ) : (
               items?.map(item => {
                 const isEditing = editingId === item.id;
                 return (
-                  <TableRow key={item.id} className={item.active ? "" : "bg-slate-50/60"}>
+                  <TableRow key={item.id} className={item.active ? "" : "bg-stone-50/60"}>
                     <TableCell className="pl-6">
                       {isEditing ? (
                         <Input value={editLabel} onChange={e => setEditLabel(e.target.value)} className="h-8 w-48" data-testid={`input-taxonomy-label-${item.id}`} />
                       ) : (
-                        <span className={`font-medium ${item.active ? "text-[#0F1F3D]" : "text-slate-400"}`}>{item.label}</span>
+                        <span className={`font-medium ${item.active ? "text-[#0F1F3D]" : "text-stone-400"}`}>{item.label}</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-slate-400">{item.key}</TableCell>
+                    <TableCell className="text-xs text-stone-400">{item.key}</TableCell>
                     <TableCell>
                       {isEditing ? (
                         <Input type="number" value={editSortOrder} onChange={e => setEditSortOrder(e.target.value)} className="h-8 w-20" data-testid={`input-taxonomy-sort-${item.id}`} />
                       ) : (
-                        <span className="text-sm text-slate-600">{item.sortOrder}</span>
+                        <span className="text-sm text-stone-600">{item.sortOrder}</span>
                       )}
                     </TableCell>
                     <TableCell>
                       {item.active ? (
                         <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Active</Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-slate-100 text-slate-500">Retired</Badge>
+                        <Badge variant="outline" className="bg-stone-100 text-stone-500">Retired</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-right pr-6">
                       {isEditing ? (
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="sm" disabled={updateItem.isPending} onClick={() => saveEdit(item.id)} className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" data-testid={`button-save-taxonomy-${item.id}`}><Check className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-slate-500" data-testid={`button-cancel-taxonomy-${item.id}`}><X className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-stone-500" data-testid={`button-cancel-taxonomy-${item.id}`}><X className="h-4 w-4" /></Button>
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => startEdit(item)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" data-testid={`button-edit-taxonomy-${item.id}`}><Pencil className="h-4 w-4 mr-2" /> Edit</Button>
+                          <Button variant="ghost" size="sm" onClick={() => startEdit(item)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-edit-taxonomy-${item.id}`}><Pencil className="h-4 w-4 mr-2" /> Edit</Button>
                           {item.active ? (
                             <Button variant="ghost" size="sm" disabled={updateItem.isPending || checkingId === item.id} onClick={() => requestRetire(item)} className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" data-testid={`button-retire-taxonomy-${item.id}`}>{checkingId === item.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Archive className="h-4 w-4 mr-2" />} Retire</Button>
                           ) : (
@@ -1337,12 +1337,12 @@ function KbDeflectionSection() {
   ];
 
   return (
-    <Card className="border-slate-200 shadow-sm" data-testid="kb-deflection-card">
-      <CardHeader className="pb-2 border-b border-slate-100">
+    <Card className="border-stone-200 shadow-sm" data-testid="kb-deflection-card">
+      <CardHeader className="pb-2 border-b border-stone-100">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-[#2563EB]" />
+              <BookOpen className="h-4 w-4 text-[#EFB323]" />
               Self-Service Deflection
             </CardTitle>
             <CardDescription className="mt-1">
@@ -1353,17 +1353,17 @@ function KbDeflectionSection() {
             <div className="text-3xl font-bold text-[#0F1F3D]" data-testid="deflection-rate">
               {stats.deflectionRatePct !== null ? `${stats.deflectionRatePct.toFixed(0)}%` : "N/A"}
             </div>
-            <p className="text-xs text-slate-500">Deflection rate</p>
+            <p className="text-xs text-stone-500">Deflection rate</p>
           </div>
         </div>
       </CardHeader>
       <CardContent className="pt-6 space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {cards.map((c) => (
-            <div key={c.label} className="rounded-lg border border-slate-200 p-4">
+            <div key={c.label} className="rounded-lg border border-stone-200 p-4">
               <div className="text-2xl font-bold text-[#0F1F3D]">{c.value}</div>
-              <div className="text-sm font-medium text-slate-700 mt-1">{c.label}</div>
-              <p className="text-xs text-slate-500 mt-0.5">{c.hint}</p>
+              <div className="text-sm font-medium text-stone-700 mt-1">{c.label}</div>
+              <p className="text-xs text-stone-500 mt-0.5">{c.hint}</p>
             </div>
           ))}
         </div>
@@ -1382,7 +1382,7 @@ function KbDeflectionSection() {
               <TableBody>
                 {stats.topArticles.map((a) => (
                   <TableRow key={a.articleId}>
-                    <TableCell className="font-medium text-slate-700">{a.title}</TableCell>
+                    <TableCell className="font-medium text-stone-700">{a.title}</TableCell>
                     <TableCell className="text-right">{a.impressions}</TableCell>
                     <TableCell className="text-right">{a.clicks}</TableCell>
                   </TableRow>
@@ -1394,7 +1394,7 @@ function KbDeflectionSection() {
         {stats.uncoveredQueries.length > 0 && (
           <div data-testid="uncovered-topics">
             <h4 className="text-sm font-semibold text-[#0F1F3D] mb-1">Top Uncovered Topics</h4>
-            <p className="text-xs text-slate-500 mb-2">
+            <p className="text-xs text-stone-500 mb-2">
               What people searched while drafting a ticket, where no article helped — write these next.
             </p>
             <Table>
@@ -1409,7 +1409,7 @@ function KbDeflectionSection() {
               <TableBody>
                 {stats.uncoveredQueries.map((q) => (
                   <TableRow key={q.query}>
-                    <TableCell className="font-medium text-slate-700">{q.query}</TableCell>
+                    <TableCell className="font-medium text-stone-700">{q.query}</TableCell>
                     <TableCell className="text-right">{q.drafts}</TableCell>
                     <TableCell className="text-right">
                       {q.zeroResultDrafts > 0 ? (
@@ -1422,7 +1422,7 @@ function KbDeflectionSection() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right text-xs text-slate-500">{formatDate(q.lastSearchedAt)}</TableCell>
+                    <TableCell className="text-right text-xs text-stone-500">{formatDate(q.lastSearchedAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1431,7 +1431,7 @@ function KbDeflectionSection() {
         )}
 
         {stats.draftsWithSuggestions === 0 && (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-stone-500">
             No suggestion activity recorded yet. Metrics appear once customers start drafting tickets.
           </p>
         )}
@@ -1444,7 +1444,7 @@ function ReportsTab() {
   const { data: report, isLoading } = useGetReports();
 
   if (isLoading) {
-    return <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" /></div>;
+    return <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-amber-500" /></div>;
   }
 
   if (!report) return null;
@@ -1452,59 +1452,59 @@ function ReportsTab() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-stone-200 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-sm text-slate-500 uppercase tracking-wider">Total Tickets</h3>
-              <div className="p-2 bg-blue-50 rounded-md text-blue-600"><BarChart3 className="h-4 w-4" /></div>
+              <h3 className="font-medium text-sm text-stone-500 uppercase tracking-wider">Total Tickets</h3>
+              <div className="p-2 bg-amber-50 rounded-md text-amber-600"><BarChart3 className="h-4 w-4" /></div>
             </div>
             <div className="text-3xl font-bold text-[#0F1F3D]">{report.totalTickets}</div>
-            <p className="text-xs text-slate-500 mt-1">{report.openTickets} currently open</p>
+            <p className="text-xs text-stone-500 mt-1">{report.openTickets} currently open</p>
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-stone-200 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-sm text-slate-500 uppercase tracking-wider">Avg Resolution</h3>
-              <div className="p-2 bg-indigo-50 rounded-md text-indigo-600"><Clock className="h-4 w-4" /></div>
+              <h3 className="font-medium text-sm text-stone-500 uppercase tracking-wider">Avg Resolution</h3>
+              <div className="p-2 bg-amber-50 rounded-md text-amber-600"><Clock className="h-4 w-4" /></div>
             </div>
             <div className="text-3xl font-bold text-[#0F1F3D]">
               {report.avgResolutionHours !== null ? `${report.avgResolutionHours.toFixed(1)}h` : 'N/A'}
             </div>
-            <p className="text-xs text-slate-500 mt-1">Across all resolved tickets</p>
+            <p className="text-xs text-stone-500 mt-1">Across all resolved tickets</p>
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-stone-200 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-sm text-slate-500 uppercase tracking-wider">Response SLA</h3>
+              <h3 className="font-medium text-sm text-stone-500 uppercase tracking-wider">Response SLA</h3>
               <div className="p-2 bg-emerald-50 rounded-md text-emerald-600"><Check className="h-4 w-4" /></div>
             </div>
             <div className="text-3xl font-bold text-[#0F1F3D]">
               {report.slaResponseCompliancePct !== null ? `${report.slaResponseCompliancePct.toFixed(0)}%` : 'N/A'}
             </div>
-            <p className="text-xs text-slate-500 mt-1">First response target met</p>
+            <p className="text-xs text-stone-500 mt-1">First response target met</p>
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-stone-200 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-sm text-slate-500 uppercase tracking-wider">Resolution SLA</h3>
+              <h3 className="font-medium text-sm text-stone-500 uppercase tracking-wider">Resolution SLA</h3>
               <div className="p-2 bg-emerald-50 rounded-md text-emerald-600"><Check className="h-4 w-4" /></div>
             </div>
             <div className="text-3xl font-bold text-[#0F1F3D]">
               {report.slaResolutionCompliancePct !== null ? `${report.slaResolutionCompliancePct.toFixed(0)}%` : 'N/A'}
             </div>
-            <p className="text-xs text-slate-500 mt-1">Resolution target met</p>
+            <p className="text-xs text-stone-500 mt-1">Resolution target met</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="pb-2 border-b border-slate-100">
+      <Card className="border-stone-200 shadow-sm">
+        <CardHeader className="pb-2 border-b border-stone-100">
           <CardTitle>Ticket Volume Trends (Last 8 Weeks)</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 pb-2">
@@ -1534,7 +1534,7 @@ function ReportsTab() {
                   type="monotone" 
                   dataKey="created" 
                   name="Created" 
-                  stroke="#2563EB" 
+                  stroke="#EFB323" 
                   strokeWidth={3} 
                   dot={{ r: 4, strokeWidth: 2 }} 
                   activeDot={{ r: 6 }} 

@@ -12,14 +12,14 @@ export function SlaIndicator({ sla, type }: SlaIndicatorProps) {
   if (sla.resolutionPlanned && type !== "response") {
     if (type === "combined" && sla.responseMet) {
       return (
-        <div className="flex items-center text-xs font-medium text-slate-500">
+        <div className="flex items-center text-xs font-medium text-stone-500">
           <Clock className="mr-1.5 h-3.5 w-3.5" />
           Planned
         </div>
       );
     } else if (type === "resolution") {
       return (
-        <div className="flex items-center text-xs font-medium text-slate-500">
+        <div className="flex items-center text-xs font-medium text-stone-500">
           <Clock className="mr-1.5 h-3.5 w-3.5" />
           Planned
         </div>
@@ -59,7 +59,7 @@ export function SlaIndicator({ sla, type }: SlaIndicatorProps) {
 
     if (sla.paused && type !== "response") {
       return (
-        <div className="flex items-center text-xs font-medium text-slate-500">
+        <div className="flex items-center text-xs font-medium text-stone-500">
           <PauseCircle className="mr-1.5 h-3.5 w-3.5" />
           Paused
         </div>

@@ -7,6 +7,7 @@ import notificationsRouter from "./notifications";
 import pushTokensRouter from "./pushTokens";
 import kbRouter from "./kb";
 import teamRouter from "./team";
+import customersRouter from "./customers";
 import adminRouter from "./admin";
 
 const router: IRouter = Router();
@@ -19,6 +20,7 @@ router.use(notificationsRouter);
 router.use(pushTokensRouter);
 router.use(kbRouter);
 router.use(teamRouter);
+router.use(customersRouter);
 router.use(adminRouter);
 
 export default router;

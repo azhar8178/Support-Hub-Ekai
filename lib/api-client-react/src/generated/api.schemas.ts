@@ -71,6 +71,115 @@ export interface OrganisationInput {
   domain?: string;
 }
 
+export interface Customer {
+  id: number;
+  name: string;
+  email: string;
+  /** @nullable */
+  orgId: number | null;
+  /** @nullable */
+  orgName: string | null;
+  active: boolean;
+  createdAt: string;
+  /** @nullable */
+  lastLogin: string | null;
+  ticketCount: number;
+  openTicketCount: number;
+  /** @nullable */
+  lastActivityAt: string | null;
+}
+
+export type TicketStatus = typeof TicketStatus[keyof typeof TicketStatus];
+
+
+export const TicketStatus = {
+  new: 'new',
+  triaged: 'triaged',
+  in_progress: 'in_progress',
+  awaiting_customer: 'awaiting_customer',
+  resolved: 'resolved',
+  closed: 'closed',
+} as const;
+
+/**
+ * Computed SLA state for a ticket
+ */
+export interface SlaInfo {
+  /** @nullable */
+  responseDeadline: string | null;
+  /** @nullable */
+  resolutionDeadline: string | null;
+  /** @nullable */
+  responseMet: boolean | null;
+  /** @nullable */
+  resolutionMet: boolean | null;
+  paused: boolean;
+  /** True for P4 resolution (shown as Planned) */
+  resolutionPlanned: boolean;
+  /**
+     * 0-100+, null once met
+     * @nullable
+     */
+  responsePctElapsed: number | null;
+  /** @nullable */
+  resolutionPctElapsed: number | null;
+  responseBreached: boolean;
+  resolutionBreached: boolean;
+}
+
+export interface Ticket {
+  id: number;
+  title: string;
+  description: string;
+  severity: string;
+  status: TicketStatus;
+  category: string;
+  environment: string;
+  orgId: number;
+  orgName: string;
+  raisedById: number;
+  raisedByName: string;
+  /** @nullable */
+  assignedToId: number | null;
+  /** @nullable */
+  assignedToName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  firstResponseAt: string | null;
+  /** @nullable */
+  resolvedAt: string | null;
+  sla: SlaInfo;
+}
+
+export interface CustomerDetail {
+  id: number;
+  name: string;
+  email: string;
+  /** @nullable */
+  orgId: number | null;
+  /** @nullable */
+  orgName: string | null;
+  active: boolean;
+  createdAt: string;
+  /** @nullable */
+  lastLogin: string | null;
+  ticketCount: number;
+  openTicketCount: number;
+  /** @nullable */
+  lastActivityAt: string | null;
+  /** @nullable */
+  internalNotes: string | null;
+  tickets: Ticket[];
+}
+
+export interface CustomerUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  internalNotes?: string | null;
+}
+
 export type InviteRole = typeof InviteRole[keyof typeof InviteRole];
 
 
@@ -137,69 +246,6 @@ export interface InvitePreview {
   /** @nullable */
   orgName: string | null;
   expiresAt: string;
-}
-
-/**
- * Computed SLA state for a ticket
- */
-export interface SlaInfo {
-  /** @nullable */
-  responseDeadline: string | null;
-  /** @nullable */
-  resolutionDeadline: string | null;
-  /** @nullable */
-  responseMet: boolean | null;
-  /** @nullable */
-  resolutionMet: boolean | null;
-  paused: boolean;
-  /** True for P4 resolution (shown as Planned) */
-  resolutionPlanned: boolean;
-  /**
-     * 0-100+, null once met
-     * @nullable
-     */
-  responsePctElapsed: number | null;
-  /** @nullable */
-  resolutionPctElapsed: number | null;
-  responseBreached: boolean;
-  resolutionBreached: boolean;
-}
-
-export type TicketStatus = typeof TicketStatus[keyof typeof TicketStatus];
-
-
-export const TicketStatus = {
-  new: 'new',
-  triaged: 'triaged',
-  in_progress: 'in_progress',
-  awaiting_customer: 'awaiting_customer',
-  resolved: 'resolved',
-  closed: 'closed',
-} as const;
-
-export interface Ticket {
-  id: number;
-  title: string;
-  description: string;
-  severity: string;
-  status: TicketStatus;
-  category: string;
-  environment: string;
-  orgId: number;
-  orgName: string;
-  raisedById: number;
-  raisedByName: string;
-  /** @nullable */
-  assignedToId: number | null;
-  /** @nullable */
-  assignedToName: string | null;
-  createdAt: string;
-  updatedAt: string;
-  /** @nullable */
-  firstResponseAt: string | null;
-  /** @nullable */
-  resolvedAt: string | null;
-  sla: SlaInfo;
 }
 
 export interface TicketInput {
@@ -752,4 +798,9 @@ export const ListKbArticlesCategory = {
   security_compliance: 'security_compliance',
   release_notes: 'release_notes',
 } as const;
+
+export type ListCustomersParams = {
+search?: string;
+orgId?: number;
+};
 

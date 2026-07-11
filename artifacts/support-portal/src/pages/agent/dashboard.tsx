@@ -125,16 +125,16 @@ export default function AgentDashboardPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div className="flex flex-col h-full bg-stone-50">
       <div className="p-6 pb-0 flex-shrink-0">
         <h1 className="text-2xl font-bold tracking-tight text-[#0F1F3D] mb-6">Agent Queue</h1>
         
         {/* Metrics Strip */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <Card className="border-slate-200 shadow-sm">
+          <Card className="border-stone-200 shadow-sm">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Open P1s</p>
+                <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">Open P1s</p>
                 <div className="text-2xl font-bold text-red-600">
                   {metricsLoading ? "-" : metrics?.openP1Count || 0}
                 </div>
@@ -145,10 +145,10 @@ export default function AgentDashboardPage() {
             </CardContent>
           </Card>
           
-          <Card className="border-slate-200 shadow-sm">
+          <Card className="border-stone-200 shadow-sm">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Breaches Today</p>
+                <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">Breaches Today</p>
                 <div className="text-2xl font-bold text-amber-600">
                   {metricsLoading ? "-" : metrics?.slaBreachesToday || 0}
                 </div>
@@ -159,43 +159,43 @@ export default function AgentDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 shadow-sm">
+          <Card className="border-stone-200 shadow-sm">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Avg 1st Response</p>
+                <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">Avg 1st Response</p>
                 <div className="text-2xl font-bold text-[#0F1F3D]">
                   {metricsLoading ? "-" : metrics?.avgFirstResponseHoursThisWeek ? `${metrics.avgFirstResponseHoursThisWeek.toFixed(1)}h` : "N/A"}
                 </div>
               </div>
-              <div className="p-2 bg-indigo-50 rounded-full text-indigo-600">
+              <div className="p-2 bg-amber-50 rounded-full text-amber-600">
                 <Activity className="h-5 w-5" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 shadow-sm">
+          <Card className="border-stone-200 shadow-sm">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Unassigned</p>
+                <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">Unassigned</p>
                 <div className="text-2xl font-bold text-[#0F1F3D]">
                   {metricsLoading ? "-" : metrics?.unassignedCount || 0}
                 </div>
               </div>
-              <div className="p-2 bg-slate-100 rounded-full text-slate-600">
+              <div className="p-2 bg-stone-100 rounded-full text-stone-600">
                 <Users className="h-5 w-5" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 shadow-sm bg-blue-50/50 border-blue-100">
+          <Card className="border-stone-200 shadow-sm bg-amber-50/50 border-amber-100">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-blue-800 uppercase tracking-wider mb-1">Total Open</p>
-                <div className="text-2xl font-bold text-blue-900">
+                <p className="text-xs font-medium text-amber-800 uppercase tracking-wider mb-1">Total Open</p>
+                <div className="text-2xl font-bold text-amber-900">
                   {metricsLoading ? "-" : metrics?.openTicketCount || 0}
                 </div>
               </div>
-              <div className="p-2 bg-blue-100 rounded-full text-blue-700">
+              <div className="p-2 bg-amber-100 rounded-full text-amber-700">
                 <LayoutDashboard className="h-5 w-5" />
               </div>
             </CardContent>
@@ -206,7 +206,7 @@ export default function AgentDashboardPage() {
         <div className="flex flex-col sm:flex-row gap-4 mb-4 items-center justify-between">
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <div className="relative w-64 shrink-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
               <Input 
                 placeholder="Search..." 
                 className="pl-9 h-9 text-sm bg-white"
@@ -257,13 +257,13 @@ export default function AgentDashboardPage() {
 
           <div className="flex items-center gap-3 self-end sm:self-auto">
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">
-                <span className="text-sm font-medium text-blue-700">{selectedIds.size} selected</span>
-                <div className="h-4 w-px bg-blue-200 mx-1" />
+              <div className="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-100">
+                <span className="text-sm font-medium text-amber-700">{selectedIds.size} selected</span>
+                <div className="h-4 w-px bg-amber-200 mx-1" />
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 text-blue-700 hover:text-blue-800 hover:bg-blue-100 px-2">
+                    <Button variant="ghost" size="sm" className="h-7 text-amber-700 hover:text-amber-800 hover:bg-amber-100 px-2">
                       Assign...
                     </Button>
                   </DropdownMenuTrigger>
@@ -283,7 +283,7 @@ export default function AgentDashboardPage() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 text-blue-700 hover:text-blue-800 hover:bg-blue-100 px-2">
+                    <Button variant="ghost" size="sm" className="h-7 text-amber-700 hover:text-amber-800 hover:bg-amber-100 px-2">
                       Status...
                     </Button>
                   </DropdownMenuTrigger>
@@ -304,10 +304,10 @@ export default function AgentDashboardPage() {
 
       {/* Queue Table */}
       <div className="flex-1 px-6 pb-6 min-h-0">
-        <div className="h-full bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
+        <div className="h-full bg-white border border-stone-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
           <div className="overflow-auto flex-1">
             <Table>
-              <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+              <TableHeader className="bg-stone-50 sticky top-0 z-10 shadow-sm">
                 <TableRow>
                   <TableHead className="w-12 text-center">
                     <Checkbox 
@@ -329,22 +329,22 @@ export default function AgentDashboardPage() {
                 {ticketsLoading ? (
                   [1, 2, 3, 4, 5, 6].map((i) => (
                     <TableRow key={i} className="animate-pulse">
-                      <TableCell><div className="h-4 w-4 bg-slate-200 rounded"></div></TableCell>
-                      <TableCell><div className="h-4 bg-slate-200 rounded w-8"></div></TableCell>
-                      <TableCell><div className="h-4 bg-slate-200 rounded w-64 mb-1.5"></div><div className="h-3 bg-slate-100 rounded w-24"></div></TableCell>
-                      <TableCell><div className="h-4 bg-slate-200 rounded w-24"></div></TableCell>
-                      <TableCell><div className="h-6 bg-slate-200 rounded-full w-20"></div></TableCell>
-                      <TableCell><div className="h-6 bg-slate-200 rounded-full w-24"></div></TableCell>
-                      <TableCell><div className="h-6 bg-slate-200 rounded-full w-8"></div></TableCell>
-                      <TableCell><div className="h-4 bg-slate-200 rounded w-24"></div></TableCell>
-                      <TableCell className="text-right"><div className="h-4 bg-slate-200 rounded w-20 ml-auto"></div></TableCell>
+                      <TableCell><div className="h-4 w-4 bg-stone-200 rounded"></div></TableCell>
+                      <TableCell><div className="h-4 bg-stone-200 rounded w-8"></div></TableCell>
+                      <TableCell><div className="h-4 bg-stone-200 rounded w-64 mb-1.5"></div><div className="h-3 bg-stone-100 rounded w-24"></div></TableCell>
+                      <TableCell><div className="h-4 bg-stone-200 rounded w-24"></div></TableCell>
+                      <TableCell><div className="h-6 bg-stone-200 rounded-full w-20"></div></TableCell>
+                      <TableCell><div className="h-6 bg-stone-200 rounded-full w-24"></div></TableCell>
+                      <TableCell><div className="h-6 bg-stone-200 rounded-full w-8"></div></TableCell>
+                      <TableCell><div className="h-4 bg-stone-200 rounded w-24"></div></TableCell>
+                      <TableCell className="text-right"><div className="h-4 bg-stone-200 rounded w-20 ml-auto"></div></TableCell>
                     </TableRow>
                   ))
                 ) : displayTickets.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="h-64 text-center">
-                      <div className="flex flex-col items-center justify-center text-slate-500">
-                        <CheckSquare className="h-10 w-10 mb-4 text-slate-300" />
+                      <div className="flex flex-col items-center justify-center text-stone-500">
+                        <CheckSquare className="h-10 w-10 mb-4 text-stone-300" />
                         <p className="text-lg font-medium text-[#0F1F3D]">Queue is empty</p>
                         <p className="text-sm mt-1">No tickets match your current filters.</p>
                       </div>
@@ -356,7 +356,7 @@ export default function AgentDashboardPage() {
                     return (
                       <TableRow 
                         key={ticket.id} 
-                        className={`group transition-colors ${isBreached ? 'bg-red-50/30 hover:bg-red-50/50' : 'hover:bg-slate-50'}`}
+                        className={`group transition-colors ${isBreached ? 'bg-red-50/30 hover:bg-red-50/50' : 'hover:bg-stone-50'}`}
                       >
                         <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                           <Checkbox 
@@ -364,11 +364,11 @@ export default function AgentDashboardPage() {
                             onCheckedChange={(c) => handleSelectOne(ticket.id, c as boolean)}
                           />
                         </TableCell>
-                        <TableCell className="font-medium text-slate-500 text-xs">#{ticket.id}</TableCell>
+                        <TableCell className="font-medium text-stone-500 text-xs">#{ticket.id}</TableCell>
                         <TableCell>
                           <Link href={`/tickets/${ticket.id}`} className="block">
-                            <div className="font-medium text-[#0F1F3D] group-hover:text-blue-600 transition-colors line-clamp-1">{ticket.title}</div>
-                            <div className="text-xs text-slate-500 mt-0.5">{ticket.category} • {ticket.environment}</div>
+                            <div className="font-medium text-[#0F1F3D] group-hover:text-amber-600 transition-colors line-clamp-1">{ticket.title}</div>
+                            <div className="text-xs text-stone-500 mt-0.5">{ticket.category} • {ticket.environment}</div>
                           </Link>
                         </TableCell>
                         <TableCell className="text-sm font-medium text-[#0F1F3D]">{ticket.orgName}</TableCell>
@@ -377,19 +377,19 @@ export default function AgentDashboardPage() {
                         <TableCell>
                           {ticket.assignedToName ? (
                             <div className="flex items-center gap-1.5">
-                              <div className="h-5 w-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-[#0F1F3D]">
+                              <div className="h-5 w-5 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-medium text-[#0F1F3D]">
                                 {ticket.assignedToName.charAt(0).toUpperCase()}
                               </div>
-                              <span className="text-sm text-slate-700">{ticket.assignedToName.split(' ')[0]}</span>
+                              <span className="text-sm text-stone-700">{ticket.assignedToName.split(' ')[0]}</span>
                             </div>
                           ) : (
-                            <span className="text-xs italic text-slate-400">Unassigned</span>
+                            <span className="text-xs italic text-stone-400">Unassigned</span>
                           )}
                         </TableCell>
                         <TableCell>
                           <SlaIndicator sla={ticket.sla} type="combined" />
                         </TableCell>
-                        <TableCell className="text-right text-xs text-slate-500 whitespace-nowrap">
+                        <TableCell className="text-right text-xs text-stone-500 whitespace-nowrap">
                           {formatDateTime(ticket.updatedAt)}
                         </TableCell>
                       </TableRow>

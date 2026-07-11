@@ -20,6 +20,8 @@ import AdminDashboardPage from "@/pages/admin/dashboard";
 import KbListPage from "@/pages/kb/list";
 import KbDetailPage from "@/pages/kb/detail";
 import KbEditorPage from "@/pages/kb/editor";
+import CustomersListPage from "@/pages/customers/list";
+import CustomerDetailPage from "@/pages/customers/detail";
 import NotFoundPage from "@/pages/not-found";
 
 import Layout from "@/components/layout";
@@ -71,24 +73,24 @@ const clerkAppearance = {
     card: "!shadow-none !border-0 !bg-transparent !rounded-none",
     footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
     headerTitle: "text-2xl font-semibold tracking-tight text-[#0F1F3D]",
-    headerSubtitle: "text-sm text-slate-500",
+    headerSubtitle: "text-sm text-stone-500",
     socialButtonsBlockButtonText: "font-medium text-sm text-[#0F1F3D]",
     formFieldLabel: "text-sm font-medium text-[#0F1F3D]",
-    footerActionLink: "text-blue-600 hover:text-blue-700 font-medium",
-    footerActionText: "text-slate-500",
-    dividerText: "text-slate-500 text-xs font-medium",
-    identityPreviewEditButton: "text-blue-600 hover:text-blue-700",
+    footerActionLink: "text-amber-600 hover:text-amber-700 font-medium",
+    footerActionText: "text-stone-500",
+    dividerText: "text-stone-500 text-xs font-medium",
+    identityPreviewEditButton: "text-amber-600 hover:text-amber-700",
     formFieldSuccessText: "text-green-600 text-sm",
     alertText: "text-sm text-red-600",
     logoBox: "h-12 flex justify-center mb-6",
     logoImage: "h-10",
-    socialButtonsBlockButton: "border border-slate-200 hover:bg-slate-50",
-    formButtonPrimary: "bg-[#2563EB] hover:bg-[#1d4ed8] text-white",
-    formFieldInput: "border-slate-200 focus:ring-[#2563EB] focus:border-[#2563EB]",
+    socialButtonsBlockButton: "border border-stone-200 hover:bg-stone-50",
+    formButtonPrimary: "bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D]",
+    formFieldInput: "border-stone-200 focus:ring-[#EFB323] focus:border-[#EFB323]",
     footerAction: "mt-6",
-    dividerLine: "bg-slate-200",
+    dividerLine: "bg-stone-200",
     alert: "bg-red-50 border border-red-200 p-3 rounded-md",
-    otpCodeFieldInput: "border-slate-200 focus:ring-[#2563EB]",
+    otpCodeFieldInput: "border-stone-200 focus:ring-[#EFB323]",
     formFieldRow: "mb-4",
     main: "w-full",
   },
@@ -96,7 +98,7 @@ const clerkAppearance = {
 
 function SignInPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-slate-50 px-4 py-12">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-stone-50 px-4 py-12">
       <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
     </div>
   );
@@ -104,7 +106,7 @@ function SignInPage() {
 
 function SignUpPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-slate-50 px-4 py-12">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-stone-50 px-4 py-12">
       <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
     </div>
   );
@@ -140,8 +142,8 @@ function ClerkApiTokenBridge({ children }: { children: ReactNode }) {
   // Don't fire API calls until Clerk is ready to mint tokens.
   if (!isLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2563EB]" />
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EFB323]" />
       </div>
     );
   }
@@ -173,15 +175,15 @@ function ClerkQueryClientCacheInvalidator() {
 function AccessDenied() {
   const { signOut } = useClerk();
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl p-8 text-center border border-slate-200 shadow-sm">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-stone-50 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl p-8 text-center border border-stone-200 shadow-sm">
         <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-6">
           <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-[#0F1F3D] mb-2">Access Denied</h1>
-        <p className="text-slate-600 mb-8">
+        <p className="text-stone-600 mb-8">
           The Ekai.ai Support Portal is by invitation only. Your account has not been granted access to any organization.
         </p>
         <Button 
@@ -203,8 +205,8 @@ function AuthenticatedApp() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2563EB]" />
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EFB323]" />
       </div>
     );
   }
@@ -219,10 +221,10 @@ function AuthenticatedApp() {
     // redirect to /sign-in: Clerk would bounce a signed-in user straight back,
     // creating an infinite loop. Show an explicit recovery screen instead.
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-slate-50 px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl p-8 text-center border border-slate-200 shadow-sm">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-stone-50 px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl p-8 text-center border border-stone-200 shadow-sm">
           <h1 className="text-2xl font-bold text-[#0F1F3D] mb-2">Session problem</h1>
-          <p className="text-slate-600 mb-8">
+          <p className="text-stone-600 mb-8">
             We couldn't verify your session with the server. Signing out and back in usually fixes this.
           </p>
           <Button
@@ -262,6 +264,12 @@ function AuthenticatedApp() {
           {user.role === "admin" ? <KbEditorPage /> : <Redirect to="/kb" />}
         </Route>
         <Route path="/kb/:id" component={KbDetailPage} />
+        <Route path="/customers/:id">
+          {user.role === "ekai_agent" || user.role === "admin" ? <CustomerDetailPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/customers">
+          {user.role === "ekai_agent" || user.role === "admin" ? <CustomersListPage /> : <Redirect to="/dashboard" />}
+        </Route>
         
         {/* Accept invite requires auth, handled by its own page logic but lives here for auth wrap */}
         <Route path="/accept-invite" component={AcceptInvitePage} />
