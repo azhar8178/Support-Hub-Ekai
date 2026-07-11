@@ -5,7 +5,8 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useRegisterPushToken } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { getListNotificationsQueryKey, useRegisterPushToken } from '@workspace/api-client-react';
 
 const PUSH_TOKEN_STORAGE_KEY = 'ekai.expoPushToken';
 
@@ -53,6 +54,7 @@ function extractTicketId(data: unknown): number | null {
  */
 export function usePushNotifications(enabled: boolean) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const registerPushToken = useRegisterPushToken();
   const registrationStarted = useRef(false);
   const mutateRef = useRef(registerPushToken.mutate);
@@ -99,6 +101,18 @@ export function usePushNotifications(enabled: boolean) {
       }
     })();
   }, [enabled]);
+
+  // Refresh the in-app notifications list when a push arrives while the app
+  // is in the foreground, so the tab badge and list update without a manual
+  // pull-to-refresh.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    const subscription = Notifications.addNotificationReceivedListener(() => {
+      queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
+    });
+    return () => subscription.remove();
+  }, [queryClient]);
 
   // Deep-link to the ticket when the user taps a push notification.
   useEffect(() => {

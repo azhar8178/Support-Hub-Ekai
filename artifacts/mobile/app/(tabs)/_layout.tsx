@@ -3,7 +3,13 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import { useAuth, useClerk } from '@clerk/expo';
-import { setAuthTokenGetter, useGetCurrentUser } from '@workspace/api-client-react';
+import * as Notifications from 'expo-notifications';
+import {
+  getListNotificationsQueryKey,
+  setAuthTokenGetter,
+  useGetCurrentUser,
+  useListNotifications,
+} from '@workspace/api-client-react';
 import { LoadingView, ErrorView } from '@/components/StateViews';
 import { useColors } from '@/hooks/useColors';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -42,6 +48,17 @@ function PortalTabs() {
   // Register for native push + handle notification taps once the portal
   // profile is confirmed (invited users only).
   usePushNotifications(!!me.data);
+
+  const notifications = useListNotifications({
+    query: { queryKey: getListNotificationsQueryKey(), enabled: !!me.data },
+  });
+  const unreadCount = (notifications.data ?? []).filter((n) => !n.read).length;
+
+  // Mirror the unread count on the app icon badge (native only).
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    Notifications.setBadgeCountAsync(unreadCount).catch(() => undefined);
+  }, [unreadCount]);
 
   if (me.isLoading) {
     return <LoadingView />;
@@ -93,6 +110,13 @@ function PortalTabs() {
         options={{
           title: 'Notifications',
           tabBarIcon: ({ color, size }) => <Feather name="bell" size={size - 2} color={color} />,
+          tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.accent,
+            color: '#FFFFFF',
+            fontFamily: 'Inter_600SemiBold',
+            fontSize: 11,
+          },
         }}
       />
       <Tabs.Screen

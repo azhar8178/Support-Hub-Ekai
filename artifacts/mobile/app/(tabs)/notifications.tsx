@@ -1,7 +1,8 @@
-import React from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import {
@@ -40,6 +41,15 @@ export default function NotificationsScreen() {
   });
 
   const unreadCount = (notifications.data ?? []).filter((n) => !n.read).length;
+
+  // Opening the tab acknowledges the alerts: clear the app icon badge (native).
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'web') {
+        Notifications.setBadgeCountAsync(0).catch(() => undefined);
+      }
+    }, []),
+  );
 
   const onPressItem = (item: AppNotification) => {
     Haptics.selectionAsync();
