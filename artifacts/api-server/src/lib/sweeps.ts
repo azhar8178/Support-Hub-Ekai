@@ -4,6 +4,7 @@ import { addBusinessDays } from "./businessHours";
 import { computeSlaInfo } from "./sla";
 import { applyStatusChange } from "./ticketActions";
 import { getAgentAndAdminIds, notifyUsers } from "./notify";
+import { sweepPushReceipts } from "./push";
 import { logger } from "./logger";
 
 const SWEEP_INTERVAL_MS = 60_000;
@@ -13,6 +14,7 @@ const AUTO_CLOSE_BUSINESS_DAYS = 5;
  * Periodic background sweep:
  * 1. SLA 75% warning notifications for open tickets approaching a deadline.
  * 2. Auto-close Resolved tickets after 5 business days.
+ * 3. Fetch due Expo push delivery receipts from the persisted queue.
  */
 export async function runSweep(): Promise<void> {
   const now = new Date();
@@ -63,6 +65,9 @@ export async function runSweep(): Promise<void> {
       logger.info({ ticketId: ticket.id }, "auto-closed resolved ticket");
     }
   }
+
+  // --- Push delivery receipt checks (persisted queue; survives restarts) ---
+  await sweepPushReceipts(now);
 }
 
 export function startSweeps(): void {

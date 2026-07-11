@@ -1,8 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
-import { db, pushTokensTable, notificationsTable, type User } from "@workspace/db";
+import {
+  db,
+  pushReceiptQueueTable,
+  pushTokensTable,
+  notificationsTable,
+  type User,
+} from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { Fixtures } from "./fixtures";
-import { sendExpoPushToUsers, checkPushReceipts, RECEIPT_DELAY_MS } from "../lib/push";
+import {
+  sendExpoPushToUsers,
+  checkPushReceipts,
+  sweepPushReceipts,
+  RECEIPT_DELAY_MS,
+  RECEIPT_MAX_AGE_MS,
+} from "../lib/push";
 import { notifyUsers, type NotificationPayload } from "../lib/notify";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
@@ -380,7 +392,8 @@ describe("checkPushReceipts", () => {
       vi.fn(async () => new Response("Internal Server Error", { status: 500 })),
     );
 
-    await expect(checkPushReceipts(new Map([["r-http", t]]))).resolves.toBeUndefined();
+    // Nothing processed — the failed chunk's IDs are retryable.
+    await expect(checkPushReceipts(new Map([["r-http", t]]))).resolves.toEqual([]);
     expect(await tokensFor(user.id)).toContain(t);
   });
 
@@ -395,7 +408,8 @@ describe("checkPushReceipts", () => {
       }),
     );
 
-    await expect(checkPushReceipts(new Map([["r-net", t]]))).resolves.toBeUndefined();
+    // Nothing processed — the failed chunk's IDs are retryable.
+    await expect(checkPushReceipts(new Map([["r-net", t]]))).resolves.toEqual([]);
     expect(await tokensFor(user.id)).toContain(t);
   });
 
@@ -422,88 +436,209 @@ describe("checkPushReceipts", () => {
   });
 });
 
-describe("receipt check scheduling after a send", () => {
-  it("fetches receipts for successful tickets after the delay and prunes late DeviceNotRegistered", async () => {
-    vi.useFakeTimers();
-    try {
-      const dead = token("late-dead");
-      const alive = token("late-alive");
-      await addToken(user.id, dead);
-      await addToken(user.id, alive);
+describe("receipt queue persistence and sweep", () => {
+  /** Unique-per-run Expo ticket ID so parallel test runs never collide. */
+  const qid = (label: string) => `q-${label}-${fx.suffix}`;
 
-      const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
-        if (url === EXPO_PUSH_URL) {
-          const chunk = JSON.parse(init.body as string) as { to: string }[];
-          return okResponse(
-            chunk.map((m) => ({ status: "ok", id: m.to === dead ? "t-dead" : "t-alive" })),
-          );
-        }
-        return receiptsResponse({
-          "t-dead": {
-            status: "error",
-            message: "gone",
-            details: { error: "DeviceNotRegistered" },
-          },
-          "t-alive": { status: "ok" },
-        });
-      });
-      vi.stubGlobal("fetch", fetchMock);
+  async function queueRowsFor(ticketIds: string[]) {
+    return db
+      .select()
+      .from(pushReceiptQueueTable)
+      .where(inArray(pushReceiptQueueTable.ticketId, ticketIds));
+  }
 
-      await sendExpoPushToUsers([user.id], payload);
-
-      // Only the send has happened so far — no receipts call before the delay.
-      const receiptCalls = () =>
-        fetchMock.mock.calls.filter((c) => c[0] === EXPO_RECEIPTS_URL).length;
-      expect(receiptCalls()).toBe(0);
-
-      await vi.advanceTimersByTimeAsync(RECEIPT_DELAY_MS);
-
-      expect(receiptCalls()).toBe(1);
-      const receiptCall = fetchMock.mock.calls.find((c) => c[0] === EXPO_RECEIPTS_URL)!;
-      const { ids } = JSON.parse((receiptCall[1] as RequestInit).body as string) as {
-        ids: string[];
-      };
-      expect(new Set(ids)).toEqual(new Set(["t-dead", "t-alive"]));
-
-      // The prune is a real async DB delete fired inside the timer callback;
-      // switch back to real timers and poll until it lands.
-      vi.useRealTimers();
-      const deadline = Date.now() + 5000;
-      let remaining = await tokensFor(user.id);
-      while (remaining.includes(dead) && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 50));
-        remaining = await tokensFor(user.id);
-      }
-      expect(remaining).toContain(alive);
-      expect(remaining).not.toContain(dead);
-    } finally {
-      vi.useRealTimers();
+  afterEach(async () => {
+    // Remove any queue rows this suite created (ticket IDs carry fx.suffix).
+    const rows = await db.select().from(pushReceiptQueueTable);
+    const ours = rows.filter((r) => r.ticketId.includes(fx.suffix)).map((r) => r.id);
+    if (ours.length > 0) {
+      await db.delete(pushReceiptQueueTable).where(inArray(pushReceiptQueueTable.id, ours));
     }
   });
 
-  it("does not schedule a receipt check when no tickets came back with IDs", async () => {
-    vi.useFakeTimers();
-    try {
-      const t = token("no-ids");
-      await addToken(user.id, t);
+  it("persists successful tickets with their token and a ~15min due-at after a send", async () => {
+    const t = token("queue-persist");
+    await addToken(user.id, t);
+    const id = qid("persist");
 
-      const fetchMock = vi.fn(async () =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => okResponse([{ status: "ok", id }])),
+    );
+
+    const before = Date.now();
+    await sendExpoPushToUsers([user.id], payload);
+    const after = Date.now();
+
+    const rows = await queueRowsFor([id]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.token).toBe(t);
+    const due = rows[0]!.dueAt.getTime();
+    expect(due).toBeGreaterThanOrEqual(before + RECEIPT_DELAY_MS);
+    expect(due).toBeLessThanOrEqual(after + RECEIPT_DELAY_MS);
+  });
+
+  it("does not persist anything when no tickets came back with IDs", async () => {
+    const t = token("queue-no-ids");
+    await addToken(user.id, t);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
         okResponse([
           { status: "error", message: "rate limited", details: { error: "MessageRateExceeded" } },
         ]),
+      ),
+    );
+
+    await sendExpoPushToUsers([user.id], payload);
+
+    const rows = await db.select().from(pushReceiptQueueTable);
+    expect(rows.filter((r) => r.ticketId.includes(fx.suffix))).toHaveLength(0);
+  });
+
+  it("sweep fetches due entries, prunes DeviceNotRegistered tokens, and removes processed rows", async () => {
+    const dead = token("sweep-dead");
+    const alive = token("sweep-alive");
+    await addToken(user.id, dead);
+    await addToken(user.id, alive);
+
+    const deadId = qid("sweep-dead");
+    const aliveId = qid("sweep-alive");
+    const now = new Date();
+    await db.insert(pushReceiptQueueTable).values([
+      { ticketId: deadId, token: dead, dueAt: new Date(now.getTime() - 1000) },
+      { ticketId: aliveId, token: alive, dueAt: new Date(now.getTime() - 1000) },
+    ]);
+
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const { ids } = JSON.parse(init.body as string) as { ids: string[] };
+      return receiptsResponse(
+        Object.fromEntries(
+          ids.map((id) => [
+            id,
+            id === deadId
+              ? { status: "error", message: "gone", details: { error: "DeviceNotRegistered" } }
+              : { status: "ok" },
+          ]),
+        ),
       );
-      vi.stubGlobal("fetch", fetchMock);
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
-      await sendExpoPushToUsers([user.id], payload);
-      await vi.advanceTimersByTimeAsync(RECEIPT_DELAY_MS * 2);
+    await sweepPushReceipts(now);
 
-      expect(
-        (fetchMock.mock.calls as unknown[][]).every((c) => c[0] === EXPO_PUSH_URL),
-      ).toBe(true);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    } finally {
-      vi.useRealTimers();
-    }
+    const requestedIds = fetchMock.mock.calls.flatMap(
+      (c) => (JSON.parse((c[1] as RequestInit).body as string) as { ids: string[] }).ids,
+    );
+    expect(requestedIds).toContain(deadId);
+    expect(requestedIds).toContain(aliveId);
+
+    // Dead token pruned, alive kept.
+    const remaining = await tokensFor(user.id);
+    expect(remaining).toContain(alive);
+    expect(remaining).not.toContain(dead);
+
+    // Both rows processed and removed from the queue.
+    expect(await queueRowsFor([deadId, aliveId])).toHaveLength(0);
+  });
+
+  it("sweep does not fetch entries that are not yet due", async () => {
+    const notDueId = qid("not-due");
+    const now = new Date();
+    await db.insert(pushReceiptQueueTable).values({
+      ticketId: notDueId,
+      token: token("not-due"),
+      dueAt: new Date(now.getTime() + RECEIPT_DELAY_MS),
+    });
+
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const { ids } = JSON.parse(init.body as string) as { ids: string[] };
+      return receiptsResponse(Object.fromEntries(ids.map((id) => [id, { status: "ok" }])));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sweepPushReceipts(now);
+
+    const requestedIds = fetchMock.mock.calls.flatMap(
+      (c) => (JSON.parse((c[1] as RequestInit).body as string) as { ids: string[] }).ids,
+    );
+    expect(requestedIds).not.toContain(notDueId);
+    // Row stays queued for a later sweep.
+    expect(await queueRowsFor([notDueId])).toHaveLength(1);
+  });
+
+  it("keeps entries whose receipts are missing so they retry on a later sweep", async () => {
+    const missingId = qid("missing");
+    const now = new Date();
+    await db.insert(pushReceiptQueueTable).values({
+      ticketId: missingId,
+      token: token("sweep-missing"),
+      dueAt: new Date(now.getTime() - 1000),
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const { ids } = JSON.parse(init.body as string) as { ids: string[] };
+        // Every receipt except ours is ok; ours is missing from the response.
+        return receiptsResponse(
+          Object.fromEntries(
+            ids.filter((id) => id !== missingId).map((id) => [id, { status: "ok" }]),
+          ),
+        );
+      }),
+    );
+
+    await sweepPushReceipts(now);
+
+    expect(await queueRowsFor([missingId])).toHaveLength(1);
+  });
+
+  it("drops entries older than 24h without fetching their receipts", async () => {
+    const expiredId = qid("expired");
+    const now = new Date();
+    await db.insert(pushReceiptQueueTable).values({
+      ticketId: expiredId,
+      token: token("expired"),
+      dueAt: new Date(now.getTime() - RECEIPT_MAX_AGE_MS),
+      createdAt: new Date(now.getTime() - RECEIPT_MAX_AGE_MS - 60_000),
+    });
+
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const { ids } = JSON.parse(init.body as string) as { ids: string[] };
+      return receiptsResponse(Object.fromEntries(ids.map((id) => [id, { status: "ok" }])));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sweepPushReceipts(now);
+
+    const requestedIds = fetchMock.mock.calls.flatMap(
+      (c) => (JSON.parse((c[1] as RequestInit).body as string) as { ids: string[] }).ids,
+    );
+    expect(requestedIds).not.toContain(expiredId);
+    expect(await queueRowsFor([expiredId])).toHaveLength(0);
+  });
+
+  it("keeps queue rows when the receipts request fails, so they retry later", async () => {
+    const retryId = qid("retry");
+    const now = new Date();
+    await db.insert(pushReceiptQueueTable).values({
+      ticketId: retryId,
+      token: token("sweep-retry"),
+      dueAt: new Date(now.getTime() - 1000),
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("ECONNRESET");
+      }),
+    );
+
+    await expect(sweepPushReceipts(now)).resolves.toBeUndefined();
+
+    expect(await queueRowsFor([retryId])).toHaveLength(1);
   });
 });
 

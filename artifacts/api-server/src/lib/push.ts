@@ -1,5 +1,5 @@
-import { db, pushTokensTable, notificationsTable } from "@workspace/db";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { db, pushReceiptQueueTable, pushTokensTable, notificationsTable } from "@workspace/db";
+import { and, count, eq, inArray, lt, lte } from "drizzle-orm";
 import { logger } from "./logger";
 import type { NotificationPayload } from "./notify";
 
@@ -123,29 +123,29 @@ export async function sendExpoPushToUsers(
     }
   }
 
-  scheduleReceiptCheck(ticketTokens);
+  await enqueueReceiptChecks(ticketTokens);
 }
 
 /**
- * Schedule a one-shot delayed receipt check for the given tickets. Expo only
- * knows the true (APNs/FCM) delivery outcome some minutes after accepting a
- * message, so we wait before asking. The timer is unref'd so it never keeps
- * the process alive; if the process restarts before it fires, the receipts
- * are simply skipped — acceptable at this scale.
+ * Persist ticket IDs from a successful send so the periodic sweep can fetch
+ * their delivery receipts once due (~15 minutes later, per Expo's guidance).
+ * Persisting instead of using an in-process timer means receipt checks
+ * survive server restarts. Never throws; failures are logged — losing a
+ * receipt check must not break notification delivery.
  */
-function scheduleReceiptCheck(
-  ticketTokens: Map<string, string>,
-  delayMs: number = RECEIPT_DELAY_MS,
-): void {
+async function enqueueReceiptChecks(ticketTokens: ReadonlyMap<string, string>): Promise<void> {
   if (ticketTokens.size === 0) return;
-  const timer = setTimeout(() => {
-    checkPushReceipts(ticketTokens).catch((err) => {
-      logger.error({ err }, "expo push receipt check failed");
-    });
-  }, delayMs);
-  // Node timers keep the event loop alive unless unref'd; guard for
-  // environments (e.g. fake timers in tests) where unref may be absent.
-  timer.unref?.();
+  const dueAt = new Date(Date.now() + RECEIPT_DELAY_MS);
+  const rows = [...ticketTokens.entries()].map(([ticketId, token]) => ({
+    ticketId,
+    token,
+    dueAt,
+  }));
+  try {
+    await db.insert(pushReceiptQueueTable).values(rows).onConflictDoNothing();
+  } catch (err) {
+    logger.error({ err, count: rows.length }, "failed to enqueue push receipt checks");
+  }
 }
 
 /**
@@ -153,10 +153,17 @@ function scheduleReceiptCheck(
  * - log every error receipt (surfaces InvalidCredentials, MessageTooBig, etc.)
  * - prune tokens whose receipts report DeviceNotRegistered
  * Never throws; failures are logged.
+ *
+ * Returns the ticket IDs whose receipts were found and handled. IDs whose
+ * receipts were missing (not ready yet) or whose request failed are NOT
+ * returned, so callers can retry them later.
  */
-export async function checkPushReceipts(ticketTokens: ReadonlyMap<string, string>): Promise<void> {
+export async function checkPushReceipts(
+  ticketTokens: ReadonlyMap<string, string>,
+): Promise<string[]> {
   const ids = [...ticketTokens.keys()];
-  if (ids.length === 0) return;
+  const processed: string[] = [];
+  if (ids.length === 0) return processed;
 
   for (let i = 0; i < ids.length; i += RECEIPT_CHUNK_SIZE) {
     const idChunk = ids.slice(i, i + RECEIPT_CHUNK_SIZE);
@@ -183,10 +190,12 @@ export async function checkPushReceipts(ticketTokens: ReadonlyMap<string, string
       for (const id of idChunk) {
         const receipt = receipts[id];
         if (!receipt) {
-          // Receipt not available (yet) — Expo keeps them ~24h; nothing to act on.
+          // Receipt not available (yet) — Expo keeps them ~24h; the caller
+          // may retry this ID on a later sweep.
           logger.warn({ ticketId: id }, "expo push receipt missing");
           continue;
         }
+        processed.push(id);
         if (receipt.status === "error") {
           logger.error(
             {
@@ -210,5 +219,49 @@ export async function checkPushReceipts(ticketTokens: ReadonlyMap<string, string
     } catch (err) {
       logger.error({ err }, "expo push receipts fetch failed");
     }
+  }
+  return processed;
+}
+
+/** Expo discards receipts after ~24h; queue entries older than this are useless. */
+export const RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Process the persisted push-receipt queue:
+ * 1. Drop entries older than ~24h — Expo no longer has their receipts.
+ * 2. Fetch receipts for due entries and act on them (log errors, prune
+ *    DeviceNotRegistered tokens), then remove the processed rows.
+ * Entries whose receipts are still missing stay queued and are retried on
+ * later sweeps until they age out. Never throws; failures are logged.
+ */
+export async function sweepPushReceipts(now: Date = new Date()): Promise<void> {
+  try {
+    const cutoff = new Date(now.getTime() - RECEIPT_MAX_AGE_MS);
+    const expired = await db
+      .delete(pushReceiptQueueTable)
+      .where(lt(pushReceiptQueueTable.createdAt, cutoff))
+      .returning({ id: pushReceiptQueueTable.id });
+    if (expired.length > 0) {
+      logger.warn({ count: expired.length }, "dropped expired push receipt queue entries");
+    }
+
+    const due = await db
+      .select({
+        ticketId: pushReceiptQueueTable.ticketId,
+        token: pushReceiptQueueTable.token,
+      })
+      .from(pushReceiptQueueTable)
+      .where(lte(pushReceiptQueueTable.dueAt, now));
+    if (due.length === 0) return;
+
+    const ticketTokens = new Map(due.map((row) => [row.ticketId, row.token]));
+    const processed = await checkPushReceipts(ticketTokens);
+    if (processed.length > 0) {
+      await db
+        .delete(pushReceiptQueueTable)
+        .where(inArray(pushReceiptQueueTable.ticketId, processed));
+    }
+  } catch (err) {
+    logger.error({ err }, "push receipt sweep failed");
   }
 }
