@@ -124,12 +124,14 @@ export default function Layout({ user, children }: LayoutProps) {
               <img
                 src={brandingData.logoUrl}
                 alt={companyName}
-                className="h-8 max-w-[120px] object-contain"
+                className="h-8 max-w-[160px] object-contain"
               />
             ) : (
-              <img src="/logo.svg" alt="Ekai Logo" className="h-7 w-7" />
+              <>
+                <img src="/logo.svg" alt="Ekai Logo" className="h-7 w-7" />
+                <span className="font-bold text-lg tracking-tight text-white">{companyName}</span>
+              </>
             )}
-            <span className="font-bold text-lg tracking-tight text-white">{companyName}</span>
           </Link>
         </div>
 
