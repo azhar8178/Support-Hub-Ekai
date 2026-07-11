@@ -10,3 +10,5 @@ description: Phantom typecheck errors (missing exports, old schema shapes) cause
 **Why:** Artifact tsconfigs use project references to `lib/db` and `lib/api-zod`, and their `typecheck` scripts run `tsc -p --noEmit`, which consumes the libs' `dist/*.d.ts` without rebuilding them. Sibling tasks that change lib source leave the dist output behind.
 
 **How to apply:** From the workspace root run `npx tsc -b lib/db lib/api-zod --force`, then re-run the artifact typecheck. Don't "fix" imports or schemas based on the phantom errors.
+
+**Note (July 2026):** The api-server `typecheck` script now runs `tsc -b ../../lib/db ../../lib/api-zod` before `tsc -p --noEmit`, so it self-heals. Other artifacts' typecheck scripts may still hit this — apply the same prefix pattern if they do. Runtime is unaffected either way: lib package `exports` point at `src/*.ts`, so only declaration-consuming typechecks see stale dist.
