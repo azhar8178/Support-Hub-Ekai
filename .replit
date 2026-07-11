@@ -28,6 +28,14 @@ args = "api-typecheck"
 task = "workflow.run"
 args = "mobile-typecheck"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "portal-typecheck"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "mockup-typecheck"
+
 [[workflows.workflow]]
 name = "api-tests"
 author = "agent"
@@ -61,6 +69,28 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/mobile run typecheck"
+
+[[workflows.workflow]]
+name = "portal-typecheck"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/support-portal run typecheck"
+
+[[workflows.workflow]]
+name = "mockup-typecheck"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/mockup-sandbox run typecheck"
 
 [agent]
 stack = "PNPM_WORKSPACE"

@@ -5,4 +5,6 @@
 - [Expo mobile artifact quirks](expo-mobile-quirks.md) — `npx expo install` silently no-ops in this pnpm workspace (use `pnpm add` + root install); SDK 54 file-system legacy API notes.
 - [Stale TS project refs](stale-ts-project-refs.md) — phantom typecheck errors (missing exports/old shapes) mean stale lib dist; run `npx tsc -b lib/<pkg> --force` for every lib named in errors (incl. api-client-react), don't edit code.
 - [React type package dedupe](react-types-dedupe.md) — keep one @types/react (19.1.x, expo's pin) via catalog + overrides; duplicates cause "unrelated Ref types" tsc errors.
+- [pnpm hoist store staleness](pnpm-hoist-staleness.md) — "library class missing props/setState" tsc errors mean `.pnpm/node_modules/@types/react` is gone; `pnpm install --force` fixes (plain install no-ops).
+- [Validation commands are workflows](validation-vs-workflows.md) — register checks via setValidationCommand only; a same-named plain workflow blocks it (NO_MATCHING_WORKFLOW).
 - [Shared dev DB drift](shared-dev-db-drift.md) — parallel tasks share one dev Postgres; "column does not exist" or stale-dist "no exported member" failures may be sibling-task drift, not your change.
