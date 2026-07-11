@@ -47,8 +47,10 @@ catalog:
   '@tailwindcss/vite': ^4.1.14
   '@tanstack/react-query': ^5.90.21
   '@types/node': ^25.3.3
-  '@types/react': ^19.2.0
-  '@types/react-dom': ^19.2.0
+  # Must stay on the 19.1.x line to match expo's pinned @types/react;
+  # mixing 19.1.x and 19.2.x causes Ref type mismatches across the workspace
+  '@types/react': ~19.1.10
+  '@types/react-dom': ~19.1.7
   '@vitejs/plugin-react': ^5.0.4
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
@@ -158,3 +160,7 @@ overrides:
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.27.3"
+  # Deduplicate React type packages: expo pins @types/react to 19.1.x, so force
+  # a single version workspace-wide to avoid "two unrelated Ref types" errors
+  "@types/react": "~19.1.10"
+  "@types/react-dom": "~19.1.7"
