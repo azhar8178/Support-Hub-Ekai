@@ -90,6 +90,55 @@ describe("sendExpoPushToUsers", () => {
     });
   });
 
+  it("includes the recipient's unread count as the badge field", async () => {
+    const t = token("badge");
+    await addToken(user.id, t);
+
+    // Two unread + one read notification for the recipient.
+    const inserted = await db
+      .insert(notificationsTable)
+      .values([
+        { userId: user.id, type: "agent_reply", title: "a", body: "a", read: false },
+        { userId: user.id, type: "agent_reply", title: "b", body: "b", read: false },
+        { userId: user.id, type: "agent_reply", title: "c", body: "c", read: true },
+      ])
+      .returning({ id: notificationsTable.id });
+
+    const fetchMock = vi.fn(async () => okResponse([{ status: "ok", id: "1" }]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await sendExpoPushToUsers([user.id], payload);
+
+      const messages = sentMessages(fetchMock.mock.calls[0]! as unknown[]) as unknown as {
+        to: string;
+        badge?: number;
+      }[];
+      expect(messages).toHaveLength(1);
+      expect(messages[0]!.badge).toBe(2);
+    } finally {
+      await db
+        .delete(notificationsTable)
+        .where(inArray(notificationsTable.id, inserted.map((r) => r.id)));
+    }
+  });
+
+  it("omits the badge field when the recipient has no unread notifications", async () => {
+    const t = token("no-badge");
+    await addToken(user.id, t);
+
+    const fetchMock = vi.fn(async () => okResponse([{ status: "ok", id: "1" }]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendExpoPushToUsers([user.id], payload);
+
+    const messages = sentMessages(fetchMock.mock.calls[0]! as unknown[]) as unknown as {
+      badge?: number;
+    }[];
+    expect(messages).toHaveLength(1);
+    expect("badge" in messages[0]!).toBe(false);
+  });
+
   it("does not call the push service when the user has no tokens", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

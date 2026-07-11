@@ -1,5 +1,5 @@
-import { db, pushTokensTable } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import { db, pushTokensTable, notificationsTable } from "@workspace/db";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { logger } from "./logger";
 import type { NotificationPayload } from "./notify";
 
@@ -36,10 +36,10 @@ export async function sendExpoPushToUsers(
 ): Promise<void> {
   if (userIds.length === 0) return;
 
-  let tokens: { token: string }[];
+  let tokens: { token: string; userId: number }[];
   try {
     tokens = await db
-      .select({ token: pushTokensTable.token })
+      .select({ token: pushTokensTable.token, userId: pushTokensTable.userId })
       .from(pushTokensTable)
       .where(inArray(pushTokensTable.userId, userIds));
   } catch (err) {
@@ -48,11 +48,31 @@ export async function sendExpoPushToUsers(
   }
   if (tokens.length === 0) return;
 
-  const messages = tokens.map(({ token }) => ({
+  // Per-recipient unread notification count, so the OS can set the app icon
+  // badge on delivery (the in-app notification row is inserted before this
+  // runs, so the count already includes this notification). Badge is
+  // best-effort: if the count query fails, send the push without it.
+  const badgeByUserId = new Map<number, number>();
+  try {
+    const tokenUserIds = [...new Set(tokens.map((t) => t.userId))];
+    const rows = await db
+      .select({ userId: notificationsTable.userId, unread: count() })
+      .from(notificationsTable)
+      .where(
+        and(inArray(notificationsTable.userId, tokenUserIds), eq(notificationsTable.read, false)),
+      )
+      .groupBy(notificationsTable.userId);
+    for (const row of rows) badgeByUserId.set(row.userId, row.unread);
+  } catch (err) {
+    logger.error({ err }, "failed to compute unread badge counts");
+  }
+
+  const messages = tokens.map(({ token, userId }) => ({
     to: token,
     title: payload.title,
     body: payload.body,
     sound: "default" as const,
+    ...(badgeByUserId.has(userId) ? { badge: badgeByUserId.get(userId) } : {}),
     data: {
       type: payload.type,
       ticketId: payload.ticketId ?? null,
