@@ -1,13 +1,23 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useGetPublicBranding } from "@workspace/api-client-react";
 
 export default function LandingPage() {
+  const { data: branding } = useGetPublicBranding();
+  const companyName = branding?.companyName || "Ekai Support";
+
   return (
     <div className="flex flex-col min-h-screen bg-stone-50 font-sans text-[#0F1F3D]">
       <header className="px-6 h-16 flex items-center border-b border-stone-200 bg-white">
         <div className="flex items-center gap-2">
-          <img src="/logo.svg" alt="Ekai.ai Logo" className="w-8 h-8" />
-          <span className="font-bold text-lg tracking-tight">Ekai Support</span>
+          {branding?.logoUrl ? (
+            <img src={branding.logoUrl} alt={companyName} className="h-8 max-w-[160px] object-contain" />
+          ) : (
+            <>
+              <img src="/logo.svg" alt="Ekai.ai Logo" className="w-8 h-8" />
+              <span className="font-bold text-lg tracking-tight">{companyName}</span>
+            </>
+          )}
         </div>
         <div className="ml-auto">
           <Link href="/sign-in" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#0F1F3D] text-white hover:bg-[#0F1F3D]/90">
