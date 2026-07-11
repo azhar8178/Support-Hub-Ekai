@@ -7,7 +7,7 @@ Customer support portal for Ekai.ai (B2B SaaS — semantic modeling layer for en
 - **artifacts/api-server** — Express 5 API (port from `PORT`), Replit-managed Clerk auth via proxy middleware, Drizzle ORM.
 - **artifacts/support-portal** — React + Vite frontend (wouter, TanStack Query, Tailwind, shadcn/ui), Clerk React.
 - **lib/db** — Drizzle schema (orgs, users, invites, tickets + messages/attachments/status history, KB articles + feedback, SLA config, notifications).
-- **lib/api-spec/openapi.yaml** — API contract; codegen produces `@workspace/api-zod` (zod schemas) and `@workspace/api-client-react` (TanStack Query hooks). Regenerate after spec changes.
+- **lib/api-spec/openapi.yaml** — API contract; codegen produces `@workspace/api-zod` (zod schemas) and `@workspace/api-client-react` (TanStack Query hooks). Regenerate after spec changes. The `codegen-check` workflow (`pnpm --filter @workspace/api-spec run codegen:check`) fails if committed generated output drifts from the spec.
 
 ## Key behaviors
 - **Auth**: invite-only. Users are provisioned by invite; Clerk sign-in links to a portal user by `clerkUserId` or email. Non-invited Clerk users get 403 `not_invited`.
