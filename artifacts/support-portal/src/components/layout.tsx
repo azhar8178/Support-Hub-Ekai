@@ -1,4 +1,4 @@
-import { type PortalUser } from "@workspace/api-client-react";
+import { type PortalUser, useGetPublicBranding } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
 import { useClerk } from "@clerk/react";
 import { 
@@ -11,7 +11,9 @@ import {
   User as UserIcon,
   ShieldAlert,
   Search,
-  Users
+  Users,
+  FolderOpen,
+  SlidersHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +35,7 @@ interface LayoutProps {
 export default function Layout({ user, children }: LayoutProps) {
   const [location] = useLocation();
   const { signOut } = useClerk();
+  const { data: brandingData } = useGetPublicBranding();
 
   const isCustomer = user.role === "customer";
   const isAgent = user.role === "ekai_agent";
@@ -43,19 +46,22 @@ export default function Layout({ user, children }: LayoutProps) {
       name: "Dashboard", 
       href: isCustomer ? "/dashboard" : "/agent", 
       icon: LayoutDashboard,
-      current: location === "/dashboard" || location === "/agent"
+      current: location === "/dashboard" || location === "/agent",
+      adminOnly: false,
     },
     { 
       name: "Tickets", 
       href: "/tickets", 
       icon: Ticket,
-      current: location.startsWith("/tickets")
+      current: location.startsWith("/tickets"),
+      adminOnly: false,
     },
     { 
       name: "Knowledge Base", 
       href: "/kb", 
       icon: BookOpen,
-      current: location.startsWith("/kb")
+      current: location.startsWith("/kb"),
+      adminOnly: false,
     },
   ];
 
@@ -64,7 +70,28 @@ export default function Layout({ user, children }: LayoutProps) {
       name: "Customers",
       href: "/customers",
       icon: Users,
-      current: location.startsWith("/customers")
+      current: location.startsWith("/customers"),
+      adminOnly: false,
+    });
+  }
+
+  if (isAdmin) {
+    navigation.push({
+      name: "File Manager",
+      href: "/admin/files",
+      icon: FolderOpen,
+      current: location.startsWith("/admin/files"),
+      adminOnly: true,
+    });
+  }
+
+  if (isAgent) {
+    navigation.push({
+      name: "File Manager",
+      href: "/admin/files",
+      icon: FolderOpen,
+      current: location.startsWith("/admin/files"),
+      adminOnly: true,
     });
   }
 
@@ -73,18 +100,36 @@ export default function Layout({ user, children }: LayoutProps) {
       name: "Administration",
       href: "/admin",
       icon: Settings,
-      current: location.startsWith("/admin")
+      current: location.startsWith("/admin") && !location.startsWith("/admin/files") && !location.startsWith("/admin/settings"),
+      adminOnly: false,
+    });
+    navigation.push({
+      name: "Settings",
+      href: "/admin/settings",
+      icon: SlidersHorizontal,
+      current: location.startsWith("/admin/settings"),
+      adminOnly: true,
     });
   }
+
+  const companyName = brandingData?.companyName || "Ekai.ai";
 
   return (
     <div className="flex h-screen bg-stone-50 font-sans text-[#0F1F3D]">
       {/* Sidebar */}
-      <div className="w-64 flex flex-col border-r border-stone-200 bg-white shadow-sm z-10">
-        <div className="h-16 flex items-center px-6 border-b border-stone-200 shrink-0">
+      <div className="w-64 flex flex-col bg-[#0F1F3D] border-r border-[#1a2f52] shadow-xl z-10">
+        <div className="h-16 flex items-center px-6 border-b border-[#1a2f52] shrink-0">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="Ekai Logo" className="h-7 w-7" />
-            <span className="font-bold text-lg tracking-tight text-[#0F1F3D]">Ekai.ai</span>
+            {brandingData?.logoUrl ? (
+              <img
+                src={brandingData.logoUrl}
+                alt={companyName}
+                className="h-8 max-w-[120px] object-contain"
+              />
+            ) : (
+              <img src="/logo.svg" alt="Ekai Logo" className="h-7 w-7" />
+            )}
+            <span className="font-bold text-lg tracking-tight text-white">{companyName}</span>
           </Link>
         </div>
 
@@ -97,10 +142,11 @@ export default function Layout({ user, children }: LayoutProps) {
                   key={item.name}
                   href={item.href}
                   className={`
-                    flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors
+                    flex items-center py-2.5 text-sm font-medium rounded-md transition-colors
+                    border-l-2 pl-[10px] pr-3
                     ${item.current 
-                      ? "bg-amber-50 text-[#B45309]" 
-                      : "text-stone-600 hover:bg-stone-100 hover:text-[#0F1F3D]"
+                      ? "bg-white/10 text-[#EFB323] border-[#EFB323]" 
+                      : "text-stone-300 hover:bg-white/10 hover:text-white border-transparent"
                     }
                   `}
                 >
@@ -115,16 +161,16 @@ export default function Layout({ user, children }: LayoutProps) {
           </nav>
         </div>
 
-        <div className="p-4 border-t border-stone-200 shrink-0">
+        <div className="p-4 border-t border-[#1a2f52] shrink-0">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="h-9 w-9 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center text-[#0F1F3D] font-semibold text-sm">
+              <div className="h-9 w-9 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white font-semibold text-sm">
                 {user.name.charAt(0).toUpperCase()}
               </div>
             </div>
             <div className="ml-3 min-w-0 flex-1">
-              <p className="text-sm font-medium text-[#0F1F3D] truncate">{user.name}</p>
-              <p className="text-xs text-stone-500 truncate">{user.orgName || user.role}</p>
+              <p className="text-sm font-medium text-white truncate">{user.name}</p>
+              <p className="text-xs text-stone-400 truncate">{user.orgName || user.role}</p>
             </div>
           </div>
         </div>
@@ -187,6 +233,22 @@ export default function Layout({ user, children }: LayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* WhatsApp floating button — customers only */}
+      {isCustomer && brandingData?.whatsappNumber && (
+        <a
+          href={`https://wa.me/${brandingData.whatsappNumber.replace(/[^0-9]/g, "")}?text=Hi, I need urgent support`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-[#25D366] hover:bg-[#1DA851] text-white px-4 py-3 rounded-full shadow-lg transition-all hover:shadow-xl hover:scale-105"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+            <path d="M12 0C5.373 0 0 5.373 0 12c0 2.136.561 4.14 1.535 5.874L0 24l6.332-1.518C8.031 23.455 9.974 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818c-1.9 0-3.677-.52-5.198-1.42l-.373-.22-3.758.901.955-3.658-.242-.378C2.614 15.44 2.182 13.77 2.182 12 2.182 6.58 6.58 2.182 12 2.182S21.818 6.58 21.818 12 17.42 21.818 12 21.818z"/>
+          </svg>
+          <span className="font-medium text-sm">Chat on WhatsApp</span>
+        </a>
+      )}
     </div>
   );
 }

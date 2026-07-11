@@ -755,6 +755,73 @@ export interface ReportSummary {
   openTickets: number;
 }
 
+export interface BrandingPublic {
+  /** @nullable */
+  companyName: string | null;
+  /** @nullable */
+  tagline: string | null;
+  /** @nullable */
+  logoUrl: string | null;
+  /** @nullable */
+  whatsappNumber: string | null;
+}
+
+export interface SiteSettings {
+  id: number;
+  /** @nullable */
+  companyName: string | null;
+  /** @nullable */
+  tagline: string | null;
+  /** @nullable */
+  logoUrl: string | null;
+  /** @nullable */
+  whatsappNumber: string | null;
+  /** @nullable */
+  slackWebhookUrl: string | null;
+  updatedAt: string;
+}
+
+export interface SiteSettingsUpdate {
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  tagline?: string | null;
+  /** @nullable */
+  whatsappNumber?: string | null;
+  /** @nullable */
+  slackWebhookUrl?: string | null;
+}
+
+export interface LogoInput {
+  /** @minLength 1 */
+  filename: string;
+  /**
+     * MIME type, e.g. image/png
+     * @minLength 1
+     */
+  contentType: string;
+  /** Base64-encoded image, max 2 MB decoded */
+  data: string;
+}
+
+export interface LogoUploadResponse {
+  logoUrl: string;
+}
+
+export interface FileItem {
+  id: number;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+  ticketId: number;
+  ticketTitle: string;
+  /** @nullable */
+  uploaderName: string | null;
+  /** Relative API path to download this file, e.g. /attachments/42/content */
+  downloadPath: string;
+}
+
 export type PreviewInviteParams = {
 token: string;
 };
@@ -802,5 +869,16 @@ export const ListKbArticlesCategory = {
 export type ListCustomersParams = {
 search?: string;
 orgId?: number;
+};
+
+export type ListFilesParams = {
+/**
+ * Filter by filename or uploader name
+ */
+search?: string;
+/**
+ * Filter by MIME type prefix (e.g. image/)
+ */
+contentType?: string;
 };
 

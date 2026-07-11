@@ -37,6 +37,7 @@ import { computeInitialDeadlines } from "../lib/sla";
 import { loadTicketConfig, validateTicketTaxonomy } from "../lib/ticketConfig";
 import { applyStatusChange, notifyTicketCreated } from "../lib/ticketActions";
 import { notifyUsers } from "../lib/notify";
+import { sendSlackAlert } from "../lib/slack";
 
 const router: IRouter = Router();
 
@@ -169,6 +170,10 @@ router.post("/tickets", requireAuth, async (req, res): Promise<void> => {
   }
 
   await notifyTicketCreated(ticket!, user);
+
+  if (ticket!.severity === "P1" || ticket!.severity === "P2") {
+    sendSlackAlert(ticket!, user).catch(() => {});
+  }
 
   const dto = await loadTicketDto(ticket!.id);
   res.status(201).json(CreateTicketResponse.parse(dto));

@@ -9,4 +9,6 @@ description: Package install and file-API gotchas for the Expo (SDK 54) mobile a
 
 **How to apply:** after any expo package install, grep package.json to confirm the dep landed, then run `pnpm install` at the repo root — a filtered add can leave sibling packages' binaries (e.g. vitest in api-server) unlinked.
 
+- After running `pnpm --filter @workspace/api-spec run codegen`, the Expo Metro bundler can lose the `api-client-react` generated module (orval cleans the output folder before regenerating; Metro's module cache sees the deletion but may miss the recreation). Fix: restart the `artifacts/mobile: expo` workflow. The `tsc -b lib/api-client-react --force` step alone is not enough — only a Metro restart clears the stale cache.
+
 - Expo SDK 54's `expo-file-system` default export is the new class-based API; the stable `readAsStringAsync`/`writeAsStringAsync` live in `expo-file-system/legacy`. Web builds bundle the legacy import fine, but gate actual FS calls to native (`Platform.OS !== 'web'`) and use fetch+FileReader/Blob paths on web.

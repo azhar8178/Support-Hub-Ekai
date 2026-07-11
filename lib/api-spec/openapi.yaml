@@ -16,6 +16,8 @@ tags:
   - name: kb
   - name: admin
   - name: team
+  - name: branding
+  - name: files
 paths:
   /healthz:
     get:
@@ -1026,6 +1028,110 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/KbDeflectionStats"
+  /branding:
+    get:
+      operationId: getPublicBranding
+      tags: [branding]
+      summary: Public branding settings (no auth required)
+      responses:
+        "200":
+          description: Current branding config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrandingPublic"
+  /branding/logo:
+    get:
+      operationId: getBrandingLogo
+      tags: [branding]
+      summary: Stream the configured logo image (no auth required)
+      responses:
+        "200":
+          description: Logo image binary
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No logo configured
+  /admin/settings:
+    get:
+      operationId: getSiteSettings
+      tags: [admin]
+      summary: Get full site settings (staff only)
+      responses:
+        "200":
+          description: Site settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+    patch:
+      operationId: updateSiteSettings
+      tags: [admin]
+      summary: Update site settings (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SiteSettingsUpdate"
+      responses:
+        "200":
+          description: Updated site settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+  /admin/settings/logo:
+    post:
+      operationId: uploadSiteLogo
+      tags: [admin]
+      summary: Upload or replace the portal logo (admin only, base64 payload)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoInput"
+      responses:
+        "200":
+          description: Logo uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoUploadResponse"
+    delete:
+      operationId: deleteSiteLogo
+      tags: [admin]
+      summary: Remove the portal logo (admin only)
+      responses:
+        "204":
+          description: Logo removed
+  /admin/files:
+    get:
+      operationId: listFiles
+      tags: [files]
+      summary: List all uploaded attachments across all tickets (staff only)
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+          description: Filter by filename or uploader name
+        - name: contentType
+          in: query
+          schema: { type: string }
+          description: Filter by MIME type prefix (e.g. image/)
+      responses:
+        "200":
+          description: Attachment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FileItem"
 components:
   schemas:
     HealthStatus:
@@ -1578,3 +1684,54 @@ components:
         totalTickets: { type: integer }
         openTickets: { type: integer }
       required: [weeklyVolume, avgResolutionHours, slaResponseCompliancePct, slaResolutionCompliancePct, totalTickets, openTickets]
+    BrandingPublic:
+      type: object
+      properties:
+        companyName: { type: ["string", "null"] }
+        tagline: { type: ["string", "null"] }
+        logoUrl: { type: ["string", "null"] }
+        whatsappNumber: { type: ["string", "null"] }
+      required: [companyName, tagline, logoUrl, whatsappNumber]
+    SiteSettings:
+      type: object
+      properties:
+        id: { type: integer }
+        companyName: { type: ["string", "null"] }
+        tagline: { type: ["string", "null"] }
+        logoUrl: { type: ["string", "null"] }
+        whatsappNumber: { type: ["string", "null"] }
+        slackWebhookUrl: { type: ["string", "null"] }
+        updatedAt: { type: string }
+      required: [id, companyName, tagline, logoUrl, whatsappNumber, slackWebhookUrl, updatedAt]
+    SiteSettingsUpdate:
+      type: object
+      properties:
+        companyName: { type: ["string", "null"] }
+        tagline: { type: ["string", "null"] }
+        whatsappNumber: { type: ["string", "null"] }
+        slackWebhookUrl: { type: ["string", "null"] }
+    LogoInput:
+      type: object
+      properties:
+        filename: { type: string, minLength: 1 }
+        contentType: { type: string, minLength: 1, description: "MIME type, e.g. image/png" }
+        data: { type: string, description: "Base64-encoded image, max 2 MB decoded" }
+      required: [filename, contentType, data]
+    LogoUploadResponse:
+      type: object
+      properties:
+        logoUrl: { type: string }
+      required: [logoUrl]
+    FileItem:
+      type: object
+      properties:
+        id: { type: integer }
+        filename: { type: string }
+        contentType: { type: string }
+        sizeBytes: { type: integer }
+        createdAt: { type: string }
+        ticketId: { type: integer }
+        ticketTitle: { type: string }
+        uploaderName: { type: ["string", "null"] }
+        downloadPath: { type: string, description: "Relative API path to download this file, e.g. /attachments/42/content" }
+      required: [id, filename, contentType, sizeBytes, createdAt, ticketId, ticketTitle, uploaderName, downloadPath]

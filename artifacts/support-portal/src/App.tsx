@@ -22,6 +22,8 @@ import KbDetailPage from "@/pages/kb/detail";
 import KbEditorPage from "@/pages/kb/editor";
 import CustomersListPage from "@/pages/customers/list";
 import CustomerDetailPage from "@/pages/customers/detail";
+import AdminSettingsPage from "@/pages/admin/settings";
+import AdminFilesPage from "@/pages/admin/files";
 import NotFoundPage from "@/pages/not-found";
 
 import Layout from "@/components/layout";
@@ -249,6 +251,12 @@ function AuthenticatedApp() {
         </Route>
         <Route path="/agent">
           {user.role === "ekai_agent" || user.role === "admin" ? <AgentDashboardPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/admin/settings">
+          {user.role === "admin" ? <AdminSettingsPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/admin/files">
+          {(user.role === "admin" || user.role === "ekai_agent") ? <AdminFilesPage /> : <Redirect to="/dashboard" />}
         </Route>
         <Route path="/admin">
           {user.role === "admin" ? <AdminDashboardPage /> : <Redirect to="/dashboard" />}

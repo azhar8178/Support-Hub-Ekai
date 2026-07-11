@@ -1389,3 +1389,101 @@ export const GetKbDeflectionStatsResponse = zod.object({
 })
 
 
+/**
+ * @summary Public branding settings (no auth required)
+ */
+export const GetPublicBrandingResponse = zod.object({
+  "companyName": zod.string().nullable(),
+  "tagline": zod.string().nullable(),
+  "logoUrl": zod.string().nullable(),
+  "whatsappNumber": zod.string().nullable()
+})
+
+
+/**
+ * @summary Stream the configured logo image (no auth required)
+ */
+export const GetBrandingLogoResponse = zod.unknown()
+
+
+/**
+ * @summary Get full site settings (staff only)
+ */
+export const GetSiteSettingsResponse = zod.object({
+  "id": zod.number(),
+  "companyName": zod.string().nullable(),
+  "tagline": zod.string().nullable(),
+  "logoUrl": zod.string().nullable(),
+  "whatsappNumber": zod.string().nullable(),
+  "slackWebhookUrl": zod.string().nullable(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update site settings (admin only)
+ */
+export const UpdateSiteSettingsBody = zod.object({
+  "companyName": zod.string().nullish(),
+  "tagline": zod.string().nullish(),
+  "whatsappNumber": zod.string().nullish(),
+  "slackWebhookUrl": zod.string().nullish()
+})
+
+export const UpdateSiteSettingsResponse = zod.object({
+  "id": zod.number(),
+  "companyName": zod.string().nullable(),
+  "tagline": zod.string().nullable(),
+  "logoUrl": zod.string().nullable(),
+  "whatsappNumber": zod.string().nullable(),
+  "slackWebhookUrl": zod.string().nullable(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Upload or replace the portal logo (admin only, base64 payload)
+ */
+
+
+
+
+export const UploadSiteLogoBody = zod.object({
+  "filename": zod.string().min(1),
+  "contentType": zod.string().min(1).describe('MIME type, e.g. image\/png'),
+  "data": zod.string().describe('Base64-encoded image, max 2 MB decoded')
+})
+
+export const UploadSiteLogoResponse = zod.object({
+  "logoUrl": zod.string()
+})
+
+
+/**
+ * @summary Remove the portal logo (admin only)
+ */
+export const DeleteSiteLogoResponse = zod.void()
+
+
+/**
+ * @summary List all uploaded attachments across all tickets (staff only)
+ */
+export const ListFilesQueryParams = zod.object({
+  "search": zod.coerce.string().optional().describe('Filter by filename or uploader name'),
+  "contentType": zod.coerce.string().optional().describe('Filter by MIME type prefix (e.g. image\/)')
+})
+
+export const ListFilesResponseItem = zod.object({
+  "id": zod.number(),
+  "filename": zod.string(),
+  "contentType": zod.string(),
+  "sizeBytes": zod.number(),
+  "createdAt": zod.string(),
+  "ticketId": zod.number(),
+  "ticketTitle": zod.string(),
+  "uploaderName": zod.string().nullable(),
+  "downloadPath": zod.string().describe('Relative API path to download this file, e.g. \/attachments\/42\/content')
+})
+export const ListFilesResponse = zod.array(ListFilesResponseItem)
+
+

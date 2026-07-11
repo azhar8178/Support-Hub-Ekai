@@ -23,10 +23,12 @@ import type {
   AgentMetrics,
   ApiMessage,
   AppNotification,
+  BrandingPublic,
   Customer,
   CustomerDetail,
   CustomerUpdate,
   DashboardSummary,
+  FileItem,
   HealthStatus,
   Invite,
   InviteAcceptance,
@@ -41,8 +43,11 @@ import type {
   KbSearchInput,
   KbSuggestionEventsInput,
   ListCustomersParams,
+  ListFilesParams,
   ListKbArticlesParams,
   ListTicketsParams,
+  LogoInput,
+  LogoUploadResponse,
   NotificationReadRequest,
   Organisation,
   OrganisationInput,
@@ -56,6 +61,8 @@ import type {
   Severity,
   SeverityInput,
   SeverityUpdate,
+  SiteSettings,
+  SiteSettingsUpdate,
   TaxonomyOption,
   TaxonomyOptionInput,
   TaxonomyOptionUpdate,
@@ -4042,6 +4049,534 @@ export function useGetKbDeflectionStats<TData = Awaited<ReturnType<typeof getKbD
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetKbDeflectionStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPublicBrandingUrl = () => {
+
+
+
+
+  return `/api/branding`
+}
+
+/**
+ * @summary Public branding settings (no auth required)
+ */
+export const getPublicBranding = async ( options?: RequestInit): Promise<BrandingPublic> => {
+
+  return customFetch<BrandingPublic>(getGetPublicBrandingUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicBrandingQueryKey = () => {
+    return [
+    `/api/branding`
+    ] as const;
+    }
+
+
+export const getGetPublicBrandingQueryOptions = <TData = Awaited<ReturnType<typeof getPublicBranding>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicBranding>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicBrandingQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicBranding>>> = ({ signal }) => getPublicBranding({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicBranding>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicBrandingQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicBranding>>>
+export type GetPublicBrandingQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Public branding settings (no auth required)
+ */
+
+export function useGetPublicBranding<TData = Awaited<ReturnType<typeof getPublicBranding>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicBranding>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicBrandingQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetBrandingLogoUrl = () => {
+
+
+
+
+  return `/api/branding/logo`
+}
+
+/**
+ * @summary Stream the configured logo image (no auth required)
+ */
+export const getBrandingLogo = async ( options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetBrandingLogoUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBrandingLogoQueryKey = () => {
+    return [
+    `/api/branding/logo`
+    ] as const;
+    }
+
+
+export const getGetBrandingLogoQueryOptions = <TData = Awaited<ReturnType<typeof getBrandingLogo>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBrandingLogo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBrandingLogoQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBrandingLogo>>> = ({ signal }) => getBrandingLogo({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBrandingLogo>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBrandingLogoQueryResult = NonNullable<Awaited<ReturnType<typeof getBrandingLogo>>>
+export type GetBrandingLogoQueryError = ErrorType<void>
+
+
+/**
+ * @summary Stream the configured logo image (no auth required)
+ */
+
+export function useGetBrandingLogo<TData = Awaited<ReturnType<typeof getBrandingLogo>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBrandingLogo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBrandingLogoQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSiteSettingsUrl = () => {
+
+
+
+
+  return `/api/admin/settings`
+}
+
+/**
+ * @summary Get full site settings (staff only)
+ */
+export const getSiteSettings = async ( options?: RequestInit): Promise<SiteSettings> => {
+
+  return customFetch<SiteSettings>(getGetSiteSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSiteSettingsQueryKey = () => {
+    return [
+    `/api/admin/settings`
+    ] as const;
+    }
+
+
+export const getGetSiteSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getSiteSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSiteSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSiteSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSiteSettings>>> = ({ signal }) => getSiteSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSiteSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSiteSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getSiteSettings>>>
+export type GetSiteSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get full site settings (staff only)
+ */
+
+export function useGetSiteSettings<TData = Awaited<ReturnType<typeof getSiteSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSiteSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSiteSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateSiteSettingsUrl = () => {
+
+
+
+
+  return `/api/admin/settings`
+}
+
+/**
+ * @summary Update site settings (admin only)
+ */
+export const updateSiteSettings = async (siteSettingsUpdate: SiteSettingsUpdate, options?: RequestInit): Promise<SiteSettings> => {
+
+  return customFetch<SiteSettings>(getUpdateSiteSettingsUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(siteSettingsUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSiteSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSiteSettings>>, TError,{data: BodyType<SiteSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSiteSettings>>, TError,{data: BodyType<SiteSettingsUpdate>}, TContext> => {
+
+const mutationKey = ['updateSiteSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSiteSettings>>, {data: BodyType<SiteSettingsUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateSiteSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSiteSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateSiteSettings>>>
+    export type UpdateSiteSettingsMutationBody = BodyType<SiteSettingsUpdate>
+    export type UpdateSiteSettingsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update site settings (admin only)
+ */
+export const useUpdateSiteSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSiteSettings>>, TError,{data: BodyType<SiteSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSiteSettings>>,
+        TError,
+        {data: BodyType<SiteSettingsUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSiteSettingsMutationOptions(options));
+    }
+
+export const getUploadSiteLogoUrl = () => {
+
+
+
+
+  return `/api/admin/settings/logo`
+}
+
+/**
+ * @summary Upload or replace the portal logo (admin only, base64 payload)
+ */
+export const uploadSiteLogo = async (logoInput: LogoInput, options?: RequestInit): Promise<LogoUploadResponse> => {
+
+  return customFetch<LogoUploadResponse>(getUploadSiteLogoUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(logoInput)
+  }
+);}
+
+
+
+
+
+export const getUploadSiteLogoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadSiteLogo>>, TError,{data: BodyType<LogoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadSiteLogo>>, TError,{data: BodyType<LogoInput>}, TContext> => {
+
+const mutationKey = ['uploadSiteLogo'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadSiteLogo>>, {data: BodyType<LogoInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  uploadSiteLogo(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadSiteLogoMutationResult = NonNullable<Awaited<ReturnType<typeof uploadSiteLogo>>>
+    export type UploadSiteLogoMutationBody = BodyType<LogoInput>
+    export type UploadSiteLogoMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Upload or replace the portal logo (admin only, base64 payload)
+ */
+export const useUploadSiteLogo = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadSiteLogo>>, TError,{data: BodyType<LogoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadSiteLogo>>,
+        TError,
+        {data: BodyType<LogoInput>},
+        TContext
+      > => {
+      return useMutation(getUploadSiteLogoMutationOptions(options));
+    }
+
+export const getDeleteSiteLogoUrl = () => {
+
+
+
+
+  return `/api/admin/settings/logo`
+}
+
+/**
+ * @summary Remove the portal logo (admin only)
+ */
+export const deleteSiteLogo = async ( options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteSiteLogoUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteSiteLogoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSiteLogo>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSiteLogo>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteSiteLogo'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSiteLogo>>, void> = () => {
+
+
+          return  deleteSiteLogo(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSiteLogoMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSiteLogo>>>
+
+    export type DeleteSiteLogoMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove the portal logo (admin only)
+ */
+export const useDeleteSiteLogo = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSiteLogo>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSiteLogo>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteSiteLogoMutationOptions(options));
+    }
+
+export const getListFilesUrl = (params?: ListFilesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/files?${stringifiedParams}` : `/api/admin/files`
+}
+
+/**
+ * @summary List all uploaded attachments across all tickets (staff only)
+ */
+export const listFiles = async (params?: ListFilesParams, options?: RequestInit): Promise<FileItem[]> => {
+
+  return customFetch<FileItem[]>(getListFilesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFilesQueryKey = (params?: ListFilesParams,) => {
+    return [
+    `/api/admin/files`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListFilesQueryOptions = <TData = Awaited<ReturnType<typeof listFiles>>, TError = ErrorType<unknown>>(params?: ListFilesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFilesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFiles>>> = ({ signal }) => listFiles(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFiles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFilesQueryResult = NonNullable<Awaited<ReturnType<typeof listFiles>>>
+export type ListFilesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all uploaded attachments across all tickets (staff only)
+ */
+
+export function useListFiles<TData = Awaited<ReturnType<typeof listFiles>>, TError = ErrorType<unknown>>(
+ params?: ListFilesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFilesQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

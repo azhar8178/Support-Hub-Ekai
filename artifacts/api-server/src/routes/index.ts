@@ -9,6 +9,9 @@ import kbRouter from "./kb";
 import teamRouter from "./team";
 import customersRouter from "./customers";
 import adminRouter from "./admin";
+import brandingRouter from "./branding";
+import siteSettingsRouter from "./siteSettings";
+import filesRouter from "./files";
 
 const router: IRouter = Router();
 
@@ -22,5 +25,8 @@ router.use(kbRouter);
 router.use(teamRouter);
 router.use(customersRouter);
 router.use(adminRouter);
+router.use(brandingRouter);
+router.use(siteSettingsRouter);
+router.use(filesRouter);
 
 export default router;
