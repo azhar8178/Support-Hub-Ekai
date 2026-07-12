@@ -95,20 +95,10 @@ export default function Layout({ user, children }: LayoutProps) {
     });
   }
 
-  if (isAdmin) {
-    navigation.push({
-      name: "Administration",
-      href: "/admin",
-      icon: Settings,
-      current: location.startsWith("/admin") && !location.startsWith("/admin/files") && !location.startsWith("/admin/settings"),
-    });
-    navigation.push({
-      name: "Settings",
-      href: "/admin/settings",
-      icon: SlidersHorizontal,
-      current: location.startsWith("/admin/settings"),
-    });
-  }
+  const settingsActive = isAdmin && (
+    location.startsWith("/admin/settings") ||
+    (location.startsWith("/admin") && !location.startsWith("/admin/files"))
+  );
 
   const companyName = brandingData?.companyName || "Ekai.ai";
 
@@ -167,23 +157,47 @@ export default function Layout({ user, children }: LayoutProps) {
           </nav>
         </div>
 
-        {/* Bottom: user info + collapse toggle */}
-        <div className={`border-t border-[#1a2f52] shrink-0 ${collapsed ? "p-2" : "p-4"}`}>
+        {/* Bottom: settings + user info + collapse toggle */}
+        <div className={`border-t border-[#1a2f52] shrink-0 ${collapsed ? "p-2 space-y-1" : "p-3 space-y-1"}`}>
+          {/* Settings — admin only, pinned above user */}
+          {isAdmin && (
+            <Link
+              href="/admin/settings"
+              title={collapsed ? "Settings" : undefined}
+              className={`
+                flex items-center py-2 text-sm font-medium rounded-md transition-colors border-l-2
+                ${collapsed ? "justify-center pl-0 pr-0" : "pl-[10px] pr-3"}
+                ${settingsActive
+                  ? "bg-white/10 text-[#EFB323] border-[#EFB323]"
+                  : "text-stone-300 hover:bg-white/10 hover:text-white border-transparent"
+                }
+              `}
+            >
+              <SlidersHorizontal
+                className={`shrink-0 h-5 w-5 ${!collapsed ? "mr-3" : ""} ${settingsActive ? "text-[#EFB323]" : "text-stone-400"}`}
+              />
+              {!collapsed && "Settings"}
+            </Link>
+          )}
+
+          {/* User info */}
           {!collapsed && (
-            <div className="flex items-center mb-3">
-              <div className="h-9 w-9 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white font-semibold text-sm shrink-0">
+            <div className="flex items-center pt-2 mt-1 border-t border-[#1a2f52]">
+              <div className="h-8 w-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white font-semibold text-xs shrink-0">
                 {user.name.charAt(0).toUpperCase()}
               </div>
-              <div className="ml-3 min-w-0 flex-1">
+              <div className="ml-2.5 min-w-0 flex-1">
                 <p className="text-sm font-medium text-white truncate">{user.name}</p>
                 <p className="text-xs text-stone-400 truncate">{user.orgName || user.role}</p>
               </div>
             </div>
           )}
+
+          {/* Collapse toggle */}
           <button
             onClick={toggleCollapsed}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={`flex items-center justify-center w-full rounded-md py-1.5 text-stone-400 hover:text-white hover:bg-white/10 transition-colors ${collapsed ? "" : "gap-2 text-xs"}`}
+            className={`flex items-center justify-center w-full rounded-md py-1.5 text-stone-400 hover:text-white hover:bg-white/10 transition-colors ${collapsed ? "" : "gap-2 text-xs mt-1"}`}
           >
             {collapsed ? (
               <PanelLeftOpen className="h-4 w-4" />

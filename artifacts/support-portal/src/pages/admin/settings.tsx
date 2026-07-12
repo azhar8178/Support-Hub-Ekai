@@ -9,7 +9,7 @@ import {
   getGetPublicBrandingQueryKey,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
-import { Loader2, Save, Upload, Trash2, SlidersHorizontal } from "lucide-react";
+import { Loader2, Save, Upload, Trash2, SlidersHorizontal, Users, Building2, Mail, Tag, AlertTriangle, Globe, BarChart3, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { Link } from "wouter";
 
 export default function AdminSettingsPage() {
   const { data: settings, isLoading: settingsLoading } = useGetSiteSettings();
@@ -159,6 +160,9 @@ export default function AdminSettingsPage() {
               </TabsTrigger>
               <TabsTrigger value="integrations" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D]">
                 Integrations
+              </TabsTrigger>
+              <TabsTrigger value="administration" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D]">
+                Administration
               </TabsTrigger>
             </TabsList>
 
@@ -366,6 +370,30 @@ export default function AdminSettingsPage() {
                   </Button>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* ── ADMINISTRATION TAB ── */}
+            <TabsContent value="administration" className="space-y-4">
+              <p className="text-sm text-stone-500 mb-2">Manage users, organizations, ticket taxonomy, and view reports.</p>
+              {[
+                { href: "/admin", icon: Users, label: "Users & Invites", desc: "Manage team members, roles, and pending invitations" },
+                { href: "/admin", icon: Building2, label: "Organizations", desc: "Create and edit customer organizations" },
+                { href: "/admin", icon: Tag, label: "Ticket Taxonomy", desc: "Configure categories, severities, and environments" },
+                { href: "/admin", icon: BarChart3, label: "Reports", desc: "Ticket volume, deflection, and SLA performance" },
+              ].map(({ href, icon: Icon, label, desc }) => (
+                <Link key={label} href={href}>
+                  <div className="flex items-center gap-4 p-4 bg-white rounded-lg border border-stone-200 hover:border-amber-300 hover:shadow-sm transition-all cursor-pointer group">
+                    <div className="h-10 w-10 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                      <Icon className="h-5 w-5 text-[#EFB323]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[#0F1F3D]">{label}</p>
+                      <p className="text-xs text-stone-500 mt-0.5">{desc}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-stone-300 group-hover:text-amber-500 transition-colors shrink-0" />
+                  </div>
+                </Link>
+              ))}
             </TabsContent>
           </Tabs>
         </div>
