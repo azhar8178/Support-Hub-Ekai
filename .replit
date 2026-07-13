@@ -40,6 +40,10 @@ args = "mockup-typecheck"
 task = "workflow.run"
 args = "codegen-check"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "helm-lint-template"
+
 [[workflows.workflow]]
 name = "api-tests"
 author = "agent"
@@ -106,6 +110,17 @@ outputType = "console"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-spec run codegen:check"
+
+[[workflows.workflow]]
+name = "helm-lint-template"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash deploy/helm/scripts/validate-chart.sh"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"
