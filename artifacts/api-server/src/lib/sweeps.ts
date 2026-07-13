@@ -157,14 +157,22 @@ export async function runAutoEscalation(now: Date): Promise<void> {
  * Exported for unit tests; called internally by runSweep.
  */
 export async function runFleetAlerts(now: Date): Promise<void> {
+  let deployments: (typeof deploymentsTable.$inferSelect)[];
+  let adminIds: number[];
+
   try {
-    const deployments = await db.select().from(deploymentsTable);
-    const adminIds = await getAgentAndAdminIds();
+    deployments = await db.select().from(deploymentsTable);
+    adminIds = await getAgentAndAdminIds();
+  } catch (err) {
+    logger.error({ err }, "fleet alerts sweep failed: could not load deployments");
+    return;
+  }
 
-    for (const dep of deployments) {
-      const offlineCutoff = new Date(now.getTime() - OFFLINE_THRESHOLD_MS);
-      const alertCooloff = new Date(now.getTime() - ALERT_COOLDOWN_MS);
+  const offlineCutoff = new Date(now.getTime() - OFFLINE_THRESHOLD_MS);
+  const alertCooloff = new Date(now.getTime() - ALERT_COOLDOWN_MS);
 
+  for (const dep of deployments) {
+    try {
       // Determine target status
       let targetStatus: "healthy" | "degraded" | "offline" = dep.status;
       if (!dep.lastSeenAt || dep.lastSeenAt < offlineCutoff) {
@@ -226,9 +234,9 @@ export async function runFleetAlerts(now: Date): Promise<void> {
         { deploymentId: dep.id, name: dep.name, targetStatus },
         "fleet alert sent",
       );
+    } catch (err) {
+      logger.error({ err, deploymentId: dep.id }, "fleet alert failed for deployment; skipping to next");
     }
-  } catch (err) {
-    logger.error({ err }, "fleet alerts sweep failed");
   }
 }
 

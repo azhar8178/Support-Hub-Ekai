@@ -436,6 +436,50 @@ describe("runFleetAlerts", () => {
     expect(ourAlert).toBeDefined();
     expect(ourAlert).toMatch(/degraded/i);
   });
+
+  it("continues processing remaining deployments when one throws", async () => {
+    const staleTs = new Date(Date.now() - 11 * 60_000); // 11 minutes ago — will be offline
+
+    // Two deployments that both need alerting
+    const depA = await createDeployment({
+      name: `fleet-throw-a-${fx.suffix}`,
+      status: "healthy",
+      lastSeenAt: staleTs,
+      lastAlertedAt: null,
+    });
+    const depB = await createDeployment({
+      name: `fleet-throw-b-${fx.suffix}`,
+      status: "healthy",
+      lastSeenAt: staleTs,
+      lastAlertedAt: null,
+    });
+
+    // Make sendSlackFleetAlert throw only when the message mentions depA
+    vi.mocked(sendSlackFleetAlert).mockClear();
+    vi.mocked(sendSlackFleetAlert).mockImplementation(async (msg: string) => {
+      if (msg.includes(depA.name)) {
+        throw new Error("Simulated Slack failure for depA");
+      }
+    });
+
+    // Should not throw at the top level
+    await expect(runFleetAlerts(new Date())).resolves.toBeUndefined();
+
+    // Restore mock to non-throwing for other tests
+    vi.mocked(sendSlackFleetAlert).mockResolvedValue(undefined);
+
+    // depB should have been alerted despite depA throwing
+    const [updatedB] = await db
+      .select()
+      .from(deploymentsTable)
+      .where(eq(deploymentsTable.id, depB.id));
+    expect(updatedB!.lastAlertedAt).not.toBeNull();
+
+    // At least one call should mention depB
+    const calls = vi.mocked(sendSlackFleetAlert).mock.calls.map((c) => c[0] as string);
+    const bAlert = calls.find((msg) => msg.includes(depB.name));
+    expect(bAlert).toBeDefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
