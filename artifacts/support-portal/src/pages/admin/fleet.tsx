@@ -23,6 +23,13 @@ import {
   Clock,
   Activity,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Tooltip,
+  YAxis,
+} from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,15 +92,113 @@ interface DbHealth {
   latencyMs: number | null;
 }
 
+interface SparklineProps {
+  data: Array<{ time: string; value: number | null }>;
+  color: string;
+  label: string;
+  unit?: string;
+  formatValue?: (v: number) => string;
+  warnThreshold?: number; // value >= this turns the line amber/red
+}
+
+function Sparkline({ data, color, label, unit = "", formatValue, warnThreshold }: SparklineProps) {
+  const hasData = data.some((d) => d.value != null);
+  if (!hasData) return null;
+
+  const latest = [...data].reverse().find((d) => d.value != null);
+  const latestVal = latest?.value ?? null;
+  const overThreshold = warnThreshold != null && latestVal != null && latestVal >= warnThreshold;
+  const lineColor = overThreshold ? "#ef4444" : color;
+
+  return (
+    <div className="bg-stone-50 rounded-md p-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-xs text-stone-500">{label}</p>
+        {latestVal != null && (
+          <p className={`text-xs font-semibold ${overThreshold ? "text-red-600" : "text-[#0F1F3D]"}`}>
+            {formatValue ? formatValue(latestVal) : `${latestVal}${unit}`}
+          </p>
+        )}
+      </div>
+      <div className="h-12">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+            <YAxis domain={["auto", "auto"]} hide />
+            <Tooltip
+              contentStyle={{ fontSize: 11, padding: "2px 6px", borderRadius: 4 }}
+              labelFormatter={(_, payload) => {
+                if (payload && payload[0]) {
+                  const entry = payload[0].payload as { time: string };
+                  return entry.time;
+                }
+                return "";
+              }}
+              formatter={(value: number) => [
+                formatValue ? formatValue(value) : `${value}${unit}`,
+                label,
+              ]}
+            />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke={lineColor}
+              strokeWidth={1.5}
+              dot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function DeploymentDetail({ deployment }: { deployment: Deployment }) {
   const { data: heartbeats } = useListDeploymentHeartbeats(deployment.id);
 
   const health = deployment.lastHealthJson as Record<string, unknown> | null;
   const dbHealth = (health?.["db"] ?? null) as DbHealth | null;
 
+  // Build time-series arrays from heartbeat history (oldest → newest)
+  const chronological = heartbeats ? [...heartbeats].reverse() : [];
+
+  const dbLatencySeries = chronological.map((hb) => {
+    const h = hb.healthJson as Record<string, unknown> | null;
+    const db = h?.["db"] as DbHealth | null;
+    return {
+      time: new Date(hb.recordedAt).toLocaleTimeString(),
+      value: db?.latencyMs ?? null,
+    };
+  });
+
+  const openTicketSeries = chronological.map((hb) => {
+    const h = hb.healthJson as Record<string, unknown> | null;
+    const v = h?.["openTicketCount"];
+    return {
+      time: new Date(hb.recordedAt).toLocaleTimeString(),
+      value: v != null ? Number(v) : null,
+    };
+  });
+
+  const slaBreachSeries = chronological.map((hb) => {
+    const h = hb.healthJson as Record<string, unknown> | null;
+    const v = h?.["slaBreachCount"];
+    return {
+      time: new Date(hb.recordedAt).toLocaleTimeString(),
+      value: v != null ? Number(v) : null,
+    };
+  });
+
+  const hasSparklines =
+    chronological.length > 1 &&
+    (dbLatencySeries.some((d) => d.value != null) ||
+      openTicketSeries.some((d) => d.value != null) ||
+      slaBreachSeries.some((d) => d.value != null));
+
   return (
     <div className="mt-3 pt-3 border-t border-stone-100 space-y-4">
-      {/* Health metrics */}
+      {/* Health metrics — current snapshot */}
       {health && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {dbHealth && (
@@ -142,7 +247,39 @@ function DeploymentDetail({ deployment }: { deployment: Deployment }) {
         </div>
       )}
 
-      {/* Heartbeat history */}
+      {/* 24 h trend sparklines */}
+      {hasSparklines && (
+        <div>
+          <p className="text-xs font-medium text-stone-500 mb-2 flex items-center gap-1">
+            <Activity className="h-3 w-3" />
+            24 h trends
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Sparkline
+              data={dbLatencySeries}
+              color="#6366f1"
+              label="DB Latency"
+              formatValue={(v) => `${v} ms`}
+              warnThreshold={500}
+            />
+            <Sparkline
+              data={openTicketSeries}
+              color="#0ea5e9"
+              label="Open Tickets"
+              unit=""
+            />
+            <Sparkline
+              data={slaBreachSeries}
+              color="#10b981"
+              label="SLA Breaches"
+              unit=""
+              warnThreshold={1}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Heartbeat history bar */}
       {heartbeats && heartbeats.length > 0 && (
         <div>
           <p className="text-xs font-medium text-stone-500 mb-2 flex items-center gap-1">
