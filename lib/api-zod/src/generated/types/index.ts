@@ -21,6 +21,7 @@ export * from './deploymentCreatedStatus';
 export * from './deploymentHeartbeat';
 export * from './deploymentHeartbeatStatus';
 export * from './deploymentInput';
+export * from './deploymentPatch';
 export * from './deploymentStatus';
 export * from './fileItem';
 export * from './healthStatus';

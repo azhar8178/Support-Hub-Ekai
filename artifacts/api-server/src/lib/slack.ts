@@ -36,25 +36,34 @@ function severityEmoji(severity: string): string {
 }
 
 /**
- * Send a plain-text Slack message for fleet/ops alerts. Falls back silently
- * if no webhook is configured.
+ * Send a plain-text message to a specific Slack webhook URL. Falls back
+ * silently if no URL is provided.
  */
-export async function sendSlackFleetAlert(text: string): Promise<void> {
+async function sendSlackMessage(webhookUrl: string, text: string): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const webhookUrl = await getSlackWebhookUrl();
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Send a plain-text Slack message for fleet/ops alerts. If `overrideUrl` is
+ * provided it is used directly; otherwise the global site-settings webhook is
+ * used. Falls back silently if no webhook is configured.
+ */
+export async function sendSlackFleetAlert(text: string, overrideUrl?: string | null): Promise<void> {
+  try {
+    const webhookUrl = overrideUrl ?? (await getSlackWebhookUrl());
     if (!webhookUrl) return;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    try {
-      await fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+    await sendSlackMessage(webhookUrl, text);
   } catch (err) {
     console.error("[slack] Failed to send fleet alert:", err);
   }

@@ -1154,6 +1154,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/DeploymentCreated"
   /admin/deployments/{id}:
+    patch:
+      operationId: updateDeployment
+      tags: [fleet]
+      summary: Update a registered client deployment (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeploymentPatch"
+      responses:
+        "200":
+          description: Updated deployment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deployment"
+        "404":
+          description: Deployment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
     delete:
       operationId: deleteDeployment
       tags: [fleet]
@@ -1269,13 +1297,18 @@ components:
         lastSeenAt: { type: ["string", "null"] }
         lastHealthJson: {}
         createdAt: { type: string }
-      required: [id, name, url, status, lastSeenAt, lastHealthJson, createdAt]
+        slackWebhookUrl: { type: ["string", "null"] }
+      required: [id, name, url, status, lastSeenAt, lastHealthJson, createdAt, slackWebhookUrl]
     DeploymentInput:
       type: object
       properties:
         name: { type: string, minLength: 1 }
         url: { type: string, minLength: 1 }
       required: [name, url]
+    DeploymentPatch:
+      type: object
+      properties:
+        slackWebhookUrl: { type: ["string", "null"] }
     DeploymentCreated:
       type: object
       properties:
@@ -1286,10 +1319,11 @@ components:
         lastSeenAt: { type: ["string", "null"] }
         lastHealthJson: {}
         createdAt: { type: string }
+        slackWebhookUrl: { type: ["string", "null"] }
         apiKey:
           type: string
           description: Plaintext API key — shown once, store securely
-      required: [id, name, url, status, lastSeenAt, lastHealthJson, createdAt, apiKey]
+      required: [id, name, url, status, lastSeenAt, lastHealthJson, createdAt, slackWebhookUrl, apiKey]
     DeploymentHeartbeat:
       type: object
       properties:

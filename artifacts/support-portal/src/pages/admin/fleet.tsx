@@ -3,6 +3,7 @@ import {
   useListDeployments,
   useCreateDeployment,
   useDeleteDeployment,
+  useUpdateDeployment,
   useListDeploymentHeartbeats,
   getListDeploymentsQueryKey,
 } from "@workspace/api-client-react";
@@ -22,6 +23,9 @@ import {
   Globe,
   Clock,
   Activity,
+  Bell,
+  BellOff,
+  Pencil,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -383,6 +387,120 @@ function ApiKeyDisplay({ apiKey, onClose }: { apiKey: string; onClose: () => voi
   );
 }
 
+function SlackWebhookBadge({ url }: { url: string | null }) {
+  if (url) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
+        <Bell className="h-3 w-3" />
+        Custom alerts
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-stone-400">
+      <BellOff className="h-3 w-3" />
+      Global alerts
+    </span>
+  );
+}
+
+function WebhookEditDialog({
+  deployment,
+  onClose,
+}: {
+  deployment: Deployment;
+  onClose: () => void;
+}) {
+  const updateDeployment = useUpdateDeployment();
+  const [value, setValue] = useState(deployment.slackWebhookUrl ?? "");
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: getListDeploymentsQueryKey() });
+
+  const handleSave = () => {
+    updateDeployment.mutate(
+      { id: deployment.id, data: { slackWebhookUrl: value.trim() || null } },
+      {
+        onSuccess: () => {
+          toast.success("Alert destination updated");
+          invalidate();
+          onClose();
+        },
+        onError: (err: any) => toast.error(err?.message || "Failed to update"),
+      },
+    );
+  };
+
+  const handleClear = () => {
+    updateDeployment.mutate(
+      { id: deployment.id, data: { slackWebhookUrl: null } },
+      {
+        onSuccess: () => {
+          toast.success("Custom alert destination removed");
+          invalidate();
+          onClose();
+        },
+        onError: (err: any) => toast.error(err?.message || "Failed to update"),
+      },
+    );
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-[#0F1F3D]">Alert destination — {deployment.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-stone-500">
+            Set a Slack webhook URL to send this deployment's fleet alerts to a dedicated channel.
+            Leave blank to use the global webhook from site settings.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="webhook-url" className="text-sm font-medium text-[#0F1F3D]">
+              Slack Webhook URL
+            </Label>
+            <Input
+              id="webhook-url"
+              placeholder="https://hooks.slack.com/services/…"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              className="bg-white font-mono text-xs"
+            />
+          </div>
+          {deployment.slackWebhookUrl && (
+            <div className="rounded-md bg-stone-50 border border-stone-200 p-3 text-xs text-stone-500">
+              Currently using a custom webhook. Clear it to fall back to the global setting.
+            </div>
+          )}
+        </div>
+        <DialogFooter className="gap-2">
+          {deployment.slackWebhookUrl && (
+            <Button
+              variant="outline"
+              onClick={handleClear}
+              disabled={updateDeployment.isPending}
+              className="text-stone-500 mr-auto"
+            >
+              Clear custom
+            </Button>
+          )}
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={updateDeployment.isPending}
+            className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
+          >
+            {updateDeployment.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function FleetTab() {
   const { data: deployments, isLoading } = useListDeployments();
   const createDeployment = useCreateDeployment();
@@ -394,6 +512,7 @@ export default function FleetTab() {
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Deployment | null>(null);
+  const [webhookTarget, setWebhookTarget] = useState<Deployment | null>(null);
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListDeploymentsQueryKey() });
@@ -489,6 +608,14 @@ export default function FleetTab() {
                         <Clock className="h-3 w-3" />
                         {timeAgo(dep.lastSeenAt)}
                       </span>
+                      <button
+                        onClick={() => setWebhookTarget(dep)}
+                        className="flex items-center gap-1 hover:opacity-70 transition-opacity"
+                        title="Configure alert destination"
+                      >
+                        <SlackWebhookBadge url={dep.slackWebhookUrl} />
+                        <Pencil className="h-2.5 w-2.5 text-stone-300 ml-0.5" />
+                      </button>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -572,6 +699,14 @@ export default function FleetTab() {
       {/* API key reveal */}
       {newApiKey && (
         <ApiKeyDisplay apiKey={newApiKey} onClose={() => setNewApiKey(null)} />
+      )}
+
+      {/* Webhook edit dialog */}
+      {webhookTarget && (
+        <WebhookEditDialog
+          deployment={webhookTarget}
+          onClose={() => setWebhookTarget(null)}
+        />
       )}
 
       {/* Delete confirmation */}

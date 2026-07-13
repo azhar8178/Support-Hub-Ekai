@@ -1495,7 +1495,8 @@ export const ListDeploymentsResponseItem = zod.object({
   "status": zod.enum(['healthy', 'degraded', 'offline']),
   "lastSeenAt": zod.string().nullable(),
   "lastHealthJson": zod.unknown(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "slackWebhookUrl": zod.string().nullable()
 })
 export const ListDeploymentsResponse = zod.array(ListDeploymentsResponseItem)
 
@@ -1520,7 +1521,31 @@ export const CreateDeploymentResponse = zod.object({
   "lastSeenAt": zod.string().nullable(),
   "lastHealthJson": zod.unknown(),
   "createdAt": zod.string(),
+  "slackWebhookUrl": zod.string().nullable(),
   "apiKey": zod.string().describe('Plaintext API key — shown once, store securely')
+})
+
+
+/**
+ * @summary Update a registered client deployment (admin only)
+ */
+export const UpdateDeploymentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateDeploymentBody = zod.object({
+  "slackWebhookUrl": zod.string().nullish()
+})
+
+export const UpdateDeploymentResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "url": zod.string(),
+  "status": zod.enum(['healthy', 'degraded', 'offline']),
+  "lastSeenAt": zod.string().nullable(),
+  "lastHealthJson": zod.unknown(),
+  "createdAt": zod.string(),
+  "slackWebhookUrl": zod.string().nullable()
 })
 
 

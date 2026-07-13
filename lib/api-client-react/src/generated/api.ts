@@ -32,6 +32,7 @@ import type {
   DeploymentCreated,
   DeploymentHeartbeat,
   DeploymentInput,
+  DeploymentPatch,
   FileItem,
   HealthStatus,
   HeartbeatPayload,
@@ -4727,6 +4728,78 @@ export const useCreateDeployment = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateDeploymentMutationOptions(options));
+    }
+
+export const getUpdateDeploymentUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/deployments/${id}`
+}
+
+/**
+ * @summary Update a registered client deployment (admin only)
+ */
+export const updateDeployment = async (id: number,
+    deploymentPatch: DeploymentPatch, options?: RequestInit): Promise<Deployment> => {
+
+  return customFetch<Deployment>(getUpdateDeploymentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(deploymentPatch)
+  }
+);}
+
+
+
+
+
+export const getUpdateDeploymentMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDeployment>>, TError,{id: number;data: BodyType<DeploymentPatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateDeployment>>, TError,{id: number;data: BodyType<DeploymentPatch>}, TContext> => {
+
+const mutationKey = ['updateDeployment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateDeployment>>, {id: number;data: BodyType<DeploymentPatch>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateDeployment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateDeploymentMutationResult = NonNullable<Awaited<ReturnType<typeof updateDeployment>>>
+    export type UpdateDeploymentMutationBody = BodyType<DeploymentPatch>
+    export type UpdateDeploymentMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Update a registered client deployment (admin only)
+ */
+export const useUpdateDeployment = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDeployment>>, TError,{id: number;data: BodyType<DeploymentPatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateDeployment>>,
+        TError,
+        {id: number;data: BodyType<DeploymentPatch>},
+        TContext
+      > => {
+      return useMutation(getUpdateDeploymentMutationOptions(options));
     }
 
 export const getDeleteDeploymentUrl = (id: number,) => {

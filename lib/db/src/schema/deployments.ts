@@ -15,6 +15,7 @@ export const deploymentsTable = pgTable("deployments", {
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   lastHealthJson: jsonb("last_health_json"),
   lastAlertedAt: timestamp("last_alerted_at", { withTimezone: true }),
+  slackWebhookUrl: text("slack_webhook_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

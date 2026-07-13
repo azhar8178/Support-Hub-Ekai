@@ -199,8 +199,10 @@ async function runFleetAlerts(now: Date): Promise<void> {
           ? `No heartbeat received in the last ${OFFLINE_THRESHOLD_MS / 60_000} minutes.`
           : "Database subsystem is reporting degraded status.";
 
+      // Use per-deployment webhook if set, otherwise fall back to global
       await sendSlackFleetAlert(
         `${emoji} *Fleet alert* — *${dep.name}* is *${targetStatus.toUpperCase()}*\n${dep.url}\n${reason}`,
+        dep.slackWebhookUrl,
       );
 
       if (adminIds.length > 0) {

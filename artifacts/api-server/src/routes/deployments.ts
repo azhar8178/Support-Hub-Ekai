@@ -24,6 +24,7 @@ function serializeDeployment(row: typeof deploymentsTable.$inferSelect) {
     lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
     lastHealthJson: row.lastHealthJson ?? null,
     createdAt: row.createdAt.toISOString(),
+    slackWebhookUrl: row.slackWebhookUrl ?? null,
   };
 }
 
@@ -72,6 +73,32 @@ router.post(
       ...serializeDeployment(row!),
       apiKey, // shown once — caller must store this
     });
+  },
+);
+
+// --- Update a deployment (e.g. set per-deployment Slack webhook) ---
+router.patch(
+  "/admin/deployments/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const id = parseInt(raw ?? "", 10);
+    const { slackWebhookUrl } = req.body as { slackWebhookUrl?: string | null };
+
+    const [row] = await db
+      .update(deploymentsTable)
+      .set({ slackWebhookUrl: slackWebhookUrl ?? null })
+      .where(eq(deploymentsTable.id, id))
+      .returning();
+
+    if (!row) {
+      res.status(404).json({ message: "Deployment not found" });
+      return;
+    }
+
+    logger.info({ deploymentId: id }, "deployment updated");
+    res.json(serializeDeployment(row));
   },
 );
 

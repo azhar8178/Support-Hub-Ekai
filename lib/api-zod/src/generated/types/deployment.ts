@@ -16,4 +16,6 @@ export interface Deployment {
   lastSeenAt: string | null;
   lastHealthJson: unknown;
   createdAt: string;
+  /** @nullable */
+  slackWebhookUrl: string | null;
 }

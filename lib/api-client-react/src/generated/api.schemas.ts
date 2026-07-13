@@ -57,6 +57,8 @@ export interface Deployment {
   lastSeenAt: string | null;
   lastHealthJson: unknown;
   createdAt: string;
+  /** @nullable */
+  slackWebhookUrl: string | null;
 }
 
 export interface DeploymentInput {
@@ -64,6 +66,11 @@ export interface DeploymentInput {
   name: string;
   /** @minLength 1 */
   url: string;
+}
+
+export interface DeploymentPatch {
+  /** @nullable */
+  slackWebhookUrl?: string | null;
 }
 
 export type DeploymentCreatedStatus = typeof DeploymentCreatedStatus[keyof typeof DeploymentCreatedStatus];
@@ -84,6 +91,8 @@ export interface DeploymentCreated {
   lastSeenAt: string | null;
   lastHealthJson: unknown;
   createdAt: string;
+  /** @nullable */
+  slackWebhookUrl: string | null;
   /** Plaintext API key — shown once, store securely */
   apiKey: string;
 }
