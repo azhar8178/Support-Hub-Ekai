@@ -238,6 +238,111 @@ describe("POST /api/admin/deployments/heartbeat", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Heartbeat pruning — rows older than 24 h must be removed after each write
+// ---------------------------------------------------------------------------
+describe("heartbeat pruning", () => {
+  const PRUNE_API_KEY = "test-prune-api-key-67890";
+  let pruneDep: typeof deploymentsTable.$inferSelect;
+
+  beforeAll(async () => {
+    pruneDep = await createDeployment({
+      name: `prune-dep-${fx.suffix}`,
+      apiKey: PRUNE_API_KEY,
+    });
+  });
+
+  it("removes rows clearly older than 24 hours and keeps rows within the window", async () => {
+    const now = Date.now();
+
+    // Insert a row 25 hours old — well outside the 24-hour window
+    const [oldRow] = await db
+      .insert(deploymentHeartbeatsTable)
+      .values({
+        deploymentId: pruneDep.id,
+        status: "healthy" as const,
+        recordedAt: new Date(now - 25 * 3600_000),
+      })
+      .returning();
+
+    // Insert a row 23 hours old — inside the 24-hour window
+    const [recentRow] = await db
+      .insert(deploymentHeartbeatsTable)
+      .values({
+        deploymentId: pruneDep.id,
+        status: "healthy" as const,
+        recordedAt: new Date(now - 23 * 3600_000),
+      })
+      .returning();
+
+    // Trigger a heartbeat — this inserts a new row and prunes stale ones
+    const res = await request(app)
+      .post("/api/admin/deployments/heartbeat")
+      .send({ apiKey: PRUNE_API_KEY, health: { status: "healthy" } });
+
+    expect(res.status).toBe(200);
+
+    const remaining = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, pruneDep.id));
+
+    const remainingIds = new Set(remaining.map((r) => r.id));
+
+    // The 25-hour-old row must be gone
+    expect(remainingIds.has(oldRow!.id)).toBe(false);
+    // The 23-hour-old row must still be present
+    expect(remainingIds.has(recentRow!.id)).toBe(true);
+  });
+
+  it("prunes a row just over 24 h old but keeps a row just under 24 h old", async () => {
+    // Clear existing heartbeats so IDs are unambiguous
+    await db
+      .delete(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, pruneDep.id));
+
+    const now = Date.now();
+
+    // Just outside the window: 24 h + 1 min ago — should be pruned
+    const [justOutside] = await db
+      .insert(deploymentHeartbeatsTable)
+      .values({
+        deploymentId: pruneDep.id,
+        status: "healthy" as const,
+        recordedAt: new Date(now - 24 * 3600_000 - 60_000),
+      })
+      .returning();
+
+    // Just inside the window: 24 h - 1 min ago — should survive
+    const [justInside] = await db
+      .insert(deploymentHeartbeatsTable)
+      .values({
+        deploymentId: pruneDep.id,
+        status: "healthy" as const,
+        recordedAt: new Date(now - 24 * 3600_000 + 60_000),
+      })
+      .returning();
+
+    const res = await request(app)
+      .post("/api/admin/deployments/heartbeat")
+      .send({ apiKey: PRUNE_API_KEY, health: { status: "healthy" } });
+
+    expect(res.status).toBe(200);
+
+    const remaining = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, pruneDep.id));
+
+    const remainingIds = new Set(remaining.map((r) => r.id));
+
+    // The row 1 minute past the cutoff must be deleted
+    expect(remainingIds.has(justOutside!.id)).toBe(false);
+    // The row 1 minute before the cutoff must remain
+    expect(remainingIds.has(justInside!.id)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/admin/deployments — admin only
 // ---------------------------------------------------------------------------
 describe("GET /api/admin/deployments", () => {
