@@ -18,6 +18,7 @@ tags:
   - name: team
   - name: branding
   - name: files
+  - name: fleet
 paths:
   /healthz:
     get:
@@ -1121,6 +1122,93 @@ paths:
       responses:
         "204":
           description: Logo removed
+  /admin/deployments:
+    get:
+      operationId: listDeployments
+      tags: [fleet]
+      summary: List registered client deployments (admin only)
+      responses:
+        "200":
+          description: Deployments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Deployment"
+    post:
+      operationId: createDeployment
+      tags: [fleet]
+      summary: Register a new client deployment (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeploymentInput"
+      responses:
+        "201":
+          description: Created deployment (API key shown once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeploymentCreated"
+  /admin/deployments/{id}:
+    delete:
+      operationId: deleteDeployment
+      tags: [fleet]
+      summary: Remove a registered client deployment (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deployment removed
+  /admin/deployments/heartbeat:
+    post:
+      operationId: receiveHeartbeat
+      tags: [fleet]
+      summary: Receive a health heartbeat from a client deployment (API-key auth)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HeartbeatPayload"
+      responses:
+        "200":
+          description: Heartbeat recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /admin/deployments/{id}/heartbeats:
+    get:
+      operationId: listDeploymentHeartbeats
+      tags: [fleet]
+      summary: Get last 24 hours of heartbeat history for a deployment (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Heartbeat history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeploymentHeartbeat"
   /admin/files:
     get:
       operationId: listFiles
@@ -1151,8 +1239,73 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+          enum: [healthy, degraded, offline]
+        timestamp:
+          type: string
+        db:
+          type: object
+          properties:
+            status: { type: string, enum: [healthy, degraded] }
+            latencyMs: { type: ["number", "null"] }
+          required: [status, latencyMs]
+        pushQueueDepth:
+          type: integer
+        slaBreachCount:
+          type: integer
+        openTicketCount:
+          type: integer
+        emailConfigured:
+          type: boolean
+        storageConfigured:
+          type: boolean
+      required: [status, timestamp]
+    Deployment:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        url: { type: string }
+        status: { type: string, enum: [healthy, degraded, offline] }
+        lastSeenAt: { type: ["string", "null"] }
+        lastHealthJson: {}
+        createdAt: { type: string }
+      required: [id, name, url, status, lastSeenAt, lastHealthJson, createdAt]
+    DeploymentInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        url: { type: string, minLength: 1 }
+      required: [name, url]
+    DeploymentCreated:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        url: { type: string }
+        status: { type: string, enum: [healthy, degraded, offline] }
+        lastSeenAt: { type: ["string", "null"] }
+        lastHealthJson: {}
+        createdAt: { type: string }
+        apiKey:
+          type: string
+          description: Plaintext API key — shown once, store securely
+      required: [id, name, url, status, lastSeenAt, lastHealthJson, createdAt, apiKey]
+    DeploymentHeartbeat:
+      type: object
+      properties:
+        id: { type: integer }
+        deploymentId: { type: integer }
+        status: { type: string, enum: [healthy, degraded, offline] }
+        healthJson: {}
+        recordedAt: { type: string }
+      required: [id, deploymentId, status, healthJson, recordedAt]
+    HeartbeatPayload:
+      type: object
+      properties:
+        apiKey: { type: string }
+        health:
+          $ref: "#/components/schemas/HealthStatus"
+      required: [apiKey, health]
     ApiMessage:
       type: object
       properties:

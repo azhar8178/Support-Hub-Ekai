@@ -9,7 +9,7 @@ import {
   getGetPublicBrandingQueryKey,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
-import { Loader2, Save, Upload, Trash2, SlidersHorizontal, Users, Building2, Mail, Tag, AlertTriangle, Globe, BarChart3, ChevronRight } from "lucide-react";
+import { Loader2, Save, Upload, Trash2, SlidersHorizontal, Users, Building2, Tag, BarChart3, ChevronRight, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Link } from "wouter";
+import FleetTab from "./fleet";
 
 export default function AdminSettingsPage() {
   const { data: settings, isLoading: settingsLoading } = useGetSiteSettings();
@@ -163,6 +164,10 @@ export default function AdminSettingsPage() {
               </TabsTrigger>
               <TabsTrigger value="administration" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D]">
                 Administration
+              </TabsTrigger>
+              <TabsTrigger value="fleet" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D] gap-1.5">
+                <Radio className="h-3.5 w-3.5" />
+                Fleet
               </TabsTrigger>
             </TabsList>
 
@@ -394,6 +399,11 @@ export default function AdminSettingsPage() {
                   </div>
                 </Link>
               ))}
+            </TabsContent>
+
+            {/* ── FLEET TAB ── */}
+            <TabsContent value="fleet">
+              <FleetTab />
             </TabsContent>
           </Tabs>
         </div>

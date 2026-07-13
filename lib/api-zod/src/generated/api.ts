@@ -12,7 +12,17 @@ import * as zod from 'zod';
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  "status": zod.string()
+  "status": zod.enum(['healthy', 'degraded', 'offline']),
+  "timestamp": zod.string(),
+  "db": zod.object({
+  "status": zod.enum(['healthy', 'degraded']),
+  "latencyMs": zod.number().nullable()
+}).optional(),
+  "pushQueueDepth": zod.number().optional(),
+  "slaBreachCount": zod.number().optional(),
+  "openTicketCount": zod.number().optional(),
+  "emailConfigured": zod.boolean().optional(),
+  "storageConfigured": zod.boolean().optional()
 })
 
 
@@ -1473,6 +1483,98 @@ export const UploadSiteLogoResponse = zod.object({
  * @summary Remove the portal logo (admin only)
  */
 export const DeleteSiteLogoResponse = zod.void()
+
+
+/**
+ * @summary List registered client deployments (admin only)
+ */
+export const ListDeploymentsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "url": zod.string(),
+  "status": zod.enum(['healthy', 'degraded', 'offline']),
+  "lastSeenAt": zod.string().nullable(),
+  "lastHealthJson": zod.unknown(),
+  "createdAt": zod.string()
+})
+export const ListDeploymentsResponse = zod.array(ListDeploymentsResponseItem)
+
+
+/**
+ * @summary Register a new client deployment (admin only)
+ */
+
+
+
+
+export const CreateDeploymentBody = zod.object({
+  "name": zod.string().min(1),
+  "url": zod.string().min(1)
+})
+
+export const CreateDeploymentResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "url": zod.string(),
+  "status": zod.enum(['healthy', 'degraded', 'offline']),
+  "lastSeenAt": zod.string().nullable(),
+  "lastHealthJson": zod.unknown(),
+  "createdAt": zod.string(),
+  "apiKey": zod.string().describe('Plaintext API key — shown once, store securely')
+})
+
+
+/**
+ * @summary Remove a registered client deployment (admin only)
+ */
+export const DeleteDeploymentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteDeploymentResponse = zod.void()
+
+
+/**
+ * @summary Receive a health heartbeat from a client deployment (API-key auth)
+ */
+export const ReceiveHeartbeatBody = zod.object({
+  "apiKey": zod.string(),
+  "health": zod.object({
+  "status": zod.enum(['healthy', 'degraded', 'offline']),
+  "timestamp": zod.string(),
+  "db": zod.object({
+  "status": zod.enum(['healthy', 'degraded']),
+  "latencyMs": zod.number().nullable()
+}).optional(),
+  "pushQueueDepth": zod.number().optional(),
+  "slaBreachCount": zod.number().optional(),
+  "openTicketCount": zod.number().optional(),
+  "emailConfigured": zod.boolean().optional(),
+  "storageConfigured": zod.boolean().optional()
+})
+})
+
+export const ReceiveHeartbeatResponse = zod.object({
+  "message": zod.string(),
+  "code": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get last 24 hours of heartbeat history for a deployment (admin only)
+ */
+export const ListDeploymentHeartbeatsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListDeploymentHeartbeatsResponseItem = zod.object({
+  "id": zod.number(),
+  "deploymentId": zod.number(),
+  "status": zod.enum(['healthy', 'degraded', 'offline']),
+  "healthJson": zod.unknown(),
+  "recordedAt": zod.string()
+})
+export const ListDeploymentHeartbeatsResponse = zod.array(ListDeploymentHeartbeatsResponseItem)
 
 
 /**

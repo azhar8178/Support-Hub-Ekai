@@ -35,6 +35,31 @@ function severityEmoji(severity: string): string {
   return "⚪";
 }
 
+/**
+ * Send a plain-text Slack message for fleet/ops alerts. Falls back silently
+ * if no webhook is configured.
+ */
+export async function sendSlackFleetAlert(text: string): Promise<void> {
+  try {
+    const webhookUrl = await getSlackWebhookUrl();
+    if (!webhookUrl) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (err) {
+    console.error("[slack] Failed to send fleet alert:", err);
+  }
+}
+
 export async function sendSlackAlert(ticket: TicketRef, raisedBy: RaisedBy): Promise<void> {
   try {
     const webhookUrl = await getSlackWebhookUrl();

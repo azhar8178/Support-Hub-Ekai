@@ -5,8 +5,109 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
+export type HealthStatusStatus = typeof HealthStatusStatus[keyof typeof HealthStatusStatus];
+
+
+export const HealthStatusStatus = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  offline: 'offline',
+} as const;
+
+export type HealthStatusDbStatus = typeof HealthStatusDbStatus[keyof typeof HealthStatusDbStatus];
+
+
+export const HealthStatusDbStatus = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+} as const;
+
+export type HealthStatusDb = {
+  status: HealthStatusDbStatus;
+  /** @nullable */
+  latencyMs: number | null;
+};
+
 export interface HealthStatus {
-  status: string;
+  status: HealthStatusStatus;
+  timestamp: string;
+  db?: HealthStatusDb;
+  pushQueueDepth?: number;
+  slaBreachCount?: number;
+  openTicketCount?: number;
+  emailConfigured?: boolean;
+  storageConfigured?: boolean;
+}
+
+export type DeploymentStatus = typeof DeploymentStatus[keyof typeof DeploymentStatus];
+
+
+export const DeploymentStatus = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  offline: 'offline',
+} as const;
+
+export interface Deployment {
+  id: number;
+  name: string;
+  url: string;
+  status: DeploymentStatus;
+  /** @nullable */
+  lastSeenAt: string | null;
+  lastHealthJson: unknown;
+  createdAt: string;
+}
+
+export interface DeploymentInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  url: string;
+}
+
+export type DeploymentCreatedStatus = typeof DeploymentCreatedStatus[keyof typeof DeploymentCreatedStatus];
+
+
+export const DeploymentCreatedStatus = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  offline: 'offline',
+} as const;
+
+export interface DeploymentCreated {
+  id: number;
+  name: string;
+  url: string;
+  status: DeploymentCreatedStatus;
+  /** @nullable */
+  lastSeenAt: string | null;
+  lastHealthJson: unknown;
+  createdAt: string;
+  /** Plaintext API key — shown once, store securely */
+  apiKey: string;
+}
+
+export type DeploymentHeartbeatStatus = typeof DeploymentHeartbeatStatus[keyof typeof DeploymentHeartbeatStatus];
+
+
+export const DeploymentHeartbeatStatus = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  offline: 'offline',
+} as const;
+
+export interface DeploymentHeartbeat {
+  id: number;
+  deploymentId: number;
+  status: DeploymentHeartbeatStatus;
+  healthJson: unknown;
+  recordedAt: string;
+}
+
+export interface HeartbeatPayload {
+  apiKey: string;
+  health: HealthStatus;
 }
 
 export interface ApiMessage {

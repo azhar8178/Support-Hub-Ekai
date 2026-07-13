@@ -12,6 +12,7 @@ import adminRouter from "./admin";
 import brandingRouter from "./branding";
 import siteSettingsRouter from "./siteSettings";
 import filesRouter from "./files";
+import deploymentsRouter from "./deployments";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(adminRouter);
 router.use(brandingRouter);
 router.use(siteSettingsRouter);
 router.use(filesRouter);
+router.use(deploymentsRouter);
 
 export default router;

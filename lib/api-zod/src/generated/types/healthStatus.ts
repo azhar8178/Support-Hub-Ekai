@@ -5,7 +5,16 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { HealthStatusDb } from './healthStatusDb';
+import type { HealthStatusStatus } from './healthStatusStatus';
 
 export interface HealthStatus {
-  status: string;
+  status: HealthStatusStatus;
+  timestamp: string;
+  db?: HealthStatusDb;
+  pushQueueDepth?: number;
+  slaBreachCount?: number;
+  openTicketCount?: number;
+  emailConfigured?: boolean;
+  storageConfigured?: boolean;
 }

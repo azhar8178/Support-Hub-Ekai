@@ -28,8 +28,13 @@ import type {
   CustomerDetail,
   CustomerUpdate,
   DashboardSummary,
+  Deployment,
+  DeploymentCreated,
+  DeploymentHeartbeat,
+  DeploymentInput,
   FileItem,
   HealthStatus,
+  HeartbeatPayload,
   Invite,
   InviteAcceptance,
   InviteInput,
@@ -4575,6 +4580,373 @@ export const useDeleteSiteLogo = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getDeleteSiteLogoMutationOptions(options));
     }
+
+export const getListDeploymentsUrl = () => {
+
+
+
+
+  return `/api/admin/deployments`
+}
+
+/**
+ * @summary List registered client deployments (admin only)
+ */
+export const listDeployments = async ( options?: RequestInit): Promise<Deployment[]> => {
+
+  return customFetch<Deployment[]>(getListDeploymentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDeploymentsQueryKey = () => {
+    return [
+    `/api/admin/deployments`
+    ] as const;
+    }
+
+
+export const getListDeploymentsQueryOptions = <TData = Awaited<ReturnType<typeof listDeployments>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDeployments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDeploymentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDeployments>>> = ({ signal }) => listDeployments({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDeployments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDeploymentsQueryResult = NonNullable<Awaited<ReturnType<typeof listDeployments>>>
+export type ListDeploymentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List registered client deployments (admin only)
+ */
+
+export function useListDeployments<TData = Awaited<ReturnType<typeof listDeployments>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDeployments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDeploymentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateDeploymentUrl = () => {
+
+
+
+
+  return `/api/admin/deployments`
+}
+
+/**
+ * @summary Register a new client deployment (admin only)
+ */
+export const createDeployment = async (deploymentInput: DeploymentInput, options?: RequestInit): Promise<DeploymentCreated> => {
+
+  return customFetch<DeploymentCreated>(getCreateDeploymentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(deploymentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateDeploymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDeployment>>, TError,{data: BodyType<DeploymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDeployment>>, TError,{data: BodyType<DeploymentInput>}, TContext> => {
+
+const mutationKey = ['createDeployment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDeployment>>, {data: BodyType<DeploymentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createDeployment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateDeploymentMutationResult = NonNullable<Awaited<ReturnType<typeof createDeployment>>>
+    export type CreateDeploymentMutationBody = BodyType<DeploymentInput>
+    export type CreateDeploymentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Register a new client deployment (admin only)
+ */
+export const useCreateDeployment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDeployment>>, TError,{data: BodyType<DeploymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createDeployment>>,
+        TError,
+        {data: BodyType<DeploymentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateDeploymentMutationOptions(options));
+    }
+
+export const getDeleteDeploymentUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/deployments/${id}`
+}
+
+/**
+ * @summary Remove a registered client deployment (admin only)
+ */
+export const deleteDeployment = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteDeploymentUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteDeploymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDeployment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDeployment>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteDeployment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDeployment>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteDeployment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDeploymentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDeployment>>>
+
+    export type DeleteDeploymentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a registered client deployment (admin only)
+ */
+export const useDeleteDeployment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDeployment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDeployment>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteDeploymentMutationOptions(options));
+    }
+
+export const getReceiveHeartbeatUrl = () => {
+
+
+
+
+  return `/api/admin/deployments/heartbeat`
+}
+
+/**
+ * @summary Receive a health heartbeat from a client deployment (API-key auth)
+ */
+export const receiveHeartbeat = async (heartbeatPayload: HeartbeatPayload, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getReceiveHeartbeatUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(heartbeatPayload)
+  }
+);}
+
+
+
+
+
+export const getReceiveHeartbeatMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveHeartbeat>>, TError,{data: BodyType<HeartbeatPayload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof receiveHeartbeat>>, TError,{data: BodyType<HeartbeatPayload>}, TContext> => {
+
+const mutationKey = ['receiveHeartbeat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof receiveHeartbeat>>, {data: BodyType<HeartbeatPayload>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  receiveHeartbeat(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReceiveHeartbeatMutationResult = NonNullable<Awaited<ReturnType<typeof receiveHeartbeat>>>
+    export type ReceiveHeartbeatMutationBody = BodyType<HeartbeatPayload>
+    export type ReceiveHeartbeatMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Receive a health heartbeat from a client deployment (API-key auth)
+ */
+export const useReceiveHeartbeat = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveHeartbeat>>, TError,{data: BodyType<HeartbeatPayload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof receiveHeartbeat>>,
+        TError,
+        {data: BodyType<HeartbeatPayload>},
+        TContext
+      > => {
+      return useMutation(getReceiveHeartbeatMutationOptions(options));
+    }
+
+export const getListDeploymentHeartbeatsUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/deployments/${id}/heartbeats`
+}
+
+/**
+ * @summary Get last 24 hours of heartbeat history for a deployment (admin only)
+ */
+export const listDeploymentHeartbeats = async (id: number, options?: RequestInit): Promise<DeploymentHeartbeat[]> => {
+
+  return customFetch<DeploymentHeartbeat[]>(getListDeploymentHeartbeatsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDeploymentHeartbeatsQueryKey = (id: number,) => {
+    return [
+    `/api/admin/deployments/${id}/heartbeats`
+    ] as const;
+    }
+
+
+export const getListDeploymentHeartbeatsQueryOptions = <TData = Awaited<ReturnType<typeof listDeploymentHeartbeats>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDeploymentHeartbeats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDeploymentHeartbeatsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDeploymentHeartbeats>>> = ({ signal }) => listDeploymentHeartbeats(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDeploymentHeartbeats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDeploymentHeartbeatsQueryResult = NonNullable<Awaited<ReturnType<typeof listDeploymentHeartbeats>>>
+export type ListDeploymentHeartbeatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get last 24 hours of heartbeat history for a deployment (admin only)
+ */
+
+export function useListDeploymentHeartbeats<TData = Awaited<ReturnType<typeof listDeploymentHeartbeats>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDeploymentHeartbeats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDeploymentHeartbeatsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListFilesUrl = (params?: ListFilesParams,) => {
   const normalizedParams = new URLSearchParams();
