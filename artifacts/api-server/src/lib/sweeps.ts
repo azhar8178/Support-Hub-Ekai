@@ -58,8 +58,10 @@ export async function pruneOldKbSuggestionEvents(
  * Auto-escalation: assign any open ticket that is ≥75% through its resolution
  * SLA window and has no assigned agent. Picks the agent with fewest currently
  * open assigned tickets. Sends a Slack alert for each escalation.
+ *
+ * Exported for unit tests; called internally by runSweep.
  */
-async function runAutoEscalation(now: Date): Promise<void> {
+export async function runAutoEscalation(now: Date): Promise<void> {
   try {
     const openTickets = await db
       .select()
@@ -151,8 +153,10 @@ async function runAutoEscalation(now: Date): Promise<void> {
 /**
  * Fleet health alerting: check all registered deployments for staleness or
  * degraded status and send Slack + push alerts on transitions.
+ *
+ * Exported for unit tests; called internally by runSweep.
  */
-async function runFleetAlerts(now: Date): Promise<void> {
+export async function runFleetAlerts(now: Date): Promise<void> {
   try {
     const deployments = await db.select().from(deploymentsTable);
     const adminIds = await getAgentAndAdminIds();
