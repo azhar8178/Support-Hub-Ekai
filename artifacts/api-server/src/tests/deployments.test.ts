@@ -340,6 +340,69 @@ describe("heartbeat pruning", () => {
     // The row 1 minute before the cutoff must remain
     expect(remainingIds.has(justInside!.id)).toBe(true);
   });
+
+  it("does not prune rows belonging to a different deployment", async () => {
+    const PRUNE_B_API_KEY = "test-prune-b-api-key-11223";
+
+    // Create a second deployment that will NOT receive a heartbeat
+    const depB = await createDeployment({
+      name: `prune-dep-b-${fx.suffix}`,
+      apiKey: PRUNE_B_API_KEY,
+    });
+
+    // Clear any leftover rows so IDs are unambiguous
+    await db
+      .delete(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, pruneDep.id));
+    await db
+      .delete(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, depB.id));
+
+    const now = Date.now();
+
+    // Insert a stale row for pruneDep (A) — should be pruned
+    const [staleA] = await db
+      .insert(deploymentHeartbeatsTable)
+      .values({
+        deploymentId: pruneDep.id,
+        status: "healthy" as const,
+        recordedAt: new Date(now - 25 * 3600_000),
+      })
+      .returning();
+
+    // Insert a stale row for depB — must NOT be touched
+    const [staleB] = await db
+      .insert(deploymentHeartbeatsTable)
+      .values({
+        deploymentId: depB.id,
+        status: "healthy" as const,
+        recordedAt: new Date(now - 25 * 3600_000),
+      })
+      .returning();
+
+    // Trigger a heartbeat only for pruneDep (A)
+    const res = await request(app)
+      .post("/api/admin/deployments/heartbeat")
+      .send({ apiKey: PRUNE_API_KEY, health: { status: "healthy" } });
+
+    expect(res.status).toBe(200);
+
+    // A's stale row must be pruned
+    const remainingA = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, pruneDep.id));
+    const remainingAIds = new Set(remainingA.map((r) => r.id));
+    expect(remainingAIds.has(staleA!.id)).toBe(false);
+
+    // B's stale row must be completely untouched
+    const remainingB = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, depB.id));
+    const remainingBIds = new Set(remainingB.map((r) => r.id));
+    expect(remainingBIds.has(staleB!.id)).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
