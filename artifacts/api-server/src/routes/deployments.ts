@@ -171,6 +171,16 @@ router.delete(
   async (req, res): Promise<void> => {
     const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const id = parseInt(raw ?? "", 10);
+
+    // Belt-and-suspenders: explicitly delete heartbeat rows before removing the
+    // deployment. The schema has ON DELETE CASCADE as the primary guard, but an
+    // explicit delete here makes the cleanup self-documenting and ensures
+    // heartbeat rows are never silently orphaned if that constraint is ever
+    // dropped or altered by a future migration.
+    await db
+      .delete(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, id));
+
     const [row] = await db
       .delete(deploymentsTable)
       .where(eq(deploymentsTable.id, id))
