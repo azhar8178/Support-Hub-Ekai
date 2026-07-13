@@ -1,0 +1,107 @@
+# =============================================================================
+# Ekai Helm Chart — default values
+# Override with: helm install ekai ./deploy/helm/ekai -f my-values.yaml
+# =============================================================================
+
+# -- Global namespace for all resources
+namespace: ekai
+
+# -- Image pull policy for both services
+imagePullPolicy: Always
+
+# ---------------------------------------------------------------------------
+# API Server
+# ---------------------------------------------------------------------------
+api:
+  image:
+    repository: your-registry/ekai-api-server
+    tag: latest
+
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "512Mi"
+
+  # HorizontalPodAutoscaler — set enabled: false to disable
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+  # Non-sensitive config (goes into a ConfigMap)
+  config:
+    NODE_ENV: "production"
+    PORT: "8080"
+    AWS_REGION: "us-east-1"
+    EMAIL_FROM: "support@yourcompany.com"
+    PRIVATE_OBJECT_DIR: "attachments"
+    LOG_LEVEL: "info"
+    PORTAL_URL: "https://support.yourcompany.com"
+    # Fleet hub URL — only needed for push-mode deployments
+    FLEET_HUB_URL: ""
+
+  # Sensitive credentials — provide real values at install time.
+  # NEVER commit real secrets here; use --set or an external secrets manager.
+  secrets:
+    CLERK_PUBLISHABLE_KEY: ""      # pk_live_...
+    CLERK_SECRET_KEY: ""           # sk_live_...
+    DATABASE_URL: ""               # postgres://user:pass@host:5432/ekai
+    # Optional — omit (empty string) if email / storage / fleet is disabled
+    AWS_ACCESS_KEY_ID: ""
+    AWS_SECRET_ACCESS_KEY: ""
+    DEFAULT_OBJECT_STORAGE_BUCKET_ID: ""
+    FLEET_API_KEY: ""
+
+# ---------------------------------------------------------------------------
+# Support Portal
+# ---------------------------------------------------------------------------
+portal:
+  image:
+    repository: your-registry/ekai-portal
+    tag: latest
+
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+
+# ---------------------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: true
+  # ingressClassName must match the controller installed in your cluster
+  className: nginx
+  host: support.yourcompany.com
+  # TLS — requires cert-manager or a manually-created TLS secret
+  tls:
+    enabled: true
+    secretName: ekai-tls
+    # Set to "" to manage the cert-manager issuer annotation yourself
+    certManagerClusterIssuer: "letsencrypt-prod"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+
+# ---------------------------------------------------------------------------
+# Feature flags (informational — reflected in api.config above)
+# ---------------------------------------------------------------------------
+features:
+  # Email via AWS SES — requires AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+  # AWS_REGION, and EMAIL_FROM to be set in api.secrets / api.config
+  email: false
+  # GCS object storage — requires DEFAULT_OBJECT_STORAGE_BUCKET_ID
+  objectStorage: false
+  # Fleet push mode — requires FLEET_HUB_URL and FLEET_API_KEY
+  fleetPushMode: false

@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ekai-api-server
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ekai.labels" . | nindent 4 }}
+    {{- include "ekai.api.selectorLabels" . | nindent 4 }}
+    component: backend
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "ekai.api.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "ekai.api.selectorLabels" . | nindent 8 }}
+        component: backend
+    spec:
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: api-server
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          # Non-sensitive config from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: ekai-api-config
+
+          # Sensitive values from Secret
+          env:
+            - name: CLERK_PUBLISHABLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: CLERK_PUBLISHABLE_KEY
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: CLERK_SECRET_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: DATABASE_URL
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: AWS_ACCESS_KEY_ID
+                  optional: true
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+                  optional: true
+            - name: DEFAULT_OBJECT_STORAGE_BUCKET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: DEFAULT_OBJECT_STORAGE_BUCKET_ID
+                  optional: true
+            - name: FLEET_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: FLEET_API_KEY
+                  optional: true
+
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+
+          resources:
+            requests:
+              cpu: {{ .Values.api.resources.requests.cpu | quote }}
+              memory: {{ .Values.api.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.api.resources.limits.cpu | quote }}
+              memory: {{ .Values.api.resources.limits.memory | quote }}
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+      # GKE Workload Identity — uncomment and set the service account name if using
+      # Workload Identity instead of a mounted key file for GCS access.
+      # serviceAccountName: ekai-api-server

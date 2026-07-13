@@ -1,0 +1,13 @@
+apiVersion: v2
+name: ekai
+description: Ekai Support Platform — API server and support portal
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - support
+  - helpdesk
+  - fleet-monitoring
+home: https://github.com/your-org/ekai
+maintainers:
+  - name: Ekai Team

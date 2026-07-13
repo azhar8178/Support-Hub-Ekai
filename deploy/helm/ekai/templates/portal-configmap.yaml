@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ekai-portal-nginx-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ekai.labels" . | nindent 4 }}
+    component: frontend
+data:
+  portal.conf: |
+    upstream api_backend {
+        server ekai-api-server:8080;
+        keepalive 32;
+    }
+
+    server {
+        listen 80;
+        server_name _;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        location /api/ {
+            proxy_pass         http://api_backend;
+            proxy_http_version 1.1;
+            proxy_set_header   Connection        "";
+            proxy_set_header   Host              $host;
+            proxy_set_header   X-Real-IP         $remote_addr;
+            proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+            proxy_read_timeout 60s;
+            client_max_body_size 100m;
+        }
+
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            try_files $uri =404;
+        }
+
+        location /healthz {
+            access_log off;
+            return 200 "ok\n";
+            add_header Content-Type text/plain;
+        }
+
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+    }

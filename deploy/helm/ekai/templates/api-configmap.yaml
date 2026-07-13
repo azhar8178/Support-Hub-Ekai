@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ekai-api-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ekai.labels" . | nindent 4 }}
+    component: backend
+data:
+  NODE_ENV: {{ .Values.api.config.NODE_ENV | quote }}
+  PORT: {{ .Values.api.config.PORT | quote }}
+  AWS_REGION: {{ .Values.api.config.AWS_REGION | quote }}
+  EMAIL_FROM: {{ .Values.api.config.EMAIL_FROM | quote }}
+  PRIVATE_OBJECT_DIR: {{ .Values.api.config.PRIVATE_OBJECT_DIR | quote }}
+  LOG_LEVEL: {{ .Values.api.config.LOG_LEVEL | quote }}
+  PORTAL_URL: {{ .Values.api.config.PORTAL_URL | quote }}
+  FLEET_HUB_URL: {{ .Values.api.config.FLEET_HUB_URL | quote }}

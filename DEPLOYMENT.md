@@ -1,6 +1,6 @@
 # Ekai — Deployment Guide
 
-This guide covers every supported deployment path for Ekai: self-hosted on a bare-metal server or VM, Docker Compose for a single-host production setup, and Kubernetes for multi-replica cloud deployments. Read through the [Prerequisites](#prerequisites) and [Environment Variables Reference](#environment-variables-reference) sections first regardless of which path you choose.
+This guide covers every supported deployment path for Ekai: self-hosted on a bare-metal server or VM, Docker Compose for a single-host production setup, and Kubernetes for multi-replica cloud deployments (via raw manifests or the included Helm chart). Read through the [Prerequisites](#prerequisites) and [Environment Variables Reference](#environment-variables-reference) sections first regardless of which path you choose.
 
 ---
 
@@ -17,6 +17,8 @@ This guide covers every supported deployment path for Ekai: self-hosted on a bar
 9. [Docker Compose](#docker-compose)
 10. [Testing the stack](#testing-the-stack)
 11. [Kubernetes](#kubernetes)
+    - [Raw manifests](#step-by-step)
+    - [Helm chart](#helm-chart)
 12. [Fleet monitoring](#fleet-monitoring)
 13. [Health check endpoint](#health-check-endpoint)
 14. [Upgrading](#upgrading)
@@ -522,6 +524,159 @@ The included HorizontalPodAutoscaler in `api-server.yaml` auto-scales based on C
 
 ---
 
+### Helm chart
+
+The Helm chart in `deploy/helm/ekai/` templates all of the same resources as the raw manifests and makes upgrades a single command. Use it when you want per-environment value overrides, secret injection via `--set`, or GitOps tooling (Argo CD, Flux).
+
+#### Directory layout
+
+```
+deploy/helm/ekai/
+├── Chart.yaml
+├── values.yaml                  # defaults — override with -f or --set
+└── templates/
+    ├── _helpers.tpl
+    ├── namespace.yaml
+    ├── api-secret.yaml
+    ├── api-configmap.yaml
+    ├── api-deployment.yaml
+    ├── api-service.yaml
+    ├── api-hpa.yaml
+    ├── portal-configmap.yaml
+    ├── portal-deployment.yaml
+    ├── portal-service.yaml
+    └── ingress.yaml
+```
+
+#### Prerequisites
+
+```bash
+# Helm 3
+brew install helm        # macOS
+# or: https://helm.sh/docs/intro/install/
+helm version             # confirm ≥ 3.0
+```
+
+#### First install
+
+Build and push your images first (see [Step 1](#1-build-and-push-images) above), then:
+
+```bash
+helm install ekai ./deploy/helm/ekai \
+  --set api.image.tag="${TAG}" \
+  --set portal.image.tag="${TAG}" \
+  --set api.image.repository="your-registry/ekai-api-server" \
+  --set portal.image.repository="your-registry/ekai-portal" \
+  --set api.secrets.CLERK_PUBLISHABLE_KEY="pk_live_..." \
+  --set api.secrets.CLERK_SECRET_KEY="sk_live_..." \
+  --set api.secrets.DATABASE_URL="postgres://user:pass@host:5432/ekai" \
+  --set api.config.PORTAL_URL="https://support.yourcompany.com" \
+  --set ingress.host="support.yourcompany.com"
+```
+
+Or create a `my-values.yaml` and keep secrets out of your shell history:
+
+```yaml
+# my-values.yaml  (keep this file out of version control)
+api:
+  image:
+    repository: your-registry/ekai-api-server
+    tag: "abc1234"
+  config:
+    PORTAL_URL: "https://support.yourcompany.com"
+    EMAIL_FROM: "support@yourcompany.com"
+  secrets:
+    CLERK_PUBLISHABLE_KEY: "pk_live_..."
+    CLERK_SECRET_KEY: "sk_live_..."
+    DATABASE_URL: "postgres://user:pass@host:5432/ekai"
+    AWS_ACCESS_KEY_ID: "AKIA..."
+    AWS_SECRET_ACCESS_KEY: "..."
+
+portal:
+  image:
+    repository: your-registry/ekai-portal
+    tag: "abc1234"
+
+ingress:
+  host: support.yourcompany.com
+```
+
+```bash
+helm install ekai ./deploy/helm/ekai -f my-values.yaml
+```
+
+#### Upgrading (one command)
+
+```bash
+TAG=$(git rev-parse --short HEAD)
+
+# 1. Build and push new images (same as raw-manifest flow)
+docker build -f artifacts/api-server/Dockerfile -t your-registry/ekai-api-server:${TAG} . && \
+  docker push your-registry/ekai-api-server:${TAG}
+docker build -f artifacts/support-portal/Dockerfile \
+  --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_live_... \
+  --build-arg BASE_PATH=/ \
+  -t your-registry/ekai-portal:${TAG} . && \
+  docker push your-registry/ekai-portal:${TAG}
+
+# 2. Run the migrator against your database (same as raw-manifest flow)
+kubectl run ekai-migrate --rm -it --restart=Never \
+  --image=your-registry/ekai-migrate:${TAG} \
+  --env="DATABASE_URL=postgres://user:pass@host:5432/ekai" \
+  -n ekai
+
+# 3. Roll out the new images — zero-downtime rolling update
+helm upgrade ekai ./deploy/helm/ekai -f my-values.yaml \
+  --set api.image.tag="${TAG}" \
+  --set portal.image.tag="${TAG}"
+```
+
+`helm upgrade` performs a rolling update identical to the raw-manifest path: `maxUnavailable: 0` keeps the old pods serving traffic until the new ones pass their readiness probes.
+
+#### Key values reference
+
+| Value | Default | Description |
+|---|---|---|
+| `api.image.repository` | `your-registry/ekai-api-server` | API server image |
+| `api.image.tag` | `latest` | Image tag — pin to a git SHA in production |
+| `api.replicas` | `2` | Desired pod count (overridden by HPA when enabled) |
+| `api.hpa.enabled` | `true` | Enable HorizontalPodAutoscaler |
+| `api.hpa.minReplicas` | `2` | HPA lower bound |
+| `api.hpa.maxReplicas` | `10` | HPA upper bound |
+| `api.resources.*` | see values.yaml | CPU/memory requests and limits |
+| `api.config.PORTAL_URL` | `https://support.yourcompany.com` | Public portal URL (used in email links) |
+| `api.config.LOG_LEVEL` | `info` | Pino log level |
+| `api.config.FLEET_HUB_URL` | `""` | Set for push-mode fleet clients |
+| `api.secrets.*` | `""` | Sensitive credentials — never commit real values |
+| `portal.image.repository` | `your-registry/ekai-portal` | Portal image |
+| `portal.image.tag` | `latest` | Image tag |
+| `portal.replicas` | `2` | Desired pod count |
+| `ingress.enabled` | `true` | Create an Ingress resource |
+| `ingress.host` | `support.yourcompany.com` | Hostname for the Ingress rule and TLS cert |
+| `ingress.tls.enabled` | `true` | Enable TLS on the Ingress |
+| `ingress.tls.certManagerClusterIssuer` | `letsencrypt-prod` | cert-manager issuer; set to `""` to omit |
+
+#### Feature flags
+
+Optional integrations are enabled by populating the corresponding secret values:
+
+| Feature | Secret key(s) to set |
+|---|---|
+| Email (AWS SES) | `api.secrets.AWS_ACCESS_KEY_ID`, `api.secrets.AWS_SECRET_ACCESS_KEY`, and `api.config.EMAIL_FROM` |
+| Object storage (GCS) | `api.secrets.DEFAULT_OBJECT_STORAGE_BUCKET_ID` |
+| Fleet push mode | `api.secrets.FLEET_API_KEY` and `api.config.FLEET_HUB_URL` |
+
+When a secret value is empty, the corresponding `Secret` key is omitted and the feature is silently disabled, matching the raw-manifest behaviour.
+
+#### Using an external secret manager
+
+For production, avoid passing secrets via `--set` or plain YAML. Instead:
+
+- **Kubernetes External Secrets / Vault** — create the `ekai-api-secrets` Secret externally and set `api.secrets.*` to `""` so the chart does not overwrite it.
+- **Sealed Secrets** — encrypt your `my-values.yaml` secrets with `kubeseal` before committing.
+
+---
+
 ## Fleet monitoring
 
 Ekai includes a built-in fleet health dashboard that monitors client Ekai deployments from a central hub.
@@ -636,7 +791,8 @@ readinessProbe:
 4. Rebuild and restart:
    - **Self-hosted:** `pnpm --filter @workspace/api-server run build && systemctl restart ekai-api`
    - **Docker Compose:** `docker compose up -d --build`
-   - **Kubernetes:** Build new images → update Deployment image tags → `kubectl rollout status`
+   - **Kubernetes (raw manifests):** Build new images → update Deployment image tags → `kubectl rollout status`
+   - **Kubernetes (Helm):** `helm upgrade ekai ./deploy/helm/ekai -f my-values.yaml --set api.image.tag="${TAG}" --set portal.image.tag="${TAG}"`
 
 ---
 
