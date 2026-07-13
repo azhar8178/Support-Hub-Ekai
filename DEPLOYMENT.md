@@ -313,10 +313,14 @@ Docker Compose brings up Postgres, the API server, and the portal in one command
 cp .env.example .env
 nano .env   # fill in POSTGRES_PASSWORD, CLERK_*, etc.
 
-# 2. Build images and start services
+# 2. Validate required variables before starting (catches missing config early)
+set -a; source .env; set +a
+./scripts/check-env.sh
+
+# 3. Build images and start services
 docker compose up -d --build
 
-# 3. Check logs
+# 4. Check logs
 docker compose logs -f api-server
 ```
 
