@@ -1,6 +1,7 @@
 import {
   db,
   deploymentsTable,
+  deploymentHeartbeatsTable,
   kbSuggestionEventsTable,
   ticketsTable,
   usersTable,
@@ -27,8 +28,15 @@ const KB_EVENT_RETENTION_MS = 90 * 24 * 3600_000;
 // The prune is cheap but there's no point running it every minute.
 const KB_EVENT_PRUNE_INTERVAL_MS = 24 * 3600_000;
 
+// Heartbeat rows older than 24 h are pruned globally (all deployments) once
+// per hour. The per-heartbeat fast-path in the route covers the active case;
+// this sweep covers deployments that have gone permanently silent.
+const HEARTBEAT_RETENTION_MS = 24 * 3600_000;
+const HEARTBEAT_PRUNE_INTERVAL_MS = 3600_000; // 1 hour
+
 let lastKbEventPruneAt = 0;
 let lastHeartbeatPushAt = 0;
+let lastHeartbeatPruneAt = 0;
 
 /**
  * Delete KB suggestion events for drafts whose latest activity is older than
@@ -50,6 +58,27 @@ export async function pruneOldKbSuggestionEvents(
     .returning({ id: kbSuggestionEventsTable.id });
   if (deleted.length > 0) {
     logger.info({ count: deleted.length }, "pruned old KB suggestion events");
+  }
+  return deleted.length;
+}
+
+/**
+ * Global heartbeat prune: delete deployment_heartbeats rows older than 24 h
+ * across ALL deployments. This covers deployments that have gone permanently
+ * silent and therefore never trigger the per-heartbeat fast-path in the route.
+ *
+ * Exported for unit tests; called internally by runSweep (at most once / hour).
+ */
+export async function pruneStaleHeartbeats(
+  now: Date = new Date(),
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - HEARTBEAT_RETENTION_MS);
+  const deleted = await db
+    .delete(deploymentHeartbeatsTable)
+    .where(lt(deploymentHeartbeatsTable.recordedAt, cutoff))
+    .returning({ id: deploymentHeartbeatsTable.id });
+  if (deleted.length > 0) {
+    logger.info({ count: deleted.length }, "pruned stale deployment heartbeats (global sweep)");
   }
   return deleted.length;
 }
@@ -289,6 +318,12 @@ export async function runSweep(): Promise<void> {
   if (now.getTime() - lastKbEventPruneAt >= KB_EVENT_PRUNE_INTERVAL_MS) {
     lastKbEventPruneAt = now.getTime();
     await pruneOldKbSuggestionEvents(now);
+  }
+
+  // --- Global heartbeat prune: covers silent deployments (at most once / hour) ---
+  if (now.getTime() - lastHeartbeatPruneAt >= HEARTBEAT_PRUNE_INTERVAL_MS) {
+    lastHeartbeatPruneAt = now.getTime();
+    await pruneStaleHeartbeats(now);
   }
 
   // --- SLA 75% warnings ---

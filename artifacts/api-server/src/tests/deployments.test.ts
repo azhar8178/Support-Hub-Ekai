@@ -12,7 +12,7 @@ import {
 } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { Fixtures } from "./fixtures";
-import { runFleetAlerts, runAutoEscalation } from "../lib/sweeps";
+import { runFleetAlerts, runAutoEscalation, pruneStaleHeartbeats } from "../lib/sweeps";
 
 // ---------------------------------------------------------------------------
 // Clerk test double (same pattern as authz tests)
@@ -647,6 +647,99 @@ describe("runFleetAlerts", () => {
     const calls = vi.mocked(sendSlackFleetAlert).mock.calls.map((c) => c[0] as string);
     const bAlert = calls.find((msg) => msg.includes(depB.name));
     expect(bAlert).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Global heartbeat prune sweep (pruneStaleHeartbeats)
+// ---------------------------------------------------------------------------
+describe("pruneStaleHeartbeats", () => {
+  it("removes rows older than 24 h from a deployment that never sends another heartbeat", async () => {
+    const silentDep = await createDeployment({
+      name: `silent-dep-${fx.suffix}`,
+      status: "offline",
+      lastSeenAt: null,
+    });
+
+    const now = Date.now();
+
+    // Insert two rows older than 24 h (silent deployment — no heartbeat to trigger the fast-path)
+    const [staleA] = await db
+      .insert(deploymentHeartbeatsTable)
+      .values({
+        deploymentId: silentDep.id,
+        status: "healthy" as const,
+        recordedAt: new Date(now - 25 * 3600_000),
+      })
+      .returning();
+
+    const [staleB] = await db
+      .insert(deploymentHeartbeatsTable)
+      .values({
+        deploymentId: silentDep.id,
+        status: "degraded" as const,
+        recordedAt: new Date(now - 26 * 3600_000),
+      })
+      .returning();
+
+    // Insert one recent row (within the 24-h window)
+    const [recentRow] = await db
+      .insert(deploymentHeartbeatsTable)
+      .values({
+        deploymentId: silentDep.id,
+        status: "healthy" as const,
+        recordedAt: new Date(now - 23 * 3600_000),
+      })
+      .returning();
+
+    // Run the global sweep — no heartbeat from silentDep triggered this
+    const deleted = await pruneStaleHeartbeats(new Date(now));
+
+    expect(deleted).toBeGreaterThanOrEqual(2);
+
+    const remaining = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, silentDep.id));
+
+    const remainingIds = new Set(remaining.map((r) => r.id));
+
+    // Stale rows must be gone
+    expect(remainingIds.has(staleA!.id)).toBe(false);
+    expect(remainingIds.has(staleB!.id)).toBe(false);
+
+    // Recent row must survive
+    expect(remainingIds.has(recentRow!.id)).toBe(true);
+  });
+
+  it("does not touch rows from other deployments that are within the 24-h window", async () => {
+    const activeDep = await createDeployment({
+      name: `active-dep-${fx.suffix}`,
+      status: "healthy",
+      lastSeenAt: new Date(),
+    });
+
+    const now = Date.now();
+
+    // Insert a recent row for the active deployment
+    const [freshRow] = await db
+      .insert(deploymentHeartbeatsTable)
+      .values({
+        deploymentId: activeDep.id,
+        status: "healthy" as const,
+        recordedAt: new Date(now - 60_000), // 1 minute ago
+      })
+      .returning();
+
+    await pruneStaleHeartbeats(new Date(now));
+
+    const remaining = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, activeDep.id));
+
+    const remainingIds = new Set(remaining.map((r) => r.id));
+    expect(remainingIds.has(freshRow!.id)).toBe(true);
   });
 });
 
