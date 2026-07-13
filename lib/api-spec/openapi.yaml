@@ -1171,11 +1171,11 @@ paths:
               $ref: "#/components/schemas/DeploymentPatch"
       responses:
         "200":
-          description: Updated deployment
+          description: Updated deployment (apiKey present only when switching to push mode)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Deployment"
+                $ref: "#/components/schemas/DeploymentCreated"
         "404":
           description: Deployment not found
           content:
@@ -1294,21 +1294,26 @@ components:
         name: { type: string }
         url: { type: string }
         status: { type: string, enum: [healthy, degraded, offline] }
+        heartbeatMode: { type: string, enum: [poll, push] }
         lastSeenAt: { type: ["string", "null"] }
         lastHealthJson: {}
         createdAt: { type: string }
         slackWebhookUrl: { type: ["string", "null"] }
-      required: [id, name, url, status, lastSeenAt, lastHealthJson, createdAt, slackWebhookUrl]
+      required: [id, name, url, status, heartbeatMode, lastSeenAt, lastHealthJson, createdAt, slackWebhookUrl]
     DeploymentInput:
       type: object
       properties:
         name: { type: string, minLength: 1 }
         url: { type: string, minLength: 1 }
+        heartbeatMode: { type: string, enum: [poll, push] }
       required: [name, url]
     DeploymentPatch:
       type: object
       properties:
+        name: { type: string, minLength: 1 }
+        url: { type: string, minLength: 1 }
         slackWebhookUrl: { type: ["string", "null"] }
+        heartbeatMode: { type: string, enum: [poll, push] }
     DeploymentCreated:
       type: object
       properties:
@@ -1316,14 +1321,16 @@ components:
         name: { type: string }
         url: { type: string }
         status: { type: string, enum: [healthy, degraded, offline] }
+        heartbeatMode: { type: string, enum: [poll, push] }
         lastSeenAt: { type: ["string", "null"] }
         lastHealthJson: {}
         createdAt: { type: string }
         slackWebhookUrl: { type: ["string", "null"] }
         apiKey:
           type: string
-          description: Plaintext API key — shown once, store securely
-      required: [id, name, url, status, lastSeenAt, lastHealthJson, createdAt, slackWebhookUrl, apiKey]
+          nullable: true
+          description: Plaintext API key — present only for push-mode deployments, shown once
+      required: [id, name, url, status, heartbeatMode, lastSeenAt, lastHealthJson, createdAt, slackWebhookUrl]
     DeploymentHeartbeat:
       type: object
       properties:

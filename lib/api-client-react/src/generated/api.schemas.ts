@@ -48,11 +48,20 @@ export const DeploymentStatus = {
   offline: 'offline',
 } as const;
 
+export type DeploymentHeartbeatMode = typeof DeploymentHeartbeatMode[keyof typeof DeploymentHeartbeatMode];
+
+
+export const DeploymentHeartbeatMode = {
+  poll: 'poll',
+  push: 'push',
+} as const;
+
 export interface Deployment {
   id: number;
   name: string;
   url: string;
   status: DeploymentStatus;
+  heartbeatMode: DeploymentHeartbeatMode;
   /** @nullable */
   lastSeenAt: string | null;
   lastHealthJson: unknown;
@@ -61,16 +70,38 @@ export interface Deployment {
   slackWebhookUrl: string | null;
 }
 
+export type DeploymentInputHeartbeatMode = typeof DeploymentInputHeartbeatMode[keyof typeof DeploymentInputHeartbeatMode];
+
+
+export const DeploymentInputHeartbeatMode = {
+  poll: 'poll',
+  push: 'push',
+} as const;
+
 export interface DeploymentInput {
   /** @minLength 1 */
   name: string;
   /** @minLength 1 */
   url: string;
+  heartbeatMode?: DeploymentInputHeartbeatMode;
 }
 
+export type DeploymentPatchHeartbeatMode = typeof DeploymentPatchHeartbeatMode[keyof typeof DeploymentPatchHeartbeatMode];
+
+
+export const DeploymentPatchHeartbeatMode = {
+  poll: 'poll',
+  push: 'push',
+} as const;
+
 export interface DeploymentPatch {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  url?: string;
   /** @nullable */
   slackWebhookUrl?: string | null;
+  heartbeatMode?: DeploymentPatchHeartbeatMode;
 }
 
 export type DeploymentCreatedStatus = typeof DeploymentCreatedStatus[keyof typeof DeploymentCreatedStatus];
@@ -82,19 +113,28 @@ export const DeploymentCreatedStatus = {
   offline: 'offline',
 } as const;
 
+export type DeploymentCreatedHeartbeatMode = typeof DeploymentCreatedHeartbeatMode[keyof typeof DeploymentCreatedHeartbeatMode];
+
+
+export const DeploymentCreatedHeartbeatMode = {
+  poll: 'poll',
+  push: 'push',
+} as const;
+
 export interface DeploymentCreated {
   id: number;
   name: string;
   url: string;
   status: DeploymentCreatedStatus;
+  heartbeatMode: DeploymentCreatedHeartbeatMode;
   /** @nullable */
   lastSeenAt: string | null;
   lastHealthJson: unknown;
   createdAt: string;
   /** @nullable */
   slackWebhookUrl: string | null;
-  /** Plaintext API key — shown once, store securely */
-  apiKey: string;
+  /** Plaintext API key — present only for push-mode deployments, shown once */
+  apiKey?: string | null;
 }
 
 export type DeploymentHeartbeatStatus = typeof DeploymentHeartbeatStatus[keyof typeof DeploymentHeartbeatStatus];

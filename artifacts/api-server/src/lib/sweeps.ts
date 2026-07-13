@@ -15,12 +15,15 @@ import { sweepPushReceipts } from "./push";
 import { logger } from "./logger";
 import { sendSlackFleetAlert } from "./slack";
 import { collectHealthStatus } from "../routes/health";
+import { recordHeartbeat } from "../routes/deployments";
 
 const SWEEP_INTERVAL_MS = 60_000;
 const AUTO_CLOSE_BUSINESS_DAYS = 5;
 const HEARTBEAT_PUSH_INTERVAL_MS = 5 * 60_000; // 5 minutes
+const FLEET_POLL_INTERVAL_MS = 5 * 60_000;     // poll each deployment's /healthz every 5 min
 const OFFLINE_THRESHOLD_MS = 10 * 60_000; // 10 minutes
 const ALERT_COOLDOWN_MS = 30 * 60_000; // don't re-alert within 30 min
+const FLEET_POLL_TIMEOUT_MS = 5_000;           // abort /healthz fetch after 5 s
 
 // KB suggestion events are only needed for the deflection dashboard; drafts
 // settle within 30 minutes, so anything this old is safe to drop.
@@ -37,6 +40,7 @@ const HEARTBEAT_PRUNE_INTERVAL_MS = 3600_000; // 1 hour
 let lastKbEventPruneAt = 0;
 let lastHeartbeatPushAt = 0;
 let lastHeartbeatPruneAt = 0;
+let lastFleetPollAt = 0;
 
 /**
  * Delete KB suggestion events for drafts whose latest activity is older than
@@ -176,6 +180,56 @@ export async function runAutoEscalation(now: Date): Promise<void> {
     }
   } catch (err) {
     logger.error({ err }, "auto-escalation sweep failed");
+  }
+}
+
+/**
+ * Hub-side fleet poll: for every poll-mode deployment, fetch its /api/healthz
+ * and record the result using the same logic as the push heartbeat endpoint.
+ *
+ * On success: records a heartbeat (updates lastSeenAt + status).
+ * On failure (network error, timeout, non-200): logs a warning and does NOT
+ * update the deployment — lastSeenAt stays stale. runFleetAlerts will then
+ * detect the staleness (lastSeenAt < offlineCutoff) after OFFLINE_THRESHOLD_MS
+ * and fire the offline alert, exactly as it does for missed push heartbeats.
+ *
+ * Runs at most once every FLEET_POLL_INTERVAL_MS (5 min).
+ * Exported for unit tests.
+ */
+export async function runFleetPoll(now: Date): Promise<void> {
+  let pollTargets: (typeof deploymentsTable.$inferSelect)[];
+  try {
+    pollTargets = await db
+      .select()
+      .from(deploymentsTable)
+      .where(eq(deploymentsTable.heartbeatMode, "poll"));
+  } catch (err) {
+    logger.error({ err }, "fleet poll: failed to load poll-mode deployments");
+    return;
+  }
+
+  for (const dep of pollTargets) {
+    try {
+      const healthzUrl = dep.url.replace(/\/$/, "") + "/api/healthz";
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FLEET_POLL_TIMEOUT_MS);
+
+      let health: Record<string, unknown>;
+      try {
+        const resp = await fetch(healthzUrl, { signal: controller.signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        health = (await resp.json()) as Record<string, unknown>;
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      await recordHeartbeat(dep, health);
+      logger.debug({ deploymentId: dep.id, url: healthzUrl }, "fleet poll: heartbeat recorded");
+    } catch (err) {
+      // Do NOT record a heartbeat on failure — leave lastSeenAt unchanged so
+      // that runFleetAlerts triggers the offline alert via staleness detection.
+      logger.warn({ err, deploymentId: dep.id, name: dep.name }, "fleet poll: healthz fetch failed — lastSeenAt left stale");
+    }
   }
 }
 
@@ -378,6 +432,12 @@ export async function runSweep(): Promise<void> {
 
   // --- Push delivery receipt checks (persisted queue; survives restarts) ---
   await sweepPushReceipts(now);
+
+  // --- Hub-side poll: fetch /healthz for each poll-mode deployment ---
+  if (now.getTime() - lastFleetPollAt >= FLEET_POLL_INTERVAL_MS) {
+    lastFleetPollAt = now.getTime();
+    await runFleetPoll(now);
+  }
 
   // --- Fleet health alerting ---
   await runFleetAlerts(now);

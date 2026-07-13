@@ -26,6 +26,9 @@ import {
   Bell,
   BellOff,
   Pencil,
+  Wifi,
+  ArrowUpCircle,
+  ArrowLeftRight,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -326,7 +329,15 @@ function DeploymentDetail({ deployment }: { deployment: Deployment }) {
   );
 }
 
-function ApiKeyDisplay({ apiKey, onClose }: { apiKey: string; onClose: () => void }) {
+function ApiKeyDisplay({
+  apiKey,
+  title = "API key — save this now",
+  onClose,
+}: {
+  apiKey: string;
+  title?: string;
+  onClose: () => void;
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -340,7 +351,7 @@ function ApiKeyDisplay({ apiKey, onClose }: { apiKey: string; onClose: () => voi
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-[#0F1F3D]">Deployment registered</DialogTitle>
+          <DialogTitle className="text-[#0F1F3D]">{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
@@ -349,8 +360,8 @@ function ApiKeyDisplay({ apiKey, onClose }: { apiKey: string; onClose: () => voi
             </p>
             <p className="text-xs text-amber-700">
               Set <code className="bg-amber-100 px-1 rounded">FLEET_HUB_URL</code> and{" "}
-              <code className="bg-amber-100 px-1 rounded">FLEET_API_KEY</code> on the client
-              deployment for it to start sending heartbeats.
+              <code className="bg-amber-100 px-1 rounded">FLEET_API_KEY</code> as environment
+              variables on the client deployment so it can push heartbeats to this hub.
             </p>
           </div>
           <div className="space-y-1">
@@ -384,6 +395,124 @@ function ApiKeyDisplay({ apiKey, onClose }: { apiKey: string; onClose: () => voi
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ModeSwitchDialog({
+  deployment,
+  onClose,
+  onApiKey,
+}: {
+  deployment: Deployment;
+  onClose: () => void;
+  onApiKey: (key: string) => void;
+}) {
+  const updateDeployment = useUpdateDeployment();
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: getListDeploymentsQueryKey() });
+
+  const isPoll = deployment.heartbeatMode === "poll";
+  const targetMode = isPoll ? "push" : "poll";
+
+  const handleSwitch = () => {
+    updateDeployment.mutate(
+      { id: deployment.id, data: { heartbeatMode: targetMode } },
+      {
+        onSuccess: (data) => {
+          invalidate();
+          onClose();
+          if (data.apiKey) onApiKey(data.apiKey);
+          toast.success(
+            targetMode === "push"
+              ? "Switched to client-push mode"
+              : "Switched to hub-poll mode",
+          );
+        },
+        onError: (err: any) => toast.error(err?.message || "Failed to switch mode"),
+      },
+    );
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-[#0F1F3D] flex items-center gap-2">
+            <ArrowLeftRight className="h-4 w-4" />
+            Switch heartbeat mode
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm text-stone-600">
+          {isPoll ? (
+            <>
+              <p>
+                <strong className="text-[#0F1F3D]">Currently:</strong>{" "}
+                <span className="text-emerald-600 font-medium">Hub polls</span> — this hub
+                fetches <code className="bg-stone-100 px-1 rounded text-xs">/api/healthz</code>{" "}
+                from the deployment every 5 minutes. No client configuration needed.
+              </p>
+              <p>
+                <strong className="text-[#0F1F3D]">Switching to:</strong>{" "}
+                <span className="text-blue-600 font-medium">Client pushes</span> — a new API
+                key will be generated. Set{" "}
+                <code className="bg-stone-100 px-1 rounded text-xs">FLEET_HUB_URL</code> and{" "}
+                <code className="bg-stone-100 px-1 rounded text-xs">FLEET_API_KEY</code> on the
+                client for it to send heartbeats here. Use this for private/air-gapped
+                deployments the hub can't reach.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                <strong className="text-[#0F1F3D]">Currently:</strong>{" "}
+                <span className="text-blue-600 font-medium">Client pushes</span> — the client
+                sends heartbeats to this hub using an API key.
+              </p>
+              <p>
+                <strong className="text-[#0F1F3D]">Switching to:</strong>{" "}
+                <span className="text-emerald-600 font-medium">Hub polls</span> — the hub will
+                fetch the deployment's{" "}
+                <code className="bg-stone-100 px-1 rounded text-xs">/api/healthz</code> every 5
+                minutes. The existing API key will be invalidated; remove{" "}
+                <code className="bg-stone-100 px-1 rounded text-xs">FLEET_HUB_URL</code> and{" "}
+                <code className="bg-stone-100 px-1 rounded text-xs">FLEET_API_KEY</code> from
+                the client.
+              </p>
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSwitch}
+            disabled={updateDeployment.isPending}
+            className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
+          >
+            {updateDeployment.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Switch to {targetMode === "push" ? "client-push" : "hub-poll"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ModeBadge({ mode }: { mode: string }) {
+  if (mode === "push") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium">
+        <ArrowUpCircle className="h-3 w-3" />
+        Client pushes
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
+      <Wifi className="h-3 w-3" />
+      Hub polls
+    </span>
   );
 }
 
@@ -510,9 +639,11 @@ export default function FleetTab() {
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
+  const [newApiKeyTitle, setNewApiKeyTitle] = useState("API key — save this now");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Deployment | null>(null);
   const [webhookTarget, setWebhookTarget] = useState<Deployment | null>(null);
+  const [modeTarget, setModeTarget] = useState<Deployment | null>(null);
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListDeploymentsQueryKey() });
@@ -526,11 +657,17 @@ export default function FleetTab() {
       { data: { name: newName.trim(), url: newUrl.trim() } },
       {
         onSuccess: (data) => {
-          setNewApiKey(data.apiKey);
           setRegisterOpen(false);
           setNewName("");
           setNewUrl("");
           invalidate();
+          // Poll mode (default) returns no apiKey — nothing to reveal
+          if (data.apiKey) {
+            setNewApiKeyTitle("Deployment registered — save the API key");
+            setNewApiKey(data.apiKey);
+          } else {
+            toast.success(`${data.name} registered — hub will start polling shortly`);
+          }
         },
         onError: (err: any) => toast.error(err?.message || "Failed to register deployment"),
       },
@@ -564,8 +701,9 @@ export default function FleetTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-stone-500">
-          Register client Ekai deployments to monitor their health from this hub.
-          Each deployment sends a heartbeat every 5 minutes when configured.
+          Register client Ekai deployments to monitor their health. By default the hub
+          polls each deployment's <code className="bg-stone-100 px-1 rounded text-xs">/api/healthz</code> every
+          5 minutes — no client configuration needed.
         </p>
         <Button
           onClick={() => setRegisterOpen(true)}
@@ -601,13 +739,21 @@ export default function FleetTab() {
                       <span className="text-sm font-semibold text-[#0F1F3D]">{dep.name}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      <span className="text-xs text-stone-400 truncate max-w-[240px]">
+                      <span className="text-xs text-stone-400 truncate max-w-[200px]">
                         {dep.url}
                       </span>
                       <span className="flex items-center gap-1 text-xs text-stone-400">
                         <Clock className="h-3 w-3" />
                         {timeAgo(dep.lastSeenAt)}
                       </span>
+                      <button
+                        onClick={() => setModeTarget(dep)}
+                        className="flex items-center gap-1 hover:opacity-70 transition-opacity"
+                        title="Switch heartbeat mode"
+                      >
+                        <ModeBadge mode={dep.heartbeatMode} />
+                        <Pencil className="h-2.5 w-2.5 text-stone-300 ml-0.5" />
+                      </button>
                       <button
                         onClick={() => setWebhookTarget(dep)}
                         className="flex items-center gap-1 hover:opacity-70 transition-opacity"
@@ -696,9 +842,25 @@ export default function FleetTab() {
         </DialogContent>
       </Dialog>
 
-      {/* API key reveal */}
+      {/* API key reveal (registration or mode-switch to push) */}
       {newApiKey && (
-        <ApiKeyDisplay apiKey={newApiKey} onClose={() => setNewApiKey(null)} />
+        <ApiKeyDisplay
+          apiKey={newApiKey}
+          title={newApiKeyTitle}
+          onClose={() => setNewApiKey(null)}
+        />
+      )}
+
+      {/* Mode switch dialog */}
+      {modeTarget && (
+        <ModeSwitchDialog
+          deployment={modeTarget}
+          onClose={() => setModeTarget(null)}
+          onApiKey={(key) => {
+            setNewApiKeyTitle(`${modeTarget.name} — save the new API key`);
+            setNewApiKey(key);
+          }}
+        />
       )}
 
       {/* Webhook edit dialog */}

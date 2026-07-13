@@ -5,8 +5,14 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { DeploymentPatchHeartbeatMode } from './deploymentPatchHeartbeatMode';
 
 export interface DeploymentPatch {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  url?: string;
   /** @nullable */
   slackWebhookUrl?: string | null;
+  heartbeatMode?: DeploymentPatchHeartbeatMode;
 }

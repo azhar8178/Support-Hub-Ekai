@@ -10,7 +10,10 @@ export const deploymentsTable = pgTable("deployments", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   url: text("url").notNull(),
-  apiKeyHash: text("api_key_hash").notNull(),
+  /** SHA-256 hex of the plaintext API key. NULL for poll-mode deployments (no key needed). */
+  apiKeyHash: text("api_key_hash"),
+  /** How the hub collects health data. "poll" = hub GETs /healthz; "push" = client POSTs heartbeat. */
+  heartbeatMode: text("heartbeat_mode").$type<"poll" | "push">().notNull().default("poll"),
   status: text("status").$type<"healthy" | "degraded" | "offline">().notNull().default("offline"),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   lastHealthJson: jsonb("last_health_json"),

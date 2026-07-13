@@ -12,7 +12,7 @@ import {
 } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { Fixtures } from "./fixtures";
-import { runFleetAlerts, runAutoEscalation, pruneStaleHeartbeats } from "../lib/sweeps";
+import { runFleetAlerts, runFleetPoll, runAutoEscalation, pruneStaleHeartbeats } from "../lib/sweeps";
 
 // ---------------------------------------------------------------------------
 // Clerk test double (same pattern as authz tests)
@@ -67,16 +67,19 @@ const deploymentIds: number[] = [];
 async function createDeployment(opts: {
   name: string;
   apiKey?: string;
+  heartbeatMode?: "poll" | "push";
   status?: "healthy" | "degraded" | "offline";
   lastSeenAt?: Date | null;
   lastAlertedAt?: Date | null;
 }): Promise<typeof deploymentsTable.$inferSelect> {
-  const apiKeyHash = hashKey(opts.apiKey ?? VALID_API_KEY);
+  const mode = opts.heartbeatMode ?? "push"; // tests that use apiKey expect push mode
+  const apiKeyHash = mode === "push" ? hashKey(opts.apiKey ?? VALID_API_KEY) : null;
   const [row] = await db
     .insert(deploymentsTable)
     .values({
       name: opts.name,
       url: `https://${opts.name}.example.com`,
+      heartbeatMode: mode,
       apiKeyHash,
       status: opts.status ?? "offline",
       lastSeenAt: opts.lastSeenAt ?? null,
@@ -851,5 +854,184 @@ describe("runAutoEscalation", () => {
       .where(eq(ticketsTable.id, ticket.id));
     // Should remain unassigned
     expect(updated!.assignedToId).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runFleetPoll — hub-side healthz polling
+// ---------------------------------------------------------------------------
+describe("runFleetPoll", () => {
+  let pollDep: typeof deploymentsTable.$inferSelect;
+  let pushDep: typeof deploymentsTable.$inferSelect;
+
+  beforeAll(async () => {
+    pollDep = await createDeployment({
+      name: `poll-dep-${fx.suffix}`,
+      heartbeatMode: "poll",
+      status: "offline",
+    });
+    pushDep = await createDeployment({
+      name: `push-dep-${fx.suffix}`,
+      heartbeatMode: "push",
+      apiKey: VALID_API_KEY,
+      status: "offline",
+    });
+  });
+
+  it("records a healthy heartbeat when /healthz returns 200 with healthy status", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "healthy", timestamp: new Date().toISOString() }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await runFleetPoll(new Date());
+
+    vi.unstubAllGlobals();
+
+    const [updated] = await db
+      .select()
+      .from(deploymentsTable)
+      .where(eq(deploymentsTable.id, pollDep.id));
+    expect(updated!.status).toBe("healthy");
+    expect(updated!.lastSeenAt).not.toBeNull();
+
+    const beats = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, pollDep.id));
+    expect(beats.length).toBeGreaterThanOrEqual(1);
+    expect(beats[0]!.status).toBe("healthy");
+
+    // Confirm fetch was called for the poll-mode deployment's URL
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/healthz"),
+      expect.objectContaining({ signal: expect.anything() }),
+    );
+  });
+
+  it("does NOT update lastSeenAt when the fetch throws a network error", async () => {
+    // Reset lastSeenAt to a known stale value
+    const staleDate = new Date(Date.now() - 20 * 60_000);
+    await db
+      .update(deploymentsTable)
+      .set({ lastSeenAt: staleDate, status: "offline" })
+      .where(eq(deploymentsTable.id, pollDep.id));
+
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
+
+    await runFleetPoll(new Date());
+
+    vi.unstubAllGlobals();
+
+    const [updated] = await db
+      .select()
+      .from(deploymentsTable)
+      .where(eq(deploymentsTable.id, pollDep.id));
+    // lastSeenAt must not have advanced — still the stale date (within a 1 s window)
+    expect(updated!.lastSeenAt!.getTime()).toBeCloseTo(staleDate.getTime(), -3);
+  });
+
+  it("does NOT update lastSeenAt when /healthz returns a non-200 status", async () => {
+    const staleDate = new Date(Date.now() - 15 * 60_000);
+    await db
+      .update(deploymentsTable)
+      .set({ lastSeenAt: staleDate, status: "offline" })
+      .where(eq(deploymentsTable.id, pollDep.id));
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await runFleetPoll(new Date());
+
+    vi.unstubAllGlobals();
+
+    const [updated] = await db
+      .select()
+      .from(deploymentsTable)
+      .where(eq(deploymentsTable.id, pollDep.id));
+    expect(updated!.lastSeenAt!.getTime()).toBeCloseTo(staleDate.getTime(), -3);
+  });
+
+  it("does NOT poll push-mode deployments", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "healthy" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await runFleetPoll(new Date());
+
+    vi.unstubAllGlobals();
+
+    // fetch should only be called for the poll-mode deployment, not for pushDep
+    const calledUrls: string[] = fetchMock.mock.calls.map((c) => c[0] as string);
+    const pollDepCalled = calledUrls.some((u) => u.includes(pollDep.url.replace(/\/$/, "")));
+    const pushDepCalled = calledUrls.some((u) => u.includes(pushDep.url.replace(/\/$/, "")));
+    expect(pollDepCalled).toBe(true);
+    expect(pushDepCalled).toBe(false);
+  });
+
+  it("poll failure → runFleetAlerts marks deployment offline after staleness threshold", async () => {
+    // Set pollDep lastSeenAt well beyond OFFLINE_THRESHOLD_MS (10 min)
+    const veryStale = new Date(Date.now() - 15 * 60_000);
+    // Give pushDep a fresh lastSeenAt so it doesn't appear stale/offline this test
+    const freshNow = new Date();
+    await db
+      .update(deploymentsTable)
+      .set({ lastSeenAt: veryStale, status: "healthy", lastAlertedAt: null })
+      .where(eq(deploymentsTable.id, pollDep.id));
+    await db
+      .update(deploymentsTable)
+      .set({ lastSeenAt: freshNow, status: "healthy", lastAlertedAt: null })
+      .where(eq(deploymentsTable.id, pushDep.id));
+
+    // Simulate a poll failure — no update to lastSeenAt
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("timeout")));
+    await runFleetPoll(new Date());
+    vi.unstubAllGlobals();
+
+    // Now the alert sweep should detect staleness and mark offline + alert
+    vi.mocked(sendSlackFleetAlert).mockClear();
+    await runFleetAlerts(new Date());
+
+    const [updated] = await db
+      .select()
+      .from(deploymentsTable)
+      .where(eq(deploymentsTable.id, pollDep.id));
+    expect(updated!.status).toBe("offline");
+    // Alert must have been sent for our poll-mode deployment
+    const alertCalls: string[] = (sendSlackFleetAlert as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c: unknown[]) => c[0] as string,
+    );
+    expect(alertCalls.some((msg) => msg.includes(pollDep.name))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Push-mode guard on heartbeat endpoint
+// ---------------------------------------------------------------------------
+describe("POST /api/admin/deployments/heartbeat — push-mode guard", () => {
+  it("returns 400 when a poll-mode deployment tries to push a heartbeat", async () => {
+    // Create as push-mode first so the API key hash is stored, then flip to poll.
+    // This mimics an admin switching a deployment from push → poll while the client
+    // still has its old env vars configured.
+    const testKey = "poll-guard-test-key-xyz";
+    const dep = await createDeployment({
+      name: `poll-guard-${fx.suffix}`,
+      heartbeatMode: "push", // ← ensures apiKeyHash is written
+      apiKey: testKey,
+    });
+    // Simulate admin switching this deployment back to poll mode
+    await db
+      .update(deploymentsTable)
+      .set({ heartbeatMode: "poll" })
+      .where(eq(deploymentsTable.id, dep.id));
+
+    const res = await request(app)
+      .post("/api/admin/deployments/heartbeat")
+      .send({ apiKey: testKey, health: { status: "healthy" } });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/poll/i);
   });
 });

@@ -21,6 +21,7 @@ function serializeDeployment(row: typeof deploymentsTable.$inferSelect) {
     name: row.name,
     url: row.url,
     status: row.status,
+    heartbeatMode: row.heartbeatMode,
     lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
     lastHealthJson: row.lastHealthJson ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -48,35 +49,54 @@ router.post(
   requireAuth,
   requireRole("admin"),
   async (req, res): Promise<void> => {
-    const { name, url } = req.body as { name?: string; url?: string };
+    const { name, url, heartbeatMode } = req.body as {
+      name?: string;
+      url?: string;
+      heartbeatMode?: string;
+    };
     if (!name?.trim() || !url?.trim()) {
       res.status(400).json({ message: "name and url are required" });
       return;
     }
 
-    const apiKey = randomBytes(32).toString("base64url");
-    const apiKeyHash = hashApiKey(apiKey);
+    const mode: "poll" | "push" =
+      heartbeatMode === "push" ? "push" : "poll";
+
+    let apiKey: string | undefined;
+    let apiKeyHash: string | null = null;
+
+    if (mode === "push") {
+      apiKey = randomBytes(32).toString("base64url");
+      apiKeyHash = hashApiKey(apiKey);
+    }
 
     const [row] = await db
       .insert(deploymentsTable)
       .values({
         name: name.trim(),
         url: url.trim(),
+        heartbeatMode: mode,
         apiKeyHash,
         status: "offline",
       })
       .returning();
 
-    logger.info({ deploymentId: row!.id, name: row!.name }, "deployment registered");
+    logger.info(
+      { deploymentId: row!.id, name: row!.name, mode },
+      "deployment registered",
+    );
 
     res.status(201).json({
       ...serializeDeployment(row!),
-      apiKey, // shown once — caller must store this
+      ...(apiKey ? { apiKey } : {}),
     });
   },
 );
 
-// --- Update a deployment (e.g. set per-deployment Slack webhook) ---
+// --- Update a deployment ---
+// Supports: name, url, slackWebhookUrl, heartbeatMode
+// Switching to "push" generates a new API key (returned once).
+// Switching to "poll" clears the API key hash.
 router.patch(
   "/admin/deployments/:id",
   requireAuth,
@@ -84,11 +104,49 @@ router.patch(
   async (req, res): Promise<void> => {
     const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const id = parseInt(raw ?? "", 10);
-    const { slackWebhookUrl } = req.body as { slackWebhookUrl?: string | null };
+    const { name, url, slackWebhookUrl, heartbeatMode } = req.body as {
+      name?: string;
+      url?: string;
+      slackWebhookUrl?: string | null;
+      heartbeatMode?: string;
+    };
+
+    // Load current row to detect mode transition
+    const [current] = await db
+      .select()
+      .from(deploymentsTable)
+      .where(eq(deploymentsTable.id, id));
+
+    if (!current) {
+      res.status(404).json({ message: "Deployment not found" });
+      return;
+    }
+
+    const updates: Partial<typeof deploymentsTable.$inferInsert> = {};
+
+    if (name !== undefined) updates.name = name.trim();
+    if (url !== undefined) updates.url = url.trim();
+    if (slackWebhookUrl !== undefined) updates.slackWebhookUrl = slackWebhookUrl ?? null;
+
+    let newApiKey: string | undefined;
+
+    if (heartbeatMode !== undefined) {
+      const newMode: "poll" | "push" = heartbeatMode === "push" ? "push" : "poll";
+      updates.heartbeatMode = newMode;
+
+      if (newMode === "push" && current.heartbeatMode !== "push") {
+        // Generate a fresh API key when switching to push
+        newApiKey = randomBytes(32).toString("base64url");
+        updates.apiKeyHash = hashApiKey(newApiKey);
+      } else if (newMode === "poll" && current.heartbeatMode !== "poll") {
+        // Clear API key when switching to poll
+        updates.apiKeyHash = null;
+      }
+    }
 
     const [row] = await db
       .update(deploymentsTable)
-      .set({ slackWebhookUrl: slackWebhookUrl ?? null })
+      .set(updates)
       .where(eq(deploymentsTable.id, id))
       .returning();
 
@@ -97,8 +155,11 @@ router.patch(
       return;
     }
 
-    logger.info({ deploymentId: id }, "deployment updated");
-    res.json(serializeDeployment(row));
+    logger.info({ deploymentId: id, updates: Object.keys(updates) }, "deployment updated");
+    res.json({
+      ...serializeDeployment(row),
+      ...(newApiKey ? { apiKey: newApiKey } : {}),
+    });
   },
 );
 
@@ -123,7 +184,7 @@ router.delete(
   },
 );
 
-// --- Receive a heartbeat from a client deployment ---
+// --- Receive a heartbeat from a push-mode client deployment ---
 // This endpoint does NOT use Clerk auth — it uses a deployment API key.
 router.post("/admin/deployments/heartbeat", async (req, res): Promise<void> => {
   const { apiKey, health } = req.body as {
@@ -147,9 +208,41 @@ router.post("/admin/deployments/heartbeat", async (req, res): Promise<void> => {
     return;
   }
 
+  // Guard: poll-mode deployments have no API key; they should not be pushing
+  if (deployment.heartbeatMode !== "push") {
+    res.status(400).json({
+      message:
+        "This deployment is configured for hub-poll mode. " +
+        "Switch it to push mode in the fleet settings before sending heartbeats.",
+    });
+    return;
+  }
+
+  await recordHeartbeat(deployment, health);
+
+  logger.info(
+    { deploymentId: deployment.id, status: health["status"] },
+    "heartbeat received (push)",
+  );
+  res.json({ message: "ok" });
+});
+
+/**
+ * Shared helper: record a health snapshot for a deployment, insert a heartbeat
+ * history row, and prune rows older than 24 h.
+ * Used by both the push endpoint and the hub-poll sweep.
+ */
+export async function recordHeartbeat(
+  deployment: typeof deploymentsTable.$inferSelect,
+  health: Record<string, unknown>,
+): Promise<void> {
   const reportedStatus = (health["status"] as string | undefined) ?? "offline";
   const derivedStatus: "healthy" | "degraded" | "offline" =
-    reportedStatus === "healthy" ? "healthy" : reportedStatus === "degraded" ? "degraded" : "offline";
+    reportedStatus === "healthy"
+      ? "healthy"
+      : reportedStatus === "degraded"
+        ? "degraded"
+        : "offline";
 
   await db
     .update(deploymentsTable)
@@ -157,19 +250,17 @@ router.post("/admin/deployments/heartbeat", async (req, res): Promise<void> => {
       status: derivedStatus,
       lastSeenAt: new Date(),
       lastHealthJson: health,
-      // Reset lastAlertedAt only when recovering to healthy
       ...(derivedStatus === "healthy" ? { lastAlertedAt: null } : {}),
     })
     .where(eq(deploymentsTable.id, deployment.id));
 
-  // Persist heartbeat history row
   await db.insert(deploymentHeartbeatsTable).values({
     deploymentId: deployment.id,
     status: derivedStatus,
     healthJson: health,
   });
 
-  // Prune heartbeats older than 24 h
+  // Prune heartbeats older than 24 h for this deployment
   const cutoff = new Date(Date.now() - 24 * 3600_000);
   await db
     .delete(deploymentHeartbeatsTable)
@@ -179,13 +270,7 @@ router.post("/admin/deployments/heartbeat", async (req, res): Promise<void> => {
         lt(deploymentHeartbeatsTable.recordedAt, cutoff),
       ),
     );
-
-  logger.info(
-    { deploymentId: deployment.id, status: derivedStatus },
-    "heartbeat received",
-  );
-  res.json({ message: "ok" });
-});
+}
 
 // --- Get heartbeat history for a deployment ---
 router.get(

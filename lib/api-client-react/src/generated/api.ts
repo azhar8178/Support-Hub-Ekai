@@ -4742,9 +4742,9 @@ export const getUpdateDeploymentUrl = (id: number,) => {
  * @summary Update a registered client deployment (admin only)
  */
 export const updateDeployment = async (id: number,
-    deploymentPatch: DeploymentPatch, options?: RequestInit): Promise<Deployment> => {
+    deploymentPatch: DeploymentPatch, options?: RequestInit): Promise<DeploymentCreated> => {
 
-  return customFetch<Deployment>(getUpdateDeploymentUrl(id),
+  return customFetch<DeploymentCreated>(getUpdateDeploymentUrl(id),
   {
     ...options,
     method: 'PATCH',

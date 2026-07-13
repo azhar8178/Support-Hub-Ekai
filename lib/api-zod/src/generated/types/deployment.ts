@@ -5,6 +5,7 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { DeploymentHeartbeatMode } from './deploymentHeartbeatMode';
 import type { DeploymentStatus } from './deploymentStatus';
 
 export interface Deployment {
@@ -12,6 +13,7 @@ export interface Deployment {
   name: string;
   url: string;
   status: DeploymentStatus;
+  heartbeatMode: DeploymentHeartbeatMode;
   /** @nullable */
   lastSeenAt: string | null;
   lastHealthJson: unknown;

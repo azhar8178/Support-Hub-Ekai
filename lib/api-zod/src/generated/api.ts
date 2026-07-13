@@ -1493,6 +1493,7 @@ export const ListDeploymentsResponseItem = zod.object({
   "name": zod.string(),
   "url": zod.string(),
   "status": zod.enum(['healthy', 'degraded', 'offline']),
+  "heartbeatMode": zod.enum(['poll', 'push']),
   "lastSeenAt": zod.string().nullable(),
   "lastHealthJson": zod.unknown(),
   "createdAt": zod.string(),
@@ -1510,7 +1511,8 @@ export const ListDeploymentsResponse = zod.array(ListDeploymentsResponseItem)
 
 export const CreateDeploymentBody = zod.object({
   "name": zod.string().min(1),
-  "url": zod.string().min(1)
+  "url": zod.string().min(1),
+  "heartbeatMode": zod.enum(['poll', 'push']).optional()
 })
 
 export const CreateDeploymentResponse = zod.object({
@@ -1518,11 +1520,12 @@ export const CreateDeploymentResponse = zod.object({
   "name": zod.string(),
   "url": zod.string(),
   "status": zod.enum(['healthy', 'degraded', 'offline']),
+  "heartbeatMode": zod.enum(['poll', 'push']),
   "lastSeenAt": zod.string().nullable(),
   "lastHealthJson": zod.unknown(),
   "createdAt": zod.string(),
   "slackWebhookUrl": zod.string().nullable(),
-  "apiKey": zod.string().describe('Plaintext API key — shown once, store securely')
+  "apiKey": zod.string().nullish().describe('Plaintext API key — present only for push-mode deployments, shown once')
 })
 
 
@@ -1533,8 +1536,15 @@ export const UpdateDeploymentParams = zod.object({
   "id": zod.coerce.number()
 })
 
+
+
+
+
 export const UpdateDeploymentBody = zod.object({
-  "slackWebhookUrl": zod.string().nullish()
+  "name": zod.string().min(1).optional(),
+  "url": zod.string().min(1).optional(),
+  "slackWebhookUrl": zod.string().nullish(),
+  "heartbeatMode": zod.enum(['poll', 'push']).optional()
 })
 
 export const UpdateDeploymentResponse = zod.object({
@@ -1542,10 +1552,12 @@ export const UpdateDeploymentResponse = zod.object({
   "name": zod.string(),
   "url": zod.string(),
   "status": zod.enum(['healthy', 'degraded', 'offline']),
+  "heartbeatMode": zod.enum(['poll', 'push']),
   "lastSeenAt": zod.string().nullable(),
   "lastHealthJson": zod.unknown(),
   "createdAt": zod.string(),
-  "slackWebhookUrl": zod.string().nullable()
+  "slackWebhookUrl": zod.string().nullable(),
+  "apiKey": zod.string().nullish().describe('Plaintext API key — present only for push-mode deployments, shown once')
 })
 
 

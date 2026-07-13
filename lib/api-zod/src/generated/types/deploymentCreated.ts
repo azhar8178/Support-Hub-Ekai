@@ -5,6 +5,7 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { DeploymentCreatedHeartbeatMode } from './deploymentCreatedHeartbeatMode';
 import type { DeploymentCreatedStatus } from './deploymentCreatedStatus';
 
 export interface DeploymentCreated {
@@ -12,12 +13,13 @@ export interface DeploymentCreated {
   name: string;
   url: string;
   status: DeploymentCreatedStatus;
+  heartbeatMode: DeploymentCreatedHeartbeatMode;
   /** @nullable */
   lastSeenAt: string | null;
   lastHealthJson: unknown;
   createdAt: string;
   /** @nullable */
   slackWebhookUrl: string | null;
-  /** Plaintext API key — shown once, store securely */
-  apiKey: string;
+  /** Plaintext API key — present only for push-mode deployments, shown once */
+  apiKey?: string | null;
 }

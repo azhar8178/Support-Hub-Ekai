@@ -5,10 +5,12 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { DeploymentInputHeartbeatMode } from './deploymentInputHeartbeatMode';
 
 export interface DeploymentInput {
   /** @minLength 1 */
   name: string;
   /** @minLength 1 */
   url: string;
+  heartbeatMode?: DeploymentInputHeartbeatMode;
 }
