@@ -534,6 +534,8 @@ The Helm chart in `deploy/helm/ekai/` templates all of the same resources as the
 deploy/helm/ekai/
 ├── Chart.yaml
 ├── values.yaml                  # defaults — override with -f or --set
+├── values.staging.yaml          # staging overrides (single replica, debug logs, staging domain)
+├── values.production.yaml       # production overrides (HPA, resource limits, prod cert issuer)
 └── templates/
     ├── _helpers.tpl
     ├── namespace.yaml
@@ -604,6 +606,54 @@ ingress:
 ```bash
 helm install ekai ./deploy/helm/ekai -f my-values.yaml
 ```
+
+#### Environment promotion (staging → production)
+
+The included overlay files make it safe to run a staging cluster alongside production without copy-pasting values. Helm merges files left-to-right, so later files win.
+
+**Deploy to staging:**
+
+```bash
+TAG=staging   # or a specific staging build SHA
+
+helm upgrade --install ekai-staging ./deploy/helm/ekai \
+  -f deploy/helm/values.yaml \
+  -f deploy/helm/values.staging.yaml \
+  --set api.image.tag="${TAG}" \
+  --set portal.image.tag="${TAG}" \
+  --set api.secrets.CLERK_PUBLISHABLE_KEY="pk_test_..." \
+  --set api.secrets.CLERK_SECRET_KEY="sk_test_..." \
+  --set api.secrets.DATABASE_URL="postgres://user:pass@staging-db:5432/ekai" \
+  -n ekai-staging --create-namespace
+```
+
+Staging uses a single replica, debug-level logging, relaxed resource limits, and the Let's Encrypt *staging* issuer — so a misconfiguration here costs nothing.
+
+**Promote to production** (after validating on staging):
+
+```bash
+TAG=$(git rev-parse --short HEAD)   # pin to exact commit SHA
+
+helm upgrade --install ekai ./deploy/helm/ekai \
+  -f deploy/helm/values.yaml \
+  -f deploy/helm/values.production.yaml \
+  --set api.image.tag="${TAG}" \
+  --set portal.image.tag="${TAG}" \
+  --set api.secrets.CLERK_PUBLISHABLE_KEY="pk_live_..." \
+  --set api.secrets.CLERK_SECRET_KEY="sk_live_..." \
+  --set api.secrets.DATABASE_URL="postgres://user:pass@prod-db:5432/ekai" \
+  -n ekai --create-namespace
+```
+
+Production restores the full HPA (`minReplicas: 2`, `maxReplicas: 10`), tighter resource envelopes, and the Let's Encrypt production issuer.
+
+> **Promotion checklist**
+> 1. Run the smoke-test script against the staging cluster first (`./scripts/smoke-test-compose.sh`).
+> 2. Back up the production database before every schema change.
+> 3. Run the migrator against production before rolling out new pods (see [Upgrading](#upgrading-one-command)).
+> 4. Use `pk_live_` / `sk_live_` Clerk keys for production — `pk_test_` keys will not authenticate real users.
+
+---
 
 #### Upgrading (one command)
 

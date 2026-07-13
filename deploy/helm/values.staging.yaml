@@ -1,0 +1,68 @@
+# =============================================================================
+# Ekai Helm Chart — staging overrides
+#
+# Apply on top of values.yaml:
+#   helm upgrade --install ekai ./deploy/helm/ekai \
+#     -f deploy/helm/values.yaml \
+#     -f deploy/helm/values.staging.yaml \
+#     --set api.secrets.DATABASE_URL="postgres://..." \
+#     --set api.secrets.CLERK_PUBLISHABLE_KEY="pk_test_..." \
+#     --set api.secrets.CLERK_SECRET_KEY="sk_test_..."
+#
+# Keys not listed here inherit from values.yaml.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# API Server
+# ---------------------------------------------------------------------------
+api:
+  image:
+    tag: staging          # always pull the latest staging build
+
+  # One replica is enough for a staging environment
+  replicas: 1
+
+  # HPA would fight against the fixed replica count — disable it in staging
+  hpa:
+    enabled: false
+
+  config:
+    NODE_ENV: "production"   # keep production mode so behaviour matches
+    LOG_LEVEL: "debug"       # verbose logs help catch issues before production
+    PORTAL_URL: "https://staging.support.yourcompany.com"
+
+  # Tighten resource limits — staging doesn't need headroom for real traffic
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+
+# ---------------------------------------------------------------------------
+# Support Portal
+# ---------------------------------------------------------------------------
+portal:
+  image:
+    tag: staging
+
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "32Mi"
+    limits:
+      cpu: "100m"
+      memory: "64Mi"
+
+# ---------------------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------------------
+ingress:
+  host: staging.support.yourcompany.com
+  tls:
+    secretName: ekai-staging-tls
+    # Use the staging issuer to avoid burning Let's Encrypt rate limits
+    certManagerClusterIssuer: "letsencrypt-staging"

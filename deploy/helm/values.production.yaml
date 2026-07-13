@@ -1,0 +1,79 @@
+# =============================================================================
+# Ekai Helm Chart — production overrides
+#
+# Apply on top of values.yaml to promote from staging to production:
+#   helm upgrade --install ekai ./deploy/helm/ekai \
+#     -f deploy/helm/values.yaml \
+#     -f deploy/helm/values.production.yaml \
+#     --set api.image.tag="${TAG}" \
+#     --set portal.image.tag="${TAG}" \
+#     --set api.secrets.DATABASE_URL="postgres://..." \
+#     --set api.secrets.CLERK_PUBLISHABLE_KEY="pk_live_..." \
+#     --set api.secrets.CLERK_SECRET_KEY="sk_live_..."
+#
+# Keys not listed here inherit from values.yaml.
+#
+# ⚠️  Never commit real secret values into this file.
+#     Pass secrets via --set, a sealed-secret tool, or an external secret manager.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# API Server
+# ---------------------------------------------------------------------------
+api:
+  image:
+    # Pin to a specific git-SHA tag in production — never use "latest" or "staging"
+    # Set at deploy time: --set api.image.tag="${TAG}"
+    tag: ""   # must be overridden at deploy time
+
+  # Starting replica count — HPA will scale above this under load
+  replicas: 2
+
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+  config:
+    NODE_ENV: "production"
+    LOG_LEVEL: "info"
+    PORTAL_URL: "https://support.yourcompany.com"
+
+  # Production resource envelope — tune after observing real p99 utilisation
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "512Mi"
+
+# ---------------------------------------------------------------------------
+# Support Portal
+# ---------------------------------------------------------------------------
+portal:
+  image:
+    # Must match api.image.tag — set together at deploy time
+    tag: ""   # must be overridden at deploy time
+
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+
+# ---------------------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------------------
+ingress:
+  host: support.yourcompany.com
+  tls:
+    enabled: true
+    secretName: ekai-tls
+    # Use the production Let's Encrypt issuer (rate-limited — don't use in staging)
+    certManagerClusterIssuer: "letsencrypt-prod"
