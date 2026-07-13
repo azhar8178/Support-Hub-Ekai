@@ -1,0 +1,230 @@
+# =============================================================================
+# Ekai Support Portal — Kubernetes manifests
+# =============================================================================
+# The portal is a pre-built static SPA served by nginx. nginx also proxies
+# /api/* requests to the ekai-api-server Service defined in api-server.yaml.
+#
+# The Clerk publishable key must be baked in at image build time:
+#   docker build \
+#     --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_live_... \
+#     --build-arg BASE_PATH=/ \
+#     -f artifacts/support-portal/Dockerfile \
+#     -t your-registry/ekai-portal:latest .
+#
+# Apply:
+#   kubectl apply -f deploy/k8s/support-portal.yaml
+# =============================================================================
+
+---
+# ---------------------------------------------------------------------------
+# ConfigMap — nginx upstream config (points to the API server Service)
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ekai-portal-nginx-config
+  namespace: ekai
+data:
+  # Override the default nginx.conf bundled in the image if you need to
+  # customise the upstream address (default: ekai-api-server:8080).
+  # To use, mount this ConfigMap at /etc/nginx/conf.d/portal.conf
+  portal.conf: |
+    upstream api_backend {
+        server ekai-api-server:8080;
+        keepalive 32;
+    }
+
+    server {
+        listen 80;
+        server_name _;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        location /api/ {
+            proxy_pass         http://api_backend;
+            proxy_http_version 1.1;
+            proxy_set_header   Connection        "";
+            proxy_set_header   Host              $host;
+            proxy_set_header   X-Real-IP         $remote_addr;
+            proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+            proxy_read_timeout 60s;
+            client_max_body_size 100m;
+        }
+
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            try_files $uri =404;
+        }
+
+        location /healthz {
+            access_log off;
+            return 200 "ok\n";
+            add_header Content-Type text/plain;
+        }
+
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+    }
+
+---
+# ---------------------------------------------------------------------------
+# Deployment
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ekai-portal
+  namespace: ekai
+  labels:
+    app: ekai-portal
+    component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ekai-portal
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: ekai-portal
+        component: frontend
+    spec:
+      terminationGracePeriodSeconds: 10
+
+      containers:
+        - name: portal
+          image: your-registry/ekai-portal:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/portal.conf
+              subPath: portal.conf
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          resources:
+            requests:
+              cpu:    "50m"
+              memory: "64Mi"
+            limits:
+              cpu:    "200m"
+              memory: "128Mi"
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 101          # nginx user in nginx:alpine
+            capabilities:
+              drop: ["ALL"]
+              add:  ["NET_BIND_SERVICE"]
+
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: ekai-portal-nginx-config
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+
+---
+# ---------------------------------------------------------------------------
+# Service — LoadBalancer or ClusterIP + Ingress
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: ekai-portal
+  namespace: ekai
+  labels:
+    app: ekai-portal
+spec:
+  # Change to LoadBalancer if you want a cloud LB instead of an Ingress controller
+  type: ClusterIP
+  selector:
+    app: ekai-portal
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+
+---
+# ---------------------------------------------------------------------------
+# Ingress (nginx ingress controller)
+# Adjust host and TLS settings for your cluster.
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ekai-ingress
+  namespace: ekai
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # remove if not using cert-manager
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - support.yourcompany.com
+      secretName: ekai-tls
+  rules:
+    - host: support.yourcompany.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ekai-portal
+                port:
+                  name: http
+
+---
+# ---------------------------------------------------------------------------
+# Namespace (create once)
+# ---------------------------------------------------------------------------
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: ekai

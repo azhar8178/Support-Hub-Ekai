@@ -1,0 +1,239 @@
+# =============================================================================
+# Ekai API Server — Kubernetes manifests
+# =============================================================================
+# Includes:
+#   - Secret (template — populate values before applying)
+#   - ConfigMap  (non-sensitive config)
+#   - Deployment (with liveness / readiness probes)
+#   - Service    (ClusterIP; expose via Ingress or LoadBalancer as needed)
+#
+# Apply:
+#   kubectl apply -f deploy/k8s/api-server.yaml
+# =============================================================================
+
+---
+# ---------------------------------------------------------------------------
+# Secret — sensitive credentials
+# Replace every <base64-encoded-…> placeholder with the real value:
+#   echo -n "sk_live_..." | base64
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ekai-api-secrets
+  namespace: ekai
+type: Opaque
+data:
+  # Clerk
+  CLERK_PUBLISHABLE_KEY: <base64-encoded-pk_live_...>
+  CLERK_SECRET_KEY:      <base64-encoded-sk_live_...>
+  # PostgreSQL
+  DATABASE_URL:          <base64-encoded-postgres://user:pass@host:5432/ekai>
+  # AWS SES (optional — omit keys if email is disabled)
+  AWS_ACCESS_KEY_ID:     <base64-encoded-AKIA...>
+  AWS_SECRET_ACCESS_KEY: <base64-encoded-secret>
+  # GCS object storage (optional)
+  DEFAULT_OBJECT_STORAGE_BUCKET_ID: <base64-encoded-bucket-name>
+  # Fleet monitoring push mode (optional)
+  FLEET_API_KEY:         <base64-encoded-api-key>
+
+---
+# ---------------------------------------------------------------------------
+# ConfigMap — non-sensitive configuration
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ekai-api-config
+  namespace: ekai
+data:
+  NODE_ENV:          "production"
+  PORT:              "8080"
+  AWS_REGION:        "us-east-1"
+  EMAIL_FROM:        "support@yourcompany.com"
+  PRIVATE_OBJECT_DIR: "attachments"
+  LOG_LEVEL:         "info"
+  PORTAL_URL:        "https://support.yourcompany.com"
+  # Fleet hub URL — only needed for push-mode deployments (see DEPLOYMENT.md)
+  FLEET_HUB_URL:     ""
+
+---
+# ---------------------------------------------------------------------------
+# Deployment
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ekai-api-server
+  namespace: ekai
+  labels:
+    app: ekai-api-server
+    component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ekai-api-server
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0          # zero-downtime deployments
+  template:
+    metadata:
+      labels:
+        app: ekai-api-server
+        component: backend
+    spec:
+      # Graceful shutdown — let in-flight requests complete
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: api-server
+          # Replace with your registry image after running `docker build`
+          image: your-registry/ekai-api-server:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          # --- Environment: non-sensitive values from ConfigMap ---
+          envFrom:
+            - configMapRef:
+                name: ekai-api-config
+
+          # --- Environment: sensitive values from Secret ---
+          env:
+            - name: CLERK_PUBLISHABLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: CLERK_PUBLISHABLE_KEY
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: CLERK_SECRET_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: DATABASE_URL
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: AWS_ACCESS_KEY_ID
+                  optional: true
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+                  optional: true
+            - name: DEFAULT_OBJECT_STORAGE_BUCKET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: DEFAULT_OBJECT_STORAGE_BUCKET_ID
+                  optional: true
+            - name: FLEET_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ekai-api-secrets
+                  key: FLEET_API_KEY
+                  optional: true
+
+          # --- Liveness: restart the pod if the process is hung ---
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # --- Readiness: remove from Service endpoints while starting / degraded ---
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+
+          resources:
+            requests:
+              cpu:    "250m"
+              memory: "256Mi"
+            limits:
+              cpu:    "1000m"
+              memory: "512Mi"
+
+          # Filesystem is read-only except for tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+      # GCS Workload Identity (if using GKE + Workload Identity instead of a key file)
+      # serviceAccountName: ekai-api-server
+
+---
+# ---------------------------------------------------------------------------
+# Service — ClusterIP (portal nginx proxies /api to this)
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: ekai-api-server
+  namespace: ekai
+  labels:
+    app: ekai-api-server
+spec:
+  type: ClusterIP
+  selector:
+    app: ekai-api-server
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+
+---
+# ---------------------------------------------------------------------------
+# HorizontalPodAutoscaler (optional)
+# ---------------------------------------------------------------------------
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ekai-api-server-hpa
+  namespace: ekai
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ekai-api-server
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

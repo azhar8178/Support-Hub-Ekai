@@ -1,0 +1,148 @@
+# =============================================================================
+# Ekai — Docker Compose stack
+# =============================================================================
+# Services:
+#   postgres     PostgreSQL 16 database
+#   migrator     One-shot schema push (drizzle-kit push --force). Runs once
+#                on every `docker compose up` and exits; api-server and portal
+#                wait for it to succeed before starting.
+#   api-server   Express API + background sweeps
+#   portal       React SPA served by nginx (proxies /api → api-server)
+#   adminer      (commented out) lightweight DB UI on port 8081
+#
+# Quick start:
+#   1. cp .env.example .env   # and fill in your real values
+#   2. docker compose up -d
+#   3. Open http://localhost (or the PORTAL_PORT you configured)
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-ekai}
+      POSTGRES_USER:     ${POSTGRES_USER:-ekai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ekai} -d ${POSTGRES_DB:-ekai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Migrator — runs drizzle-kit push --force then exits
+  # Builds from the `migrator` stage in artifacts/api-server/Dockerfile.
+  # api-server and portal depend on this completing successfully.
+  # ---------------------------------------------------------------------------
+  migrator:
+    build:
+      context: .
+      dockerfile: artifacts/api-server/Dockerfile
+      target: migrator
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-ekai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ekai}
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # API Server
+  # ---------------------------------------------------------------------------
+  api-server:
+    build:
+      context: .
+      dockerfile: artifacts/api-server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV:                     production
+      PORT:                         8080
+      DATABASE_URL:                 postgres://${POSTGRES_USER:-ekai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ekai}
+      CLERK_PUBLISHABLE_KEY:        ${CLERK_PUBLISHABLE_KEY}
+      CLERK_SECRET_KEY:             ${CLERK_SECRET_KEY}
+      PORTAL_URL:                   ${PORTAL_URL}
+      # Email (AWS SES) — optional; leave blank to disable email notifications
+      AWS_ACCESS_KEY_ID:            ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY:        ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION:                   ${AWS_REGION:-us-east-1}
+      EMAIL_FROM:                   ${EMAIL_FROM:-}
+      # Object storage — optional; leave blank to store attachments in Postgres
+      DEFAULT_OBJECT_STORAGE_BUCKET_ID: ${DEFAULT_OBJECT_STORAGE_BUCKET_ID:-}
+      PRIVATE_OBJECT_DIR:           ${PRIVATE_OBJECT_DIR:-}
+      # Fleet monitoring — optional; set only for push-mode deployments
+      FLEET_HUB_URL:                ${FLEET_HUB_URL:-}
+      FLEET_API_KEY:                ${FLEET_API_KEY:-}
+      # Logging
+      LOG_LEVEL:                    ${LOG_LEVEL:-info}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    networks:
+      - internal
+      - external
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:8080/api/healthz').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Support Portal (nginx + static SPA)
+  # ---------------------------------------------------------------------------
+  portal:
+    build:
+      context: .
+      dockerfile: artifacts/support-portal/Dockerfile
+      args:
+        VITE_CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY}
+        BASE_PATH: /
+    restart: unless-stopped
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      api-server:
+        condition: service_healthy
+    ports:
+      - "${PORTAL_PORT:-80}:80"
+    networks:
+      - internal
+      - external
+
+  # ---------------------------------------------------------------------------
+  # Adminer — lightweight database UI (optional, uncomment to enable)
+  # ---------------------------------------------------------------------------
+  # adminer:
+  #   image: adminer:4
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - postgres
+  #   ports:
+  #     - "8081:8080"
+  #   networks:
+  #     - internal
+
+volumes:
+  postgres_data:
+
+networks:
+  internal:
+    driver: bridge
+  external:
+    driver: bridge

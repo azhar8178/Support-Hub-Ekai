@@ -1,0 +1,11 @@
+dist/
+node_modules/
+*.log
+*.local
+.env
+.env.*
+!.env.example
+src/tests/
+coverage/
+*.test.ts
+*.spec.ts
