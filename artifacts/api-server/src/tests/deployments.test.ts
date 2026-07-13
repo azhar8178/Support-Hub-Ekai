@@ -536,6 +536,39 @@ describe("DELETE /api/admin/deployments/:id", () => {
 });
 
 // ---------------------------------------------------------------------------
+// DB-level cascade — deleting a deployment row directly must orphan no heartbeats
+// ---------------------------------------------------------------------------
+describe("DB-level ON DELETE CASCADE for deployment_heartbeats", () => {
+  it("removes all heartbeat rows when the deployment is deleted directly via db.delete", async () => {
+    const dep = await createDeployment({ name: `db-cascade-${fx.suffix}` });
+
+    // Insert heartbeat rows for this deployment
+    await db.insert(deploymentHeartbeatsTable).values([
+      { deploymentId: dep.id, status: "healthy" as const },
+      { deploymentId: dep.id, status: "degraded" as const },
+      { deploymentId: dep.id, status: "offline" as const },
+    ]);
+
+    // Confirm rows exist before deletion
+    const before = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, dep.id));
+    expect(before.length).toBe(3);
+
+    // Delete the deployment row directly — bypassing the HTTP route entirely
+    await db.delete(deploymentsTable).where(eq(deploymentsTable.id, dep.id));
+
+    // The ON DELETE CASCADE constraint must have removed all child heartbeat rows
+    const after = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, dep.id));
+    expect(after.length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Fleet alerting sweep (runFleetAlerts)
 // ---------------------------------------------------------------------------
 describe("runFleetAlerts", () => {
