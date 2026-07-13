@@ -501,6 +501,38 @@ describe("DELETE /api/admin/deployments/:id", () => {
 
     expect(res.status).toBe(404);
   });
+
+  it("cascade-deletes all heartbeat rows when the deployment is deleted", async () => {
+    const dep = await createDeployment({ name: `del-cascade-${fx.suffix}` });
+
+    // Insert a few heartbeat rows for this deployment
+    await db.insert(deploymentHeartbeatsTable).values([
+      { deploymentId: dep.id, status: "healthy" as const },
+      { deploymentId: dep.id, status: "degraded" as const },
+      { deploymentId: dep.id, status: "offline" as const },
+    ]);
+
+    // Confirm the rows are there before deletion
+    const before = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, dep.id));
+    expect(before.length).toBe(3);
+
+    // Delete the deployment via the API
+    const res = await request(app)
+      .delete(`/api/admin/deployments/${dep.id}`)
+      .set(asUser(admin));
+
+    expect(res.status).toBe(204);
+
+    // No orphaned heartbeat rows should remain
+    const after = await db
+      .select()
+      .from(deploymentHeartbeatsTable)
+      .where(eq(deploymentHeartbeatsTable.deploymentId, dep.id));
+    expect(after.length).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
