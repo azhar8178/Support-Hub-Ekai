@@ -15,11 +15,12 @@ This guide covers every supported deployment path for Ekai: self-hosted on a bar
 7. [Object storage (Google Cloud Storage)](#object-storage-google-cloud-storage)
 8. [Self-hosted (bare metal / VM)](#self-hosted-bare-metal--vm)
 9. [Docker Compose](#docker-compose)
-10. [Kubernetes](#kubernetes)
-11. [Fleet monitoring](#fleet-monitoring)
-12. [Health check endpoint](#health-check-endpoint)
-13. [Upgrading](#upgrading)
-14. [Troubleshooting](#troubleshooting)
+10. [Testing the stack](#testing-the-stack)
+11. [Kubernetes](#kubernetes)
+12. [Fleet monitoring](#fleet-monitoring)
+13. [Health check endpoint](#health-check-endpoint)
+14. [Upgrading](#upgrading)
+15. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -354,6 +355,52 @@ DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${
 ```bash
 docker compose up -d --build api-server portal
 ```
+
+---
+
+## Testing the stack
+
+Use the smoke-test script to verify that a schema migration succeeds on a clean database and that the API server comes up healthy. Run this locally before pushing a schema change, and add it to your CI pipeline to catch broken migrations before they reach production.
+
+```bash
+./scripts/smoke-test-compose.sh
+```
+
+The script:
+
+1. Builds the `migrator` and `api-server` images from the local source tree.
+2. Starts a fresh Postgres instance with an empty database (an isolated Docker volume scoped to the test run).
+3. Runs the `migrator` service (`drizzle-kit push --force`) and **fails immediately** if it exits non-zero.
+4. Polls `GET /api/healthz` on the API server until it returns HTTP 200.
+5. Tears everything down (including the ephemeral volume) on exit — whether the test passed or failed.
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `POSTGRES_PASSWORD` | `smoke-test-secret` | Password for the test Postgres instance |
+| `API_PORT` | `18080` | Host port for the API server (avoids clashing with a dev stack on 8080) |
+| `WAIT_SECS` | `120` | Seconds to wait for the API server to become healthy |
+| `COMPOSE_PROJECT` | `ekai-smoke` | Docker Compose project name (keeps test containers isolated) |
+| `CLERK_PUBLISHABLE_KEY` | stub value | Stub Clerk key — `/api/healthz` does not require real auth |
+| `CLERK_SECRET_KEY` | stub value | ↑ |
+
+To run with real Clerk credentials (e.g. to test authenticated flows after smoke testing):
+
+```bash
+CLERK_PUBLISHABLE_KEY=pk_test_... \
+CLERK_SECRET_KEY=sk_test_... \
+./scripts/smoke-test-compose.sh
+```
+
+### Running in CI (GitHub Actions example)
+
+```yaml
+- name: Smoke-test Docker Compose stack
+  run: ./scripts/smoke-test-compose.sh
+```
+
+No additional setup is required — Docker is available by default on all GitHub-hosted runners. The script uses a unique Compose project name (`ekai-smoke`) so it does not interfere with other services running on the same host.
 
 ---
 
