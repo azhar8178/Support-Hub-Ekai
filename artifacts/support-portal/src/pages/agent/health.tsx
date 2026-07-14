@@ -278,7 +278,7 @@ export default function AgentHealthPage() {
               className="w-52 h-8 text-sm"
             />
             {[
-              { label: "Cloud", value: filterCloud, setter: setFilterCloud, options: ["all","aws","azure","gcp","other"] },
+              { label: "Cloud", value: filterCloud, setter: setFilterCloud, options: ["all","aws","azure","gcp","snowflake","other"] },
               { label: "Status", value: filterStatus, setter: setFilterStatus, options: ["all","HEALTHY","DEGRADED","DOWN","OFFLINE","UNKNOWN"] },
               { label: "Env type", value: filterEnvType, setter: setFilterEnvType, options: ["all","production","staging","dev"] },
             ].map(({ label, value, setter, options }) => (

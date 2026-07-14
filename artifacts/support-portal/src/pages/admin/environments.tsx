@@ -207,7 +207,7 @@ function RegisterDialog({ onClose }: { onClose: () => void }) {
               <Select value={form.cloud} onValueChange={set("cloud")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["aws","azure","gcp","other"].map((c) => (
+                  {["aws","azure","gcp","snowflake","other"].map((c) => (
                     <SelectItem key={c} value={c}>{c.toUpperCase()}</SelectItem>
                   ))}
                 </SelectContent>
@@ -225,7 +225,7 @@ function RegisterDialog({ onClose }: { onClose: () => void }) {
               <Select value={form.runtime} onValueChange={set("runtime")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["ecs","eks","aks","gke","docker","k8s","vm","other"].map((r) => (
+                  {["ecs","eks","aks","gke","docker","k8s","vm","spcs","other"].map((r) => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
                 </SelectContent>

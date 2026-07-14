@@ -13,9 +13,9 @@ Configuration via environment variables:
   FLEET_API_KEY      – the ek_fleet_... token from registration  (REQUIRED)
   FLEET_INTERVAL     – push interval in seconds (default: 300)
   FLEET_SERVICES     – JSON array of services to probe (see below)
-  FLEET_CLOUD        – aws | azure | gcp | other
+  FLEET_CLOUD        – aws | azure | gcp | snowflake | other
   FLEET_REGION       – e.g. eu-west-1
-  FLEET_RUNTIME      – ecs | eks | aks | gke | docker | k8s | vm | other
+  FLEET_RUNTIME      – ecs | eks | aks | gke | docker | k8s | vm | spcs | other
   FLEET_VERSION      – current Ekai deployment version (e.g. 1.4.2)
 
 FLEET_SERVICES JSON format:
