@@ -28,6 +28,10 @@ import CustomerDetailPage from "@/pages/customers/detail";
 import AdminSettingsPage from "@/pages/admin/settings";
 import AdminFilesPage from "@/pages/admin/files";
 import NotFoundPage from "@/pages/not-found";
+import AdminEnvironmentsPage from "@/pages/admin/environments";
+import HealthPage from "@/pages/health";
+import AgentHealthPage from "@/pages/agent/health";
+import AgentHealthDetailPage from "@/pages/agent/health-detail";
 
 import Layout from "@/components/layout";
 import { useGetCurrentUser, setAuthTokenGetter } from "@workspace/api-client-react";
@@ -140,6 +144,18 @@ function AuthenticatedApp() {
         </Route>
         <Route path="/customers">
           {user.role === "ekai_agent" || user.role === "admin" ? <CustomersListPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/admin/environments">
+          {user.role === "admin" ? <AdminEnvironmentsPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/health">
+          <HealthPage />
+        </Route>
+        <Route path="/agent/health/:id">
+          {(user.role === "ekai_agent" || user.role === "admin") ? <AgentHealthDetailPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/agent/health">
+          {(user.role === "ekai_agent" || user.role === "admin") ? <AgentHealthPage /> : <Redirect to="/dashboard" />}
         </Route>
         <Route path="/accept-invite" component={AcceptInvitePage} />
         <Route component={NotFoundPage} />

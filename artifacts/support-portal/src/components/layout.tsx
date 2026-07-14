@@ -18,6 +18,8 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
+  Activity,
+  Server,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -92,6 +94,30 @@ export default function Layout({ user, children }: LayoutProps) {
       href: "/admin/files",
       icon: FolderOpen,
       current: location.startsWith("/admin/files"),
+    });
+    navigation.push({
+      name: "Health",
+      href: "/agent/health",
+      icon: Activity,
+      current: location.startsWith("/agent/health"),
+    });
+  }
+
+  if (isCustomer) {
+    navigation.push({
+      name: "Health",
+      href: "/health",
+      icon: Activity,
+      current: location.startsWith("/health"),
+    });
+  }
+
+  if (isAdmin) {
+    navigation.push({
+      name: "Environments",
+      href: "/admin/environments",
+      icon: Server,
+      current: location.startsWith("/admin/environments"),
     });
   }
 

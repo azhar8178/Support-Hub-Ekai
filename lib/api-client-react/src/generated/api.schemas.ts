@@ -1010,6 +1010,89 @@ export interface FileItem {
   downloadPath: string;
 }
 
+export interface CustomerEnvironment {
+  id: number;
+  orgId: number;
+  /** @nullable */
+  orgName: string | null;
+  name: string;
+  cloud: string;
+  region: string;
+  runtime: string;
+  apiKeyPrefix: string;
+  environment: string;
+  /** HEALTHY | DEGRADED | DOWN | UNKNOWN */
+  status: string;
+  /** @nullable */
+  lastSeen: string | null;
+  /** @nullable */
+  agentVersion: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface RegisterEnvironmentInput {
+  orgId: number;
+  /** @minLength 1 */
+  name: string;
+  cloud: string;
+  region: string;
+  runtime: string;
+  environment: string;
+}
+
+export interface RegisterEnvironmentResult {
+  environment: CustomerEnvironment;
+  /** Plaintext API key — shown only once */
+  apiKey: string;
+}
+
+export interface ServiceHealth {
+  name: string;
+  type: string;
+  status: string;
+  /** @nullable */
+  cpu_percent?: number | null;
+  /** @nullable */
+  memory_percent?: number | null;
+  latency_ms: number;
+  error_rate_percent: number;
+  uptime_seconds: number;
+}
+
+export interface HealthSnapshot {
+  id: number;
+  environmentId: number;
+  timestamp: string;
+  overallStatus: string;
+  services: ServiceHealth[];
+  /** Platform metadata as a JSON string */
+  platformJson: string;
+  agentVersion: string;
+  createdAt: string;
+}
+
+export interface HealthAlert {
+  id: number;
+  environmentId: number;
+  /** @nullable */
+  envName: string | null;
+  /** @nullable */
+  orgName: string | null;
+  /** STATUS_CHANGE | MISSED_HEARTBEAT */
+  alertType: string;
+  /** @nullable */
+  fromStatus: string | null;
+  /** @nullable */
+  toStatus: string | null;
+  triggeredAt: string;
+  /** @nullable */
+  resolvedAt: string | null;
+  /** @nullable */
+  linkedTicketId: number | null;
+  acknowledged: boolean;
+}
+
 export type PreviewInviteParams = {
 token: string;
 };

@@ -28,6 +28,7 @@ import type {
   BrandingPublic,
   Customer,
   CustomerDetail,
+  CustomerEnvironment,
   CustomerUpdate,
   DashboardSummary,
   Deployment,
@@ -36,6 +37,8 @@ import type {
   DeploymentInput,
   DeploymentPatch,
   FileItem,
+  HealthAlert,
+  HealthSnapshot,
   HealthStatus,
   HeartbeatPayload,
   Invite,
@@ -65,6 +68,8 @@ import type {
   PreviewInviteParams,
   PushTokenInput,
   PushTokenRemoval,
+  RegisterEnvironmentInput,
+  RegisterEnvironmentResult,
   ReportSummary,
   Severity,
   SeverityInput,
@@ -5314,6 +5319,681 @@ export function useListFiles<TData = Awaited<ReturnType<typeof listFiles>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListFilesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAdminEnvironmentsUrl = () => {
+
+
+
+
+  return `/api/api/admin/environments`
+}
+
+/**
+ * @summary List all registered customer environments
+ */
+export const listAdminEnvironments = async ( options?: RequestInit): Promise<CustomerEnvironment[]> => {
+
+  return customFetch<CustomerEnvironment[]>(getListAdminEnvironmentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminEnvironmentsQueryKey = () => {
+    return [
+    `/api/api/admin/environments`
+    ] as const;
+    }
+
+
+export const getListAdminEnvironmentsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminEnvironments>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminEnvironments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminEnvironmentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminEnvironments>>> = ({ signal }) => listAdminEnvironments({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminEnvironments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminEnvironmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminEnvironments>>>
+export type ListAdminEnvironmentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all registered customer environments
+ */
+
+export function useListAdminEnvironments<TData = Awaited<ReturnType<typeof listAdminEnvironments>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminEnvironments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminEnvironmentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRegisterCustomerEnvironmentUrl = () => {
+
+
+
+
+  return `/api/api/admin/environments`
+}
+
+/**
+ * @summary Register a new customer environment and generate its API key
+ */
+export const registerCustomerEnvironment = async (registerEnvironmentInput: RegisterEnvironmentInput, options?: RequestInit): Promise<RegisterEnvironmentResult> => {
+
+  return customFetch<RegisterEnvironmentResult>(getRegisterCustomerEnvironmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(registerEnvironmentInput)
+  }
+);}
+
+
+
+
+
+export const getRegisterCustomerEnvironmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerCustomerEnvironment>>, TError,{data: BodyType<RegisterEnvironmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerCustomerEnvironment>>, TError,{data: BodyType<RegisterEnvironmentInput>}, TContext> => {
+
+const mutationKey = ['registerCustomerEnvironment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerCustomerEnvironment>>, {data: BodyType<RegisterEnvironmentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerCustomerEnvironment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterCustomerEnvironmentMutationResult = NonNullable<Awaited<ReturnType<typeof registerCustomerEnvironment>>>
+    export type RegisterCustomerEnvironmentMutationBody = BodyType<RegisterEnvironmentInput>
+    export type RegisterCustomerEnvironmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Register a new customer environment and generate its API key
+ */
+export const useRegisterCustomerEnvironment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerCustomerEnvironment>>, TError,{data: BodyType<RegisterEnvironmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerCustomerEnvironment>>,
+        TError,
+        {data: BodyType<RegisterEnvironmentInput>},
+        TContext
+      > => {
+      return useMutation(getRegisterCustomerEnvironmentMutationOptions(options));
+    }
+
+export const getDeleteEnvironmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/api/admin/environments/${id}`
+}
+
+/**
+ * @summary Soft-delete a customer environment
+ */
+export const deleteEnvironment = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getDeleteEnvironmentUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteEnvironmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEnvironment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteEnvironment>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteEnvironment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEnvironment>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteEnvironment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteEnvironmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEnvironment>>>
+
+    export type DeleteEnvironmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Soft-delete a customer environment
+ */
+export const useDeleteEnvironment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEnvironment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteEnvironment>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteEnvironmentMutationOptions(options));
+    }
+
+export const getListAdminEnvironmentSnapshotsUrl = (id: number,) => {
+
+
+
+
+  return `/api/api/admin/environments/${id}/snapshots`
+}
+
+/**
+ * @summary Last 7 days of snapshots for an environment (admin/agent)
+ */
+export const listAdminEnvironmentSnapshots = async (id: number, options?: RequestInit): Promise<HealthSnapshot[]> => {
+
+  return customFetch<HealthSnapshot[]>(getListAdminEnvironmentSnapshotsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminEnvironmentSnapshotsQueryKey = (id: number,) => {
+    return [
+    `/api/api/admin/environments/${id}/snapshots`
+    ] as const;
+    }
+
+
+export const getListAdminEnvironmentSnapshotsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminEnvironmentSnapshots>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminEnvironmentSnapshots>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminEnvironmentSnapshotsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminEnvironmentSnapshots>>> = ({ signal }) => listAdminEnvironmentSnapshots(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminEnvironmentSnapshots>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminEnvironmentSnapshotsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminEnvironmentSnapshots>>>
+export type ListAdminEnvironmentSnapshotsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Last 7 days of snapshots for an environment (admin/agent)
+ */
+
+export function useListAdminEnvironmentSnapshots<TData = Awaited<ReturnType<typeof listAdminEnvironmentSnapshots>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminEnvironmentSnapshots>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminEnvironmentSnapshotsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListEnvironmentAlertsUrl = (id: number,) => {
+
+
+
+
+  return `/api/api/admin/environments/${id}/alerts`
+}
+
+/**
+ * @summary Health alerts for a specific environment
+ */
+export const listEnvironmentAlerts = async (id: number, options?: RequestInit): Promise<HealthAlert[]> => {
+
+  return customFetch<HealthAlert[]>(getListEnvironmentAlertsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEnvironmentAlertsQueryKey = (id: number,) => {
+    return [
+    `/api/api/admin/environments/${id}/alerts`
+    ] as const;
+    }
+
+
+export const getListEnvironmentAlertsQueryOptions = <TData = Awaited<ReturnType<typeof listEnvironmentAlerts>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEnvironmentAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEnvironmentAlertsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEnvironmentAlerts>>> = ({ signal }) => listEnvironmentAlerts(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEnvironmentAlerts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEnvironmentAlertsQueryResult = NonNullable<Awaited<ReturnType<typeof listEnvironmentAlerts>>>
+export type ListEnvironmentAlertsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Health alerts for a specific environment
+ */
+
+export function useListEnvironmentAlerts<TData = Awaited<ReturnType<typeof listEnvironmentAlerts>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEnvironmentAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEnvironmentAlertsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListHealthAlertsUrl = () => {
+
+
+
+
+  return `/api/api/admin/health-alerts`
+}
+
+/**
+ * @summary All health alerts across all customer environments
+ */
+export const listHealthAlerts = async ( options?: RequestInit): Promise<HealthAlert[]> => {
+
+  return customFetch<HealthAlert[]>(getListHealthAlertsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListHealthAlertsQueryKey = () => {
+    return [
+    `/api/api/admin/health-alerts`
+    ] as const;
+    }
+
+
+export const getListHealthAlertsQueryOptions = <TData = Awaited<ReturnType<typeof listHealthAlerts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHealthAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListHealthAlertsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listHealthAlerts>>> = ({ signal }) => listHealthAlerts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listHealthAlerts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListHealthAlertsQueryResult = NonNullable<Awaited<ReturnType<typeof listHealthAlerts>>>
+export type ListHealthAlertsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary All health alerts across all customer environments
+ */
+
+export function useListHealthAlerts<TData = Awaited<ReturnType<typeof listHealthAlerts>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHealthAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListHealthAlertsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAcknowledgeHealthAlertUrl = (id: number,) => {
+
+
+
+
+  return `/api/api/admin/health-alerts/${id}/acknowledge`
+}
+
+/**
+ * @summary Mark a health alert as acknowledged
+ */
+export const acknowledgeHealthAlert = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getAcknowledgeHealthAlertUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcknowledgeHealthAlertMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeHealthAlert>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeHealthAlert>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['acknowledgeHealthAlert'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeHealthAlert>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  acknowledgeHealthAlert(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgeHealthAlertMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeHealthAlert>>>
+
+    export type AcknowledgeHealthAlertMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark a health alert as acknowledged
+ */
+export const useAcknowledgeHealthAlert = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeHealthAlert>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgeHealthAlert>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getAcknowledgeHealthAlertMutationOptions(options));
+    }
+
+export const getListMyEnvironmentsUrl = () => {
+
+
+
+
+  return `/api/api/environments`
+}
+
+/**
+ * @summary List environments belonging to the current user's organisation
+ */
+export const listMyEnvironments = async ( options?: RequestInit): Promise<CustomerEnvironment[]> => {
+
+  return customFetch<CustomerEnvironment[]>(getListMyEnvironmentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMyEnvironmentsQueryKey = () => {
+    return [
+    `/api/api/environments`
+    ] as const;
+    }
+
+
+export const getListMyEnvironmentsQueryOptions = <TData = Awaited<ReturnType<typeof listMyEnvironments>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyEnvironments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMyEnvironmentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyEnvironments>>> = ({ signal }) => listMyEnvironments({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMyEnvironments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMyEnvironmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listMyEnvironments>>>
+export type ListMyEnvironmentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List environments belonging to the current user's organisation
+ */
+
+export function useListMyEnvironments<TData = Awaited<ReturnType<typeof listMyEnvironments>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyEnvironments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMyEnvironmentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListEnvironmentSnapshotsUrl = (id: number,) => {
+
+
+
+
+  return `/api/api/environments/${id}/snapshots`
+}
+
+/**
+ * @summary Last 24 h of snapshots for a customer environment (customer view)
+ */
+export const listEnvironmentSnapshots = async (id: number, options?: RequestInit): Promise<HealthSnapshot[]> => {
+
+  return customFetch<HealthSnapshot[]>(getListEnvironmentSnapshotsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEnvironmentSnapshotsQueryKey = (id: number,) => {
+    return [
+    `/api/api/environments/${id}/snapshots`
+    ] as const;
+    }
+
+
+export const getListEnvironmentSnapshotsQueryOptions = <TData = Awaited<ReturnType<typeof listEnvironmentSnapshots>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEnvironmentSnapshots>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEnvironmentSnapshotsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEnvironmentSnapshots>>> = ({ signal }) => listEnvironmentSnapshots(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEnvironmentSnapshots>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEnvironmentSnapshotsQueryResult = NonNullable<Awaited<ReturnType<typeof listEnvironmentSnapshots>>>
+export type ListEnvironmentSnapshotsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Last 24 h of snapshots for a customer environment (customer view)
+ */
+
+export function useListEnvironmentSnapshots<TData = Awaited<ReturnType<typeof listEnvironmentSnapshots>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEnvironmentSnapshots>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEnvironmentSnapshotsQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

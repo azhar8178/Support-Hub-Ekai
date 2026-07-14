@@ -1695,3 +1695,209 @@ export const ListFilesResponseItem = zod.object({
 export const ListFilesResponse = zod.array(ListFilesResponseItem)
 
 
+/**
+ * @summary List all registered customer environments
+ */
+export const ListAdminEnvironmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "orgName": zod.string().nullable(),
+  "name": zod.string(),
+  "cloud": zod.string(),
+  "region": zod.string(),
+  "runtime": zod.string(),
+  "apiKeyPrefix": zod.string(),
+  "environment": zod.string(),
+  "status": zod.string().describe('HEALTHY | DEGRADED | DOWN | UNKNOWN'),
+  "lastSeen": zod.string().nullable(),
+  "agentVersion": zod.string().nullable(),
+  "active": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListAdminEnvironmentsResponse = zod.array(ListAdminEnvironmentsResponseItem)
+
+
+/**
+ * @summary Register a new customer environment and generate its API key
+ */
+
+
+
+export const RegisterCustomerEnvironmentBody = zod.object({
+  "orgId": zod.number(),
+  "name": zod.string().min(1),
+  "cloud": zod.string(),
+  "region": zod.string(),
+  "runtime": zod.string(),
+  "environment": zod.string()
+})
+
+export const RegisterCustomerEnvironmentResponse = zod.object({
+  "environment": zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "orgName": zod.string().nullable(),
+  "name": zod.string(),
+  "cloud": zod.string(),
+  "region": zod.string(),
+  "runtime": zod.string(),
+  "apiKeyPrefix": zod.string(),
+  "environment": zod.string(),
+  "status": zod.string().describe('HEALTHY | DEGRADED | DOWN | UNKNOWN'),
+  "lastSeen": zod.string().nullable(),
+  "agentVersion": zod.string().nullable(),
+  "active": zod.boolean(),
+  "createdAt": zod.string()
+}),
+  "apiKey": zod.string().describe('Plaintext API key — shown only once')
+})
+
+
+/**
+ * @summary Soft-delete a customer environment
+ */
+export const DeleteEnvironmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteEnvironmentResponse = zod.object({
+  "message": zod.string(),
+  "code": zod.string().nullish()
+})
+
+
+/**
+ * @summary Last 7 days of snapshots for an environment (admin/agent)
+ */
+export const ListAdminEnvironmentSnapshotsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListAdminEnvironmentSnapshotsResponseItem = zod.object({
+  "id": zod.number(),
+  "environmentId": zod.number(),
+  "timestamp": zod.string(),
+  "overallStatus": zod.string(),
+  "services": zod.array(zod.object({
+  "name": zod.string(),
+  "type": zod.string(),
+  "status": zod.string(),
+  "cpu_percent": zod.number().nullish(),
+  "memory_percent": zod.number().nullish(),
+  "latency_ms": zod.number(),
+  "error_rate_percent": zod.number(),
+  "uptime_seconds": zod.number()
+})),
+  "platformJson": zod.string().describe('Platform metadata as a JSON string'),
+  "agentVersion": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListAdminEnvironmentSnapshotsResponse = zod.array(ListAdminEnvironmentSnapshotsResponseItem)
+
+
+/**
+ * @summary Health alerts for a specific environment
+ */
+export const ListEnvironmentAlertsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListEnvironmentAlertsResponseItem = zod.object({
+  "id": zod.number(),
+  "environmentId": zod.number(),
+  "envName": zod.string().nullable(),
+  "orgName": zod.string().nullable(),
+  "alertType": zod.string().describe('STATUS_CHANGE | MISSED_HEARTBEAT'),
+  "fromStatus": zod.string().nullable(),
+  "toStatus": zod.string().nullable(),
+  "triggeredAt": zod.string(),
+  "resolvedAt": zod.string().nullable(),
+  "linkedTicketId": zod.number().nullable(),
+  "acknowledged": zod.boolean()
+})
+export const ListEnvironmentAlertsResponse = zod.array(ListEnvironmentAlertsResponseItem)
+
+
+/**
+ * @summary All health alerts across all customer environments
+ */
+export const ListHealthAlertsResponseItem = zod.object({
+  "id": zod.number(),
+  "environmentId": zod.number(),
+  "envName": zod.string().nullable(),
+  "orgName": zod.string().nullable(),
+  "alertType": zod.string().describe('STATUS_CHANGE | MISSED_HEARTBEAT'),
+  "fromStatus": zod.string().nullable(),
+  "toStatus": zod.string().nullable(),
+  "triggeredAt": zod.string(),
+  "resolvedAt": zod.string().nullable(),
+  "linkedTicketId": zod.number().nullable(),
+  "acknowledged": zod.boolean()
+})
+export const ListHealthAlertsResponse = zod.array(ListHealthAlertsResponseItem)
+
+
+/**
+ * @summary Mark a health alert as acknowledged
+ */
+export const AcknowledgeHealthAlertParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AcknowledgeHealthAlertResponse = zod.object({
+  "message": zod.string(),
+  "code": zod.string().nullish()
+})
+
+
+/**
+ * @summary List environments belonging to the current user's organisation
+ */
+export const ListMyEnvironmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "orgName": zod.string().nullable(),
+  "name": zod.string(),
+  "cloud": zod.string(),
+  "region": zod.string(),
+  "runtime": zod.string(),
+  "apiKeyPrefix": zod.string(),
+  "environment": zod.string(),
+  "status": zod.string().describe('HEALTHY | DEGRADED | DOWN | UNKNOWN'),
+  "lastSeen": zod.string().nullable(),
+  "agentVersion": zod.string().nullable(),
+  "active": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListMyEnvironmentsResponse = zod.array(ListMyEnvironmentsResponseItem)
+
+
+/**
+ * @summary Last 24 h of snapshots for a customer environment (customer view)
+ */
+export const ListEnvironmentSnapshotsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListEnvironmentSnapshotsResponseItem = zod.object({
+  "id": zod.number(),
+  "environmentId": zod.number(),
+  "timestamp": zod.string(),
+  "overallStatus": zod.string(),
+  "services": zod.array(zod.object({
+  "name": zod.string(),
+  "type": zod.string(),
+  "status": zod.string(),
+  "cpu_percent": zod.number().nullish(),
+  "memory_percent": zod.number().nullish(),
+  "latency_ms": zod.number(),
+  "error_rate_percent": zod.number(),
+  "uptime_seconds": zod.number()
+})),
+  "platformJson": zod.string().describe('Platform metadata as a JSON string'),
+  "agentVersion": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListEnvironmentSnapshotsResponse = zod.array(ListEnvironmentSnapshotsResponseItem)
+
+

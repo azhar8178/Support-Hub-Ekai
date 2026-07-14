@@ -1296,6 +1296,156 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/FileItem"
+  /api/admin/environments:
+    get:
+      operationId: listAdminEnvironments
+      tags: [environments]
+      summary: List all registered customer environments
+      responses:
+        "200":
+          description: Environment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomerEnvironment"
+    post:
+      operationId: registerCustomerEnvironment
+      tags: [environments]
+      summary: Register a new customer environment and generate its API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterEnvironmentInput"
+      responses:
+        "201":
+          description: Environment created (API key shown once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterEnvironmentResult"
+  /api/admin/environments/{id}:
+    delete:
+      operationId: deleteEnvironment
+      tags: [environments]
+      summary: Soft-delete a customer environment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /api/admin/environments/{id}/snapshots:
+    get:
+      operationId: listAdminEnvironmentSnapshots
+      tags: [environments]
+      summary: Last 7 days of snapshots for an environment (admin/agent)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Snapshot list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HealthSnapshot"
+  /api/admin/environments/{id}/alerts:
+    get:
+      operationId: listEnvironmentAlerts
+      tags: [environments]
+      summary: Health alerts for a specific environment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HealthAlert"
+  /api/admin/health-alerts:
+    get:
+      operationId: listHealthAlerts
+      tags: [environments]
+      summary: All health alerts across all customer environments
+      responses:
+        "200":
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HealthAlert"
+  /api/admin/health-alerts/{id}/acknowledge:
+    post:
+      operationId: acknowledgeHealthAlert
+      tags: [environments]
+      summary: Mark a health alert as acknowledged
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /api/environments:
+    get:
+      operationId: listMyEnvironments
+      tags: [environments]
+      summary: List environments belonging to the current user's organisation
+      responses:
+        "200":
+          description: Environment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomerEnvironment"
+  /api/environments/{id}/snapshots:
+    get:
+      operationId: listEnvironmentSnapshots
+      tags: [environments]
+      summary: Last 24 h of snapshots for a customer environment (customer view)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Snapshot list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HealthSnapshot"
 components:
   schemas:
     BootstrapStatus:
@@ -2009,3 +2159,80 @@ components:
         uploaderName: { type: ["string", "null"] }
         downloadPath: { type: string, description: "Relative API path to download this file, e.g. /attachments/42/content" }
       required: [id, filename, contentType, sizeBytes, createdAt, ticketId, ticketTitle, uploaderName, downloadPath]
+    CustomerEnvironment:
+      type: object
+      properties:
+        id: { type: integer }
+        orgId: { type: integer }
+        orgName: { type: ["string", "null"] }
+        name: { type: string }
+        cloud: { type: string }
+        region: { type: string }
+        runtime: { type: string }
+        apiKeyPrefix: { type: string }
+        environment: { type: string }
+        status: { type: string, description: "HEALTHY | DEGRADED | DOWN | UNKNOWN" }
+        lastSeen: { type: ["string", "null"] }
+        agentVersion: { type: ["string", "null"] }
+        active: { type: boolean }
+        createdAt: { type: string }
+      required: [id, orgId, orgName, name, cloud, region, runtime, apiKeyPrefix, environment, status, lastSeen, agentVersion, active, createdAt]
+    RegisterEnvironmentInput:
+      type: object
+      properties:
+        orgId: { type: integer }
+        name: { type: string, minLength: 1 }
+        cloud: { type: string }
+        region: { type: string }
+        runtime: { type: string }
+        environment: { type: string }
+      required: [orgId, name, cloud, region, runtime, environment]
+    RegisterEnvironmentResult:
+      type: object
+      properties:
+        environment:
+          $ref: "#/components/schemas/CustomerEnvironment"
+        apiKey: { type: string, description: "Plaintext API key — shown only once" }
+      required: [environment, apiKey]
+    ServiceHealth:
+      type: object
+      properties:
+        name: { type: string }
+        type: { type: string }
+        status: { type: string }
+        cpu_percent: { type: ["number", "null"] }
+        memory_percent: { type: ["number", "null"] }
+        latency_ms: { type: number }
+        error_rate_percent: { type: number }
+        uptime_seconds: { type: number }
+      required: [name, type, status, latency_ms, error_rate_percent, uptime_seconds]
+    HealthSnapshot:
+      type: object
+      properties:
+        id: { type: integer }
+        environmentId: { type: integer }
+        timestamp: { type: string }
+        overallStatus: { type: string }
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceHealth"
+        platformJson: { type: string, description: "Platform metadata as a JSON string" }
+        agentVersion: { type: string }
+        createdAt: { type: string }
+      required: [id, environmentId, timestamp, overallStatus, services, platformJson, agentVersion, createdAt]
+    HealthAlert:
+      type: object
+      properties:
+        id: { type: integer }
+        environmentId: { type: integer }
+        envName: { type: ["string", "null"] }
+        orgName: { type: ["string", "null"] }
+        alertType: { type: string, description: "STATUS_CHANGE | MISSED_HEARTBEAT" }
+        fromStatus: { type: ["string", "null"] }
+        toStatus: { type: ["string", "null"] }
+        triggeredAt: { type: string }
+        resolvedAt: { type: ["string", "null"] }
+        linkedTicketId: { type: ["integer", "null"] }
+        acknowledged: { type: boolean }
+      required: [id, environmentId, envName, orgName, alertType, fromStatus, toStatus, triggeredAt, resolvedAt, linkedTicketId, acknowledged]

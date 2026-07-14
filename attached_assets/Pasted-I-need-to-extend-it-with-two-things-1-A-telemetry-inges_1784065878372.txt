@@ -1,0 +1,367 @@
+I need to extend it with two things:
+
+1. A telemetry ingestion API that receives health data pushed from 
+   customer deployments
+2. Health dashboards that display that data per customer
+
+This is critical context: Ekai's software runs entirely inside customer 
+cloud environments (AWS, Azure, GCP, Snowflake). We cannot pull data from 
+customer clouds. Instead, a lightweight agent runs inside each customer 
+deployment and pushes health signals outbound to our portal every 5 minutes.
+The portal only receives and displays — it never connects to customer clouds.
+
+---
+
+PART 1 — DATABASE SCHEMA ADDITIONS (Prisma)
+
+Add these models to the existing schema:
+
+model CustomerEnvironment {
+  id              String          @id @default(cuid())
+  customerId      String          
+  organisation    Organisation    @relation(fields: [customerId], references: [id])
+  name            String          // e.g. "Production", "Staging"
+  cloud           String          // aws | azure | gcp | other
+  region          String
+  runtime         String          // ecs | eks | aks | gke | docker | k8s | vm | other
+  apiKey          String          @unique
+  apiKeyPrefix    String          // first 8 chars, for display only
+  environment     String          // production | staging | dev
+  status          String          @default("UNKNOWN") // HEALTHY | DEGRADED | DOWN | UNKNOWN
+  lastSeen        DateTime?
+  agentVersion    String?
+  createdAt       DateTime        @default(now())
+  snapshots       HealthSnapshot[]
+  alerts          HealthAlert[]
+}
+
+model HealthSnapshot {
+  id              String              @id @default(cuid())
+  environmentId   String
+  environment     CustomerEnvironment @relation(fields: [environmentId], references: [id])
+  timestamp       DateTime
+  overallStatus   String              // HEALTHY | DEGRADED | DOWN
+  servicesJson    String              // full services array stored as JSON string
+  platformJson    String              // platform metadata as JSON string
+  agentVersion    String
+  createdAt       DateTime            @default(now())
+}
+
+model HealthAlert {
+  id              String              @id @default(cuid())
+  environmentId   String
+  environment     CustomerEnvironment @relation(fields: [environmentId], references: [id])
+  alertType       String              // STATUS_CHANGE | MISSED_HEARTBEAT
+  fromStatus      String?
+  toStatus        String?
+  triggeredAt     DateTime            @default(now())
+  resolvedAt      DateTime?
+  linkedTicketId  String?
+  ticket          Ticket?             @relation(fields: [linkedTicketId], references: [id])
+  acknowledged    Boolean             @default(false)
+  acknowledgedBy  String?
+}
+
+Also add to Organisation model:
+  environments    CustomerEnvironment[]
+
+Also add to Ticket model:
+  healthAlerts    HealthAlert[]
+
+---
+
+PART 2 — TELEMETRY INGESTION API
+
+Create: /api/telemetry/ingest (POST, no session auth — uses API key)
+
+This endpoint is called by the health agent running inside each customer's 
+cloud deployment every 5 minutes.
+
+Validation:
+- Read API key from header: X-Ekai-API-Key
+- Look up CustomerEnvironment by apiKey
+- Reject with 401 if not found
+- Reject with 401 if customer_id in payload does not match 
+  environment's customerId
+- Reject with 400 if timestamp is more than 10 minutes from server time
+- Reject with 429 if same environment posted within last 60 seconds
+- Max payload: 50KB
+
+On valid ingest:
+1. Write new HealthSnapshot record
+2. Update CustomerEnvironment: lastSeen = now, 
+   status = payload.overall_status.toUpperCase(), 
+   agentVersion = payload.agent_version
+3. Compare new overall_status with previous snapshot's overall_status
+4. If status changed: create HealthAlert (type: STATUS_CHANGE)
+5. If new status is DOWN: also auto-create a P1 Ticket assigned to 
+   support@ekai.ai with title 
+   "[AUTO] Environment down: {environment.name} - {org name}"
+6. If new status is DEGRADED: auto-create a P2 Ticket with title 
+   "[AUTO] Environment degraded: {environment.name} - {org name}"
+7. Return: { received: true, next_expected: <now + 5 minutes ISO8601> }
+
+Payload schema expected:
+{
+  customer_id: string,
+  timestamp: ISO8601 string,
+  environment: "production" | "staging" | "dev",
+  cloud: "aws" | "azure" | "gcp" | "other",
+  region: string,
+  agent_version: string,
+  overall_status: "healthy" | "degraded" | "down",
+  services: [
+    {
+      name: string,
+      type: "api" | "worker" | "database" | "cache" | "queue" | "other",
+      status: "healthy" | "degraded" | "down",
+      cpu_percent: number,
+      memory_percent: number,
+      latency_ms: number,
+      error_rate_percent: number,
+      uptime_seconds: number,
+      metadata: object
+    }
+  ],
+  platform: {
+    runtime: string,
+    os: string,
+    agent_host: string
+  }
+}
+
+Also create a background job (or API route called by a cron):
+  /api/telemetry/check-heartbeats (GET, internal only)
+  
+  Logic: find all CustomerEnvironments where lastSeen is older than 
+  10 minutes AND status is not already DOWN. For each:
+  - Set status = UNKNOWN
+  - Create HealthAlert (type: MISSED_HEARTBEAT)
+  - Send email to support@ekai.ai with environment details
+  
+  This should be callable by a Vercel/Replit cron every 5 minutes.
+
+---
+
+PART 3 — ADMIN: ENVIRONMENT MANAGEMENT
+
+Create page: /admin/environments
+
+This is where Ekai admins register a new customer environment and 
+generate its API key.
+
+Features:
+- Table of all registered environments: org name, environment name, 
+  cloud, region, status badge, lastSeen, agent version, actions
+- "Register Environment" button opens a modal/form:
+    * Select Organisation (dropdown of existing orgs)
+    * Environment name (e.g. Production)
+    * Cloud (aws / azure / gcp / other)
+    * Region (text field)
+    * Runtime (ecs / eks / aks / gke / docker / k8s / vm / other)
+    * Environment type (production / staging / dev)
+- On submit: generate a cryptographically random API key 
+  (format: ek_live_ + 32 random hex chars)
+- Show API key ONCE in a modal after creation with copy button and 
+  warning: "Save this key now — it will not be shown again. 
+  Provide it to your deployment team to configure the health agent."
+- Store only the first 8 chars as apiKeyPrefix for display; 
+  store full key hashed (bcrypt) for validation
+- Delete environment button (with confirmation): 
+  marks as inactive, does not delete historical snapshots
+
+---
+
+PART 4 — HEALTH DASHBOARD (CUSTOMER VIEW)
+
+Create page: /health (accessible to CUSTOMER role)
+
+Customer sees only their own organisation's environments.
+
+Layout:
+- Page title: "Environment Health"
+- One card per registered environment showing:
+    * Environment name + cloud/region badge
+    * Large status indicator: 
+      HEALTHY (green) | DEGRADED (amber) | DOWN (red) | UNKNOWN (grey)
+    * Last seen: "2 minutes ago" (relative time, auto-refreshes)
+    * Agent version
+    * Services grid: one row per service with:
+        - Service name and type icon
+        - Status dot (green/amber/red)
+        - CPU % bar
+        - Memory % bar  
+        - Latency ms
+        - Error rate %
+- "Last 24 hours" status history: 
+  a timeline bar showing status per 15-min bucket 
+  (green/amber/red/grey blocks)
+- If status = UNKNOWN: show banner 
+  "No heartbeat received in the last 10 minutes. 
+   This may indicate the health agent is not running."
+- Auto-refresh every 60 seconds without full page reload
+
+---
+
+PART 5 — HEALTH DASHBOARD (AGENT/OPS VIEW)
+
+Create page: /agent/health (EKAI_AGENT + ADMIN only)
+
+This is the Ekai ops team view — all customer environments in one place.
+
+Layout:
+- Summary strip at top: 
+    Total environments | Healthy | Degraded | Down | Unknown
+- Filter bar: by org, by cloud, by status, by environment type
+- Table of all environments:
+    Org | Env name | Cloud | Region | Status | Last seen | 
+    Agent version | Open alerts | Actions
+- Status badges colour-coded
+- DOWN and DEGRADED rows highlighted
+- Clicking a row expands to show latest services snapshot inline
+- "View full history" link goes to /agent/health/[environmentId]
+- Alert feed on the right panel: 
+  last 20 health alerts across all customers, 
+  newest first, with acknowledge button
+
+Create page: /agent/health/[environmentId]
+
+- Full environment detail
+- Last 7 days of status history chart (line chart: 
+  healthy/degraded/down over time)
+- All snapshots table (paginated, newest first)
+- All health alerts for this environment
+- Link to any auto-created tickets
+
+---
+
+PART 6 — HEALTH AGENT (STANDALONE SCRIPT)
+
+Create a file: /agent/health-agent.py
+
+This is a standalone Python script (no framework dependencies) that 
+gets deployed into each customer's cloud environment alongside 
+the Ekai platform. It must be completely self-contained and 
+platform-independent.
+
+Configuration via environment variables only:
+  EKAI_PORTAL_URL        - e.g. https://support.ekai.ai
+  EKAI_CUSTOMER_ID       - customer identifier
+  EKAI_API_KEY           - the key generated in admin panel
+  EKAI_ENVIRONMENT       - production | staging | dev
+  EKAI_CLOUD             - aws | azure | gcp | other
+  EKAI_REGION            - e.g. eu-west-1
+  EKAI_AGENT_VERSION     - e.g. 1.0.0
+  EKAI_SERVICES          - JSON array of services to probe (see below)
+  EKAI_PUSH_INTERVAL     - seconds between pushes, default 300 (5 min)
+
+EKAI_SERVICES format:
+[
+  {
+    "name": "ekai-api",
+    "type": "api",
+    "health_url": "http://localhost:8080/health",
+    "timeout_seconds": 5
+  },
+  {
+    "name": "ekai-db",
+    "type": "database", 
+    "health_url": "http://db-host:5432",
+    "timeout_seconds": 3
+  }
+]
+
+Agent logic:
+1. For each service in EKAI_SERVICES:
+   - HTTP GET to health_url (if http/https)
+   - TCP connect check (if plain host:port)
+   - Status = healthy if response < 500ms and HTTP 200, 
+     degraded if response 500-2000ms or non-200 non-500, 
+     down if timeout or HTTP 5xx or connection refused
+   - Record latency_ms
+2. Collect system metrics using psutil if available 
+   (cpu_percent, memory_percent); set to null if not available
+3. Compute overall_status: 
+   any down = down, any degraded = degraded, else healthy
+4. Build payload and POST to EKAI_PORTAL_URL/api/telemetry/ingest
+   with header X-Ekai-API-Key: EKAI_API_KEY
+5. Log result: timestamp, overall_status, HTTP response code
+6. On failure: log error, do NOT crash — retry next cycle
+7. Sleep EKAI_PUSH_INTERVAL seconds, repeat from step 1
+
+Also create: /agent/Dockerfile
+
+FROM python:3.11-slim
+RUN pip install requests psutil
+COPY health-agent.py /agent/health-agent.py
+CMD ["python", "-u", "/agent/health-agent.py"]
+
+Also create: /agent/README.md
+
+Deployment instructions for:
+1. Docker (any cloud): docker run command with all env vars
+2. AWS: EventBridge Scheduler + ECS Task (point to this image)
+3. Azure: Container Instance with Timer Trigger
+4. GCP: Cloud Run Job with Cloud Scheduler
+5. Kubernetes (any): CronJob manifest (YAML)
+6. Linux VM / any server: crontab entry + docker run
+Include example EKAI_SERVICES JSON for a typical Ekai deployment.
+
+---
+
+PART 7 — EMAIL NOTIFICATIONS (additions to existing Resend setup)
+
+Add these new email triggers:
+
+1. Health alert — status changed to DOWN
+   To: support@ekai.ai
+   Subject: [P1 ALERT] {org name} - {env name} is DOWN
+   Body: environment details, last healthy time, 
+         link to /agent/health/[environmentId]
+
+2. Health alert — status changed to DEGRADED  
+   To: support@ekai.ai
+   Subject: [P2 ALERT] {org name} - {env name} is DEGRADED
+   Body: which services are degraded, 
+         link to /agent/health/[environmentId]
+
+3. Health alert — missed heartbeat
+   To: support@ekai.ai
+   Subject: [WARNING] {org name} - {env name} - 
+            no heartbeat for 10+ minutes
+
+4. Health resolved — status returned to HEALTHY
+   To: support@ekai.ai + customer primary contact
+   Subject: [RESOLVED] {org name} - {env name} is healthy again
+   Body: downtime duration, link to incident ticket if one was created
+
+---
+
+IMPORTANT IMPLEMENTATION NOTES
+
+1. The /api/telemetry/ingest endpoint must NOT use NextAuth session 
+   middleware — it is called by the agent (no browser session). 
+   Auth is the X-Ekai-API-Key header only.
+
+2. API keys are stored hashed (use bcrypt). On ingest, 
+   hash the incoming key and compare — never store plaintext.
+
+3. The health dashboard pages (/health, /agent/health) should use 
+   SWR or React Query for auto-refresh every 60 seconds — 
+   not full page reload.
+
+4. servicesJson and platformJson in HealthSnapshot are stored as 
+   JSON strings (TEXT column) — parse them on read. 
+   Do not create separate tables for individual services.
+
+5. The health agent Python script must work with only Python stdlib + 
+   requests + psutil. No other dependencies. 
+   It must run on Python 3.8+.
+
+6. Auto-created tickets (from DOWN/DEGRADED alerts) should be 
+   linked back to the HealthAlert record via linkedTicketId.
+
+7. Seed data: add 2 CustomerEnvironments to the existing seed, 
+   with 20 HealthSnapshots each showing a mix of statuses 
+   over the last 24 hours. Include 1 DOWN event that 
+   auto-created a ticket.

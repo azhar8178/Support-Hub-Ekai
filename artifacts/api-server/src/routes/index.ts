@@ -14,6 +14,8 @@ import siteSettingsRouter from "./siteSettings";
 import filesRouter from "./files";
 import deploymentsRouter from "./deployments";
 import bootstrapRouter from "./bootstrap";
+import telemetryRouter from "./telemetry";
+import environmentsRouter from "./environments";
 
 const router: IRouter = Router();
 
@@ -32,5 +34,7 @@ router.use(brandingRouter);
 router.use(siteSettingsRouter);
 router.use(filesRouter);
 router.use(deploymentsRouter);
+router.use(telemetryRouter);
+router.use(environmentsRouter);
 
 export default router;
