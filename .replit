@@ -44,6 +44,10 @@ args = "codegen-check"
 task = "workflow.run"
 args = "helm-lint-template"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "portal-wizard-tests"
+
 [[workflows.workflow]]
 name = "api-tests"
 author = "agent"
@@ -118,6 +122,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "bash deploy/helm/scripts/validate-chart.sh"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "portal-wizard-tests"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/support-portal run test"
 
 [workflows.workflow.metadata]
 isValidation = true
