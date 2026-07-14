@@ -35,6 +35,7 @@ import {
   type Severity,
   type TaxonomyOption,
 } from "@workspace/api-client-react";
+import { SetupWizard } from "@/components/SetupWizard";
 import { queryClient } from "@/lib/queryClient";
 import { 
   Users, Building, Mail, SlidersHorizontal, BarChart3, Plus, Search, 
@@ -160,6 +161,8 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight text-[#0F1F3D]">Administration</h1>
         <p className="text-stone-500 mt-1">Manage users, organizations, invites, and system configuration.</p>
       </div>
+
+      <SetupWizard onNavigateToTab={setActiveTab} />
 
       <div className="flex-1 overflow-auto p-8 max-w-[1400px] mx-auto w-full space-y-6">
         <BootstrapSecurityBanner />
