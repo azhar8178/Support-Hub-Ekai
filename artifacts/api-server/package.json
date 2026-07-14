@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "test": "vitest run",
-    "typecheck": "tsc -b ../../lib/db ../../lib/api-zod && tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -b ../../lib/db ../../lib/api-zod && tsc -p tsconfig.json --noEmit",
+    "bootstrap-admin": "node --enable-source-maps ./dist/scripts/bootstrap-admin.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.1084.0",

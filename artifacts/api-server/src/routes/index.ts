@@ -13,9 +13,11 @@ import brandingRouter from "./branding";
 import siteSettingsRouter from "./siteSettings";
 import filesRouter from "./files";
 import deploymentsRouter from "./deployments";
+import bootstrapRouter from "./bootstrap";
 
 const router: IRouter = Router();
 
+router.use(bootstrapRouter);
 router.use(healthRouter);
 router.use(authRouter);
 router.use(ticketsRouter);

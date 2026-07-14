@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { seedIfEmpty } from "./lib/seed";
 import { refreshSlaClockCache } from "./lib/sla";
 import { startSweeps } from "./lib/sweeps";
+import { BOOTSTRAP_TOKEN } from "./routes/bootstrap";
 
 const rawPort = process.env["PORT"];
 
@@ -25,6 +26,15 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Log the bootstrap token so the operator can use it before the first admin
+  // signs in.  It lives only in memory — never committed to disk or source.
+  logger.warn(
+    { bootstrapToken: BOOTSTRAP_TOKEN },
+    "BOOTSTRAP: use this token (valid until the first admin signs in) with " +
+      "POST /api/bootstrap-admin to create the first admin invite. " +
+      "Or run: pnpm --filter @workspace/api-server run bootstrap-admin -- --email <email>",
+  );
 
   seedIfEmpty()
     .then(() => refreshSlaClockCache())
