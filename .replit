@@ -137,4 +137,5 @@ channel = "stable-25_05"
 
 [userenv.shared]
 EMAIL_FROM = ""
-PORTAL_URL = ""
+PORTAL_URL = "https://5ce90953-b7e4-4000-b173-21ecb1105e91-00-2lmf65bpjpfzi-qsos3ap2.pike.replit.dev"
+BASE_PATH = "/"
