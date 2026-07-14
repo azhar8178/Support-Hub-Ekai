@@ -216,7 +216,7 @@ export default function KbEditorPage() {
 
                 <Tabs value={isPreview ? "preview" : "edit"} onValueChange={(v) => setIsPreview(v === "preview")} className="mt-8">
                   <div className="flex items-center justify-between mb-2">
-                    <FormLabel className="text-[#0F1F3D] font-semibold text-lg">Content</FormLabel>
+                    <span className="text-[#0F1F3D] font-semibold text-lg">Content</span>
                     <TabsList className="bg-stone-100 border border-stone-200 p-0.5 h-auto">
                       <TabsTrigger value="edit" className="text-xs py-1.5 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm">Edit Markdown</TabsTrigger>
                       <TabsTrigger value="preview" className="text-xs py-1.5 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm">
