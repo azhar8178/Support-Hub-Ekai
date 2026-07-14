@@ -8,5 +8,9 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 30_000,
+    // Tests mock Clerk's getAuth via the x-test-clerk-user header.
+    // AUTH_MODE must be "clerk" so requireAuth delegates to the Clerk path
+    // (where the mock intercepts), not to localAuth which ignores the header.
+    env: { AUTH_MODE: "clerk" },
   },
 });

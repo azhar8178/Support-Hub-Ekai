@@ -3,10 +3,14 @@ import {
   deploymentsTable,
   deploymentHeartbeatsTable,
   kbSuggestionEventsTable,
+  customerEnvironmentsTable,
+  healthAlertsTable,
   ticketsTable,
+  ticketMessagesTable,
   usersTable,
+  organisationsTable,
 } from "@workspace/db";
-import { and, asc, count, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, lt, not, or, sql } from "drizzle-orm";
 import { addBusinessDays } from "./businessHours";
 import { computeSlaInfo } from "./sla";
 import { applyStatusChange } from "./ticketActions";
@@ -38,6 +42,9 @@ const HEARTBEAT_PRUNE_INTERVAL_MS = 3600_000; // 1 hour
 let lastKbEventPruneAt = 0;
 let lastHeartbeatPruneAt = 0;
 let lastFleetPollAt = 0;
+let lastCustomerHeartbeatCheckAt = 0;
+const CUSTOMER_HEARTBEAT_CHECK_INTERVAL_MS = 5 * 60_000; // run every 5 min
+const CUSTOMER_HEARTBEAT_OFFLINE_MS = 10 * 60_000;       // offline after 10 min silence
 
 /**
  * Delete KB suggestion events for drafts whose latest activity is older than
@@ -328,6 +335,70 @@ export async function runFleetAlerts(now: Date): Promise<void> {
  * 4. Fetch due Expo push delivery receipts from the persisted queue.
  * 5. Fleet health alerting for registered client deployments.
  */
+/**
+ * Check all push-mode customer environments for missed heartbeats.
+ * Any environment that hasn't sent a heartbeat in the last 10 minutes
+ * is marked OFFLINE and a MISSED_HEARTBEAT alert is created.
+ * Exported for unit tests; called internally by runSweep (every 5 min).
+ */
+export async function checkCustomerHeartbeats(now: Date): Promise<void> {
+  const cutoff = new Date(now.getTime() - CUSTOMER_HEARTBEAT_OFFLINE_MS);
+
+  const staleEnvs = await db
+    .select({
+      env: customerEnvironmentsTable,
+      orgName: organisationsTable.name,
+    })
+    .from(customerEnvironmentsTable)
+    .leftJoin(organisationsTable, eq(customerEnvironmentsTable.orgId, organisationsTable.id))
+    .where(
+      and(
+        eq(customerEnvironmentsTable.heartbeatMode, "push"),
+        eq(customerEnvironmentsTable.active, true),
+        not(eq(customerEnvironmentsTable.status, "OFFLINE")),
+        or(
+          lt(customerEnvironmentsTable.lastSeen, cutoff),
+          isNull(customerEnvironmentsTable.lastSeen),
+        ),
+      ),
+    );
+
+  for (const { env, orgName } of staleEnvs) {
+    await db
+      .update(customerEnvironmentsTable)
+      .set({ status: "OFFLINE" })
+      .where(eq(customerEnvironmentsTable.id, env.id));
+
+    await db.insert(healthAlertsTable).values({
+      environmentId: env.id,
+      alertType: "MISSED_HEARTBEAT",
+      fromStatus: env.status,
+      toStatus: "OFFLINE",
+    });
+
+    const lastSeenAgo = env.lastSeen
+      ? `${Math.floor((now.getTime() - env.lastSeen.getTime()) / 60_000)} minutes ago`
+      : "never";
+
+    logger.warn(
+      { envId: env.id, envName: env.name, orgName, lastSeenAgo },
+      "customer environment marked OFFLINE: missed heartbeat",
+    );
+
+    // Send alert email
+    const { sendEmail } = await import("./email");
+    const { getPortalUrl } = await import("./systemConfig");
+    const portalUrl = (await getPortalUrl()) ?? "https://support.ekai.ai";
+    sendEmail({
+      to: "support@ekai.ai",
+      subject: `[FLEET] Missed heartbeat: ${env.name} (${orgName ?? "unknown org"})`,
+      html: `<p>No heartbeat from <strong>${orgName ?? "unknown org"} — ${env.name}</strong> for more than 10 minutes. Last seen: <strong>${lastSeenAgo}</strong>.</p>
+        <p><a href="${portalUrl}/agent/health/${env.id}">View fleet dashboard →</a></p>`,
+      text: `[FLEET] Missed heartbeat: ${env.name} (${orgName ?? "unknown org"})\nLast seen: ${lastSeenAgo}\nView: ${portalUrl}/agent/health/${env.id}`,
+    }).catch((err) => logger.error({ err }, "failed to send missed-heartbeat email"));
+  }
+}
+
 export async function runSweep(): Promise<void> {
   const now = new Date();
 
@@ -402,8 +473,14 @@ export async function runSweep(): Promise<void> {
     await runFleetPoll(now);
   }
 
-  // --- Fleet health alerting ---
+  // --- Fleet health alerting (legacy deploymentsTable-based) ---
   await runFleetAlerts(now);
+
+  // --- Customer fleet environments: missed heartbeat check ---
+  if (now.getTime() - lastCustomerHeartbeatCheckAt >= CUSTOMER_HEARTBEAT_CHECK_INTERVAL_MS) {
+    lastCustomerHeartbeatCheckAt = now.getTime();
+    await checkCustomerHeartbeats(now);
+  }
 }
 
 export function startSweeps(): void {
