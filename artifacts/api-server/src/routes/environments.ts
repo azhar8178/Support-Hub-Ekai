@@ -102,7 +102,7 @@ router.get(
 // ADMIN: Register new environment
 // ---------------------------------------------------------------------------
 router.post(
-  "/admin/environments",
+  "/admin/fleet/environments",
   requireAuth,
   requireRole("admin"),
   async (req, res): Promise<void> => {
