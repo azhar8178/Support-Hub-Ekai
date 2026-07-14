@@ -51,7 +51,7 @@ class AwsSesEmailChannel implements NotificationChannel {
       switch (payload.type) {
         case "ticket_created":
           await sendEmail(
-            ticketCreatedEmail({
+            await ticketCreatedEmail({
               to: userEmail,
               ticketId: id,
               ticketTitle: meta.ticketTitle ?? payload.title,
@@ -62,7 +62,7 @@ class AwsSesEmailChannel implements NotificationChannel {
 
         case "agent_reply":
           await sendEmail(
-            agentReplyEmail({
+            await agentReplyEmail({
               to: userEmail,
               ticketId: id,
               ticketTitle: meta.ticketTitle ?? payload.title,
@@ -73,7 +73,7 @@ class AwsSesEmailChannel implements NotificationChannel {
 
         case "status_changed":
           await sendEmail(
-            statusChangedEmail({
+            await statusChangedEmail({
               to: userEmail,
               ticketId: id,
               ticketTitle: meta.ticketTitle ?? payload.title,
@@ -85,7 +85,7 @@ class AwsSesEmailChannel implements NotificationChannel {
 
         case "new_critical_ticket":
           await sendEmail(
-            newCriticalTicketEmail({
+            await newCriticalTicketEmail({
               to: userEmail,
               ticketId: id,
               ticketTitle: meta.ticketTitle ?? payload.title,
@@ -97,7 +97,7 @@ class AwsSesEmailChannel implements NotificationChannel {
 
         case "sla_warning":
           await sendEmail(
-            slaWarningEmail({
+            await slaWarningEmail({
               to: userEmail,
               ticketId: id,
               ticketTitle: meta.ticketTitle ?? payload.title,

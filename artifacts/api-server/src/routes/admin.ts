@@ -213,7 +213,7 @@ router.post(
     // Send the invite email directly (not through the in-app notification pipeline).
     const inviteLink = `/accept-invite?token=${token}`;
     await sendEmail(
-      inviteEmail({
+      await inviteEmail({
         to: email,
         inviteUrl: inviteLink,
         role: parsed.data.role,
@@ -391,7 +391,7 @@ router.post(
       .returning();
     const inviteLink = `/accept-invite?token=${token}`;
     await sendEmail(
-      inviteEmail({
+      await inviteEmail({
         to: updated!.email,
         inviteUrl: inviteLink,
         role: updated!.role,

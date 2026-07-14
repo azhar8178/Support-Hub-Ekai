@@ -15,4 +15,16 @@ export interface SiteSettingsUpdate {
   whatsappNumber?: string | null;
   /** @nullable */
   slackWebhookUrl?: string | null;
+  /** @nullable */
+  emailFrom?: string | null;
+  /** @nullable */
+  awsRegion?: string | null;
+  /** @nullable */
+  fleetHubUrl?: string | null;
+  /** @nullable */
+  privateObjectDir?: string | null;
+  /** @nullable */
+  portalUrl?: string | null;
+  /** @nullable */
+  logLevel?: string | null;
 }

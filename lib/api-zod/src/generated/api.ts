@@ -1436,6 +1436,15 @@ export const GetSiteSettingsResponse = zod.object({
   "logoUrl": zod.string().nullable(),
   "whatsappNumber": zod.string().nullable(),
   "slackWebhookUrl": zod.string().nullable(),
+  "emailFrom": zod.string().nullable(),
+  "awsRegion": zod.string().nullable(),
+  "emailConfigured": zod.boolean().describe('True when AWS SES credentials are present in env vars'),
+  "fleetHubUrl": zod.string().nullable(),
+  "fleetApiKeyConfigured": zod.boolean().describe('True when FLEET_API_KEY is present in env vars'),
+  "privateObjectDir": zod.string().nullable(),
+  "storageConfigured": zod.boolean().describe('True when object storage is reachable'),
+  "portalUrl": zod.string().nullable(),
+  "logLevel": zod.string().nullable(),
   "updatedAt": zod.string()
 })
 
@@ -1447,7 +1456,13 @@ export const UpdateSiteSettingsBody = zod.object({
   "companyName": zod.string().nullish(),
   "tagline": zod.string().nullish(),
   "whatsappNumber": zod.string().nullish(),
-  "slackWebhookUrl": zod.string().nullish()
+  "slackWebhookUrl": zod.string().nullish(),
+  "emailFrom": zod.string().nullish(),
+  "awsRegion": zod.string().nullish(),
+  "fleetHubUrl": zod.string().nullish(),
+  "privateObjectDir": zod.string().nullish(),
+  "portalUrl": zod.string().nullish(),
+  "logLevel": zod.string().nullish()
 })
 
 export const UpdateSiteSettingsResponse = zod.object({
@@ -1457,6 +1472,15 @@ export const UpdateSiteSettingsResponse = zod.object({
   "logoUrl": zod.string().nullable(),
   "whatsappNumber": zod.string().nullable(),
   "slackWebhookUrl": zod.string().nullable(),
+  "emailFrom": zod.string().nullable(),
+  "awsRegion": zod.string().nullable(),
+  "emailConfigured": zod.boolean().describe('True when AWS SES credentials are present in env vars'),
+  "fleetHubUrl": zod.string().nullable(),
+  "fleetApiKeyConfigured": zod.boolean().describe('True when FLEET_API_KEY is present in env vars'),
+  "privateObjectDir": zod.string().nullable(),
+  "storageConfigured": zod.boolean().describe('True when object storage is reachable'),
+  "portalUrl": zod.string().nullable(),
+  "logLevel": zod.string().nullable(),
   "updatedAt": zod.string()
 })
 

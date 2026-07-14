@@ -29,12 +29,13 @@ export class ObjectNotFoundError extends Error {
   }
 }
 
-function getPrivateObjectDir(): string {
-  const dir = process.env.PRIVATE_OBJECT_DIR || "";
+async function getPrivateObjectDir(): Promise<string> {
+  const { getPrivateObjectDir: getDir } = await import("./systemConfig");
+  const dir = (await getDir()) ?? "";
   if (!dir) {
     throw new Error(
-      "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-        "tool and set PRIVATE_OBJECT_DIR env var.",
+      "PRIVATE_OBJECT_DIR not set. Configure it in Admin → Settings → System " +
+        "or set the PRIVATE_OBJECT_DIR environment variable.",
     );
   }
   return dir;
@@ -54,8 +55,8 @@ function parseObjectPath(path: string): { bucketName: string; objectName: string
   };
 }
 
-function fileForStorageKey(storageKey: string) {
-  let dir = getPrivateObjectDir();
+async function fileForStorageKey(storageKey: string) {
+  let dir = await getPrivateObjectDir();
   if (!dir.endsWith("/")) dir = `${dir}/`;
   const { bucketName, objectName } = parseObjectPath(`${dir}${storageKey}`);
   return objectStorageClient.bucket(bucketName).file(objectName);
@@ -67,13 +68,13 @@ export async function saveAttachmentObject(
   data: Buffer,
   contentType: string,
 ): Promise<void> {
-  const file = fileForStorageKey(storageKey);
+  const file = await fileForStorageKey(storageKey);
   await file.save(data, { contentType, resumable: false });
 }
 
 /** Reads attachment bytes for the given storage key. Throws ObjectNotFoundError if missing. */
 export async function readAttachmentObject(storageKey: string): Promise<Buffer> {
-  const file = fileForStorageKey(storageKey);
+  const file = await fileForStorageKey(storageKey);
   const [exists] = await file.exists();
   if (!exists) throw new ObjectNotFoundError();
   const [contents] = await file.download();
@@ -82,6 +83,6 @@ export async function readAttachmentObject(storageKey: string): Promise<Buffer> 
 
 /** Best-effort deletion of an attachment object (used by tests/cleanup). */
 export async function deleteAttachmentObject(storageKey: string): Promise<void> {
-  const file = fileForStorageKey(storageKey);
+  const file = await fileForStorageKey(storageKey);
   await file.delete({ ignoreNotFound: true });
 }

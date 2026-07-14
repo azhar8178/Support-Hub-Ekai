@@ -15,34 +15,38 @@
 
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { logger } from "./logger";
+import { getEmailFrom, getAwsRegion, getPortalUrl } from "./systemConfig";
 
 // --------------------------------------------------------------------------
-// Client (lazy singleton — recreated if env changes in tests)
+// Client (lazy singleton — reset when region changes)
 // --------------------------------------------------------------------------
 
 let _client: SESClient | null = null;
+let _clientRegion: string | null = null;
 
-function getSesClient(): SESClient | null {
-  const region = process.env.AWS_REGION;
+async function getSesClient(): Promise<SESClient | null> {
+  const region = await getAwsRegion();
   const keyId = process.env.AWS_ACCESS_KEY_ID;
   const secret = process.env.AWS_SECRET_ACCESS_KEY;
 
   if (!region || !keyId || !secret) return null;
 
-  if (!_client) {
+  // Recreate if region changed (e.g. updated via settings UI)
+  if (!_client || _clientRegion !== region) {
     _client = new SESClient({
       region,
       credentials: { accessKeyId: keyId, secretAccessKey: secret },
     });
+    _clientRegion = region;
   }
   return _client;
 }
 
-export const portalUrl = (): string =>
-  (process.env.PORTAL_URL ?? "").replace(/\/$/, "");
+export const portalUrl = async (): Promise<string> =>
+  ((await getPortalUrl()) ?? "").replace(/\/$/, "");
 
-export const fromAddress = (): string | null =>
-  process.env.EMAIL_FROM ?? null;
+export const fromAddress = async (): Promise<string | null> =>
+  getEmailFrom();
 
 // --------------------------------------------------------------------------
 // Core send helper
@@ -56,8 +60,8 @@ export interface EmailMessage {
 }
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
-  const client = getSesClient();
-  const from = fromAddress();
+  const client = await getSesClient();
+  const from = await fromAddress();
 
   if (!client || !from) {
     logger.info(
@@ -128,13 +132,13 @@ function escHtml(s: string): string {
 // Templates
 // --------------------------------------------------------------------------
 
-export function ticketCreatedEmail(opts: {
+export async function ticketCreatedEmail(opts: {
   to: string;
   ticketId: number;
   ticketTitle: string;
   severity: string;
-}): EmailMessage {
-  const url = `${portalUrl()}/tickets/${opts.ticketId}`;
+}): Promise<EmailMessage> {
+  const url = `${await portalUrl()}/tickets/${opts.ticketId}`;
   const subject = `[Ticket #${opts.ticketId}] We received your request`;
   const html = layout(
     subject,
@@ -147,13 +151,13 @@ export function ticketCreatedEmail(opts: {
   return { to: opts.to, subject, html, text };
 }
 
-export function agentReplyEmail(opts: {
+export async function agentReplyEmail(opts: {
   to: string;
   ticketId: number;
   ticketTitle: string;
   agentName: string;
-}): EmailMessage {
-  const url = `${portalUrl()}/tickets/${opts.ticketId}`;
+}): Promise<EmailMessage> {
+  const url = `${await portalUrl()}/tickets/${opts.ticketId}`;
   const subject = `[Ticket #${opts.ticketId}] New reply from ${opts.agentName}`;
   const html = layout(
     subject,
@@ -166,14 +170,14 @@ export function agentReplyEmail(opts: {
   return { to: opts.to, subject, html, text };
 }
 
-export function statusChangedEmail(opts: {
+export async function statusChangedEmail(opts: {
   to: string;
   ticketId: number;
   ticketTitle: string;
   fromStatus: string;
   toStatus: string;
-}): EmailMessage {
-  const url = `${portalUrl()}/tickets/${opts.ticketId}`;
+}): Promise<EmailMessage> {
+  const url = `${await portalUrl()}/tickets/${opts.ticketId}`;
   const subject = `[Ticket #${opts.ticketId}] Status changed to ${opts.toStatus}`;
   const html = layout(
     subject,
@@ -187,14 +191,14 @@ export function statusChangedEmail(opts: {
   return { to: opts.to, subject, html, text };
 }
 
-export function newCriticalTicketEmail(opts: {
+export async function newCriticalTicketEmail(opts: {
   to: string;
   ticketId: number;
   ticketTitle: string;
   severity: string;
   raiserName: string;
-}): EmailMessage {
-  const url = `${portalUrl()}/tickets/${opts.ticketId}`;
+}): Promise<EmailMessage> {
+  const url = `${await portalUrl()}/tickets/${opts.ticketId}`;
   const subject = `[${opts.severity}] New critical ticket #${opts.ticketId}`;
   const html = layout(
     subject,
@@ -207,14 +211,14 @@ export function newCriticalTicketEmail(opts: {
   return { to: opts.to, subject, html, text };
 }
 
-export function slaWarningEmail(opts: {
+export async function slaWarningEmail(opts: {
   to: string;
   ticketId: number;
   ticketTitle: string;
   severity: string;
   which: string; // "first response" | "resolution"
-}): EmailMessage {
-  const url = `${portalUrl()}/tickets/${opts.ticketId}`;
+}): Promise<EmailMessage> {
+  const url = `${await portalUrl()}/tickets/${opts.ticketId}`;
   const subject = `[SLA Warning] Ticket #${opts.ticketId} has used 75% of the ${opts.which} window`;
   const html = layout(
     subject,
@@ -227,16 +231,17 @@ export function slaWarningEmail(opts: {
   return { to: opts.to, subject, html, text };
 }
 
-export function inviteEmail(opts: {
+export async function inviteEmail(opts: {
   to: string;
   inviteUrl: string;
   role: string;
   inviterName: string;
-}): EmailMessage {
+}): Promise<EmailMessage> {
   const subject = `You've been invited to the Ekai Support Portal`;
+  const base = await portalUrl();
   const fullUrl = opts.inviteUrl.startsWith("http")
     ? opts.inviteUrl
-    : `${portalUrl()}${opts.inviteUrl}`;
+    : `${base}${opts.inviteUrl}`;
   const html = layout(
     subject,
     `<p>Hi,</p>

@@ -9,7 +9,25 @@ import {
   getGetPublicBrandingQueryKey,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
-import { Loader2, Save, Upload, Trash2, SlidersHorizontal, Users, Building2, Tag, BarChart3, ChevronRight, Radio } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  Upload,
+  Trash2,
+  SlidersHorizontal,
+  Users,
+  Building2,
+  Tag,
+  BarChart3,
+  ChevronRight,
+  Radio,
+  Mail,
+  Database,
+  Globe,
+  CheckCircle2,
+  XCircle,
+  Server,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +37,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Link } from "wouter";
 import FleetTab from "./fleet";
+
+// ── Status pill ────────────────────────────────────────────────────────────
+function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
+  return ok ? (
+    <Badge className="gap-1 bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100">
+      <CheckCircle2 className="h-3 w-3" /> {label}
+    </Badge>
+  ) : (
+    <Badge className="gap-1 bg-stone-100 text-stone-500 border-stone-200 hover:bg-stone-100">
+      <XCircle className="h-3 w-3" /> Not configured
+    </Badge>
+  );
+}
 
 export default function AdminSettingsPage() {
   const { data: settings, isLoading: settingsLoading } = useGetSiteSettings();
@@ -38,6 +69,14 @@ export default function AdminSettingsPage() {
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [whatsappSaved, setWhatsappSaved] = useState(false);
 
+  // System tab state
+  const [emailFrom, setEmailFrom] = useState("");
+  const [awsRegion, setAwsRegion] = useState("");
+  const [fleetHubUrl, setFleetHubUrl] = useState("");
+  const [privateObjectDir, setPrivateObjectDir] = useState("");
+  const [portalUrl, setPortalUrl] = useState("");
+  const [logLevel, setLogLevel] = useState("");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -48,10 +87,16 @@ export default function AdminSettingsPage() {
       setSlackSaved(!!(settings.slackWebhookUrl));
       setWhatsappNumber(settings.whatsappNumber ?? "");
       setWhatsappSaved(!!(settings.whatsappNumber));
+      setEmailFrom(settings.emailFrom ?? "");
+      setAwsRegion(settings.awsRegion ?? "");
+      setFleetHubUrl(settings.fleetHubUrl ?? "");
+      setPrivateObjectDir(settings.privateObjectDir ?? "");
+      setPortalUrl(settings.portalUrl ?? "");
+      setLogLevel(settings.logLevel ?? "");
     }
   }, [settings]);
 
-  const invalidateBranding = () => {
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getGetSiteSettingsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetPublicBrandingQueryKey() });
   };
@@ -62,30 +107,22 @@ export default function AdminSettingsPage() {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
-      // strip "data:<type>;base64," prefix
       const base64 = dataUrl.split(",")[1];
       uploadLogo.mutate(
         { data: { filename: file.name, contentType: file.type, data: base64 } },
         {
-          onSuccess: () => {
-            toast.success("Logo uploaded");
-            invalidateBranding();
-          },
+          onSuccess: () => { toast.success("Logo uploaded"); invalidate(); },
           onError: (err: any) => toast.error(err?.message || "Failed to upload logo"),
         }
       );
     };
     reader.readAsDataURL(file);
-    // reset input so same file can be re-selected
     e.target.value = "";
   };
 
   const handleDeleteLogo = () => {
     deleteLogo.mutate(undefined, {
-      onSuccess: () => {
-        toast.success("Logo removed");
-        invalidateBranding();
-      },
+      onSuccess: () => { toast.success("Logo removed"); invalidate(); },
       onError: (err: any) => toast.error(err?.message || "Failed to remove logo"),
     });
   };
@@ -94,10 +131,7 @@ export default function AdminSettingsPage() {
     updateSettings.mutate(
       { data: { companyName, tagline } },
       {
-        onSuccess: () => {
-          toast.success("Branding saved");
-          invalidateBranding();
-        },
+        onSuccess: () => { toast.success("Branding saved"); invalidate(); },
         onError: (err: any) => toast.error(err?.message || "Failed to save branding"),
       }
     );
@@ -107,11 +141,7 @@ export default function AdminSettingsPage() {
     updateSettings.mutate(
       { data: { slackWebhookUrl } },
       {
-        onSuccess: () => {
-          toast.success("Slack webhook saved");
-          setSlackSaved(!!slackWebhookUrl);
-          invalidateBranding();
-        },
+        onSuccess: () => { toast.success("Slack webhook saved"); setSlackSaved(!!slackWebhookUrl); invalidate(); },
         onError: (err: any) => toast.error(err?.message || "Failed to save Slack webhook"),
       }
     );
@@ -121,12 +151,18 @@ export default function AdminSettingsPage() {
     updateSettings.mutate(
       { data: { whatsappNumber } },
       {
-        onSuccess: () => {
-          toast.success("WhatsApp number saved");
-          setWhatsappSaved(!!whatsappNumber);
-          invalidateBranding();
-        },
+        onSuccess: () => { toast.success("WhatsApp number saved"); setWhatsappSaved(!!whatsappNumber); invalidate(); },
         onError: (err: any) => toast.error(err?.message || "Failed to save WhatsApp number"),
+      }
+    );
+  };
+
+  const handleSaveSystem = (fields: Record<string, string | null>) => {
+    updateSettings.mutate(
+      { data: fields },
+      {
+        onSuccess: () => { toast.success("Settings saved"); invalidate(); },
+        onError: (err: any) => toast.error(err?.message || "Failed to save settings"),
       }
     );
   };
@@ -162,6 +198,10 @@ export default function AdminSettingsPage() {
               <TabsTrigger value="integrations" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D]">
                 Integrations
               </TabsTrigger>
+              <TabsTrigger value="system" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D] gap-1.5">
+                <Server className="h-3.5 w-3.5" />
+                System
+              </TabsTrigger>
               <TabsTrigger value="administration" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D]">
                 Administration
               </TabsTrigger>
@@ -179,54 +219,33 @@ export default function AdminSettingsPage() {
                   <h2 className="text-base font-semibold text-[#0F1F3D]">Logo</h2>
                 </CardHeader>
                 <CardContent className="pt-5 space-y-4">
-                  {/* Preview */}
                   <div className="flex items-center gap-4">
                     <div className="h-16 w-32 rounded-md border border-stone-200 bg-stone-50 flex items-center justify-center overflow-hidden">
                       {logoUrl ? (
-                        <img
-                          src={logoUrl}
-                          alt="Company logo"
-                          className="max-h-14 max-w-[120px] object-contain"
-                        />
+                        <img src={logoUrl} alt="Company logo" className="max-h-14 max-w-[120px] object-contain" />
                       ) : (
                         <span className="text-xs text-stone-400">No logo</span>
                       )}
                     </div>
                     <div className="flex flex-col gap-2">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleLogoFile}
-                      />
+                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
                       <Button
-                        variant="outline"
-                        size="sm"
+                        variant="outline" size="sm"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploadLogo.isPending}
                         className="gap-1.5"
                       >
-                        {uploadLogo.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Upload className="h-4 w-4" />
-                        )}
+                        {uploadLogo.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                         {logoUrl ? "Replace logo" : "Upload logo"}
                       </Button>
                       {logoUrl && (
                         <Button
-                          variant="outline"
-                          size="sm"
+                          variant="outline" size="sm"
                           onClick={handleDeleteLogo}
                           disabled={deleteLogo.isPending}
                           className="gap-1.5 text-red-600 hover:text-red-700 hover:border-red-300"
                         >
-                          {deleteLogo.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
+                          {deleteLogo.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                           Remove logo
                         </Button>
                       )}
@@ -243,39 +262,15 @@ export default function AdminSettingsPage() {
                 </CardHeader>
                 <CardContent className="pt-5 space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="company-name" className="text-sm font-medium text-[#0F1F3D]">
-                      Company name
-                    </Label>
-                    <Input
-                      id="company-name"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="Your company name"
-                      className="bg-white"
-                    />
+                    <Label htmlFor="company-name" className="text-sm font-medium text-[#0F1F3D]">Company name</Label>
+                    <Input id="company-name" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Your company name" className="bg-white" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="tagline" className="text-sm font-medium text-[#0F1F3D]">
-                      Tagline
-                    </Label>
-                    <Input
-                      id="tagline"
-                      value={tagline}
-                      onChange={(e) => setTagline(e.target.value)}
-                      placeholder="A short description shown in the portal"
-                      className="bg-white"
-                    />
+                    <Label htmlFor="tagline" className="text-sm font-medium text-[#0F1F3D]">Tagline</Label>
+                    <Input id="tagline" value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="A short description shown in the portal" className="bg-white" />
                   </div>
-                  <Button
-                    onClick={handleSaveBranding}
-                    disabled={updateSettings.isPending}
-                    className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
-                  >
-                    {updateSettings.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
+                  <Button onClick={handleSaveBranding} disabled={updateSettings.isPending} className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5">
+                    {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save branding
                   </Button>
                 </CardContent>
@@ -290,38 +285,18 @@ export default function AdminSettingsPage() {
                   <div className="flex items-center justify-between">
                     <h2 className="text-base font-semibold text-[#0F1F3D]">Slack</h2>
                     {slackSaved && slackWebhookUrl && (
-                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100">
-                        Connected
-                      </Badge>
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100">Connected</Badge>
                     )}
                   </div>
                 </CardHeader>
                 <CardContent className="pt-5 space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="slack-webhook" className="text-sm font-medium text-[#0F1F3D]">
-                      Slack Webhook URL
-                    </Label>
-                    <Input
-                      id="slack-webhook"
-                      value={slackWebhookUrl}
-                      onChange={(e) => { setSlackWebhookUrl(e.target.value); setSlackSaved(false); }}
-                      placeholder="https://hooks.slack.com/services/..."
-                      className="bg-white font-mono text-sm"
-                    />
-                    <p className="text-xs text-stone-500">
-                      Create an Incoming Webhook in Slack and paste the URL here. We'll send a message whenever a P1 or P2 ticket is raised.
-                    </p>
+                    <Label htmlFor="slack-webhook" className="text-sm font-medium text-[#0F1F3D]">Slack Webhook URL</Label>
+                    <Input id="slack-webhook" value={slackWebhookUrl} onChange={(e) => { setSlackWebhookUrl(e.target.value); setSlackSaved(false); }} placeholder="https://hooks.slack.com/services/..." className="bg-white font-mono text-sm" />
+                    <p className="text-xs text-stone-500">Create an Incoming Webhook in Slack and paste the URL here. We'll send a message whenever a P1 or P2 ticket is raised.</p>
                   </div>
-                  <Button
-                    onClick={handleSaveSlack}
-                    disabled={updateSettings.isPending}
-                    className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
-                  >
-                    {updateSettings.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
+                  <Button onClick={handleSaveSlack} disabled={updateSettings.isPending} className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5">
+                    {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save
                   </Button>
                 </CardContent>
@@ -334,44 +309,170 @@ export default function AdminSettingsPage() {
                 </CardHeader>
                 <CardContent className="pt-5 space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="whatsapp-number" className="text-sm font-medium text-[#0F1F3D]">
-                      WhatsApp Number
-                    </Label>
-                    <Input
-                      id="whatsapp-number"
-                      value={whatsappNumber}
-                      onChange={(e) => { setWhatsappNumber(e.target.value); setWhatsappSaved(false); }}
-                      placeholder="+447700900000"
-                      className="bg-white"
-                    />
-                    <p className="text-xs text-stone-500">
-                      Customers will see a 'Chat on WhatsApp' button. Include country code, no spaces.
-                    </p>
+                    <Label htmlFor="whatsapp-number" className="text-sm font-medium text-[#0F1F3D]">WhatsApp Number</Label>
+                    <Input id="whatsapp-number" value={whatsappNumber} onChange={(e) => { setWhatsappNumber(e.target.value); setWhatsappSaved(false); }} placeholder="+447700900000" className="bg-white" />
+                    <p className="text-xs text-stone-500">Customers will see a 'Chat on WhatsApp' button. Include country code, no spaces.</p>
                   </div>
                   {whatsappSaved && waNumber && (
                     <div className="flex items-center gap-2 rounded-md bg-stone-50 border border-stone-200 px-3 py-2 text-sm">
                       <span className="text-stone-500">Preview:</span>
-                      <a
-                        href={`https://wa.me/${waNumber}?text=Hi, I need urgent support`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-emerald-600 hover:underline break-all"
-                      >
+                      <a href={`https://wa.me/${waNumber}?text=Hi, I need urgent support`} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline break-all">
                         {`https://wa.me/${waNumber}`}
                       </a>
                     </div>
                   )}
+                  <Button onClick={handleSaveWhatsApp} disabled={updateSettings.isPending} className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5">
+                    {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ── SYSTEM TAB ── */}
+            <TabsContent value="system" className="space-y-6">
+              <p className="text-sm text-stone-500">
+                Non-sensitive configuration managed at runtime. Sensitive credentials (AWS keys, fleet API key) must be set as environment secrets and are shown here as status only.
+              </p>
+
+              {/* Email / AWS SES */}
+              <Card className="shadow-sm border-stone-200">
+                <CardHeader className="pb-4 border-b border-stone-100 bg-stone-50/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-[#EFB323]" />
+                      <h2 className="text-base font-semibold text-[#0F1F3D]">Email · AWS SES</h2>
+                    </div>
+                    <StatusBadge ok={!!(settings?.emailConfigured)} label="Credentials set" />
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+                    <strong>AWS_ACCESS_KEY_ID</strong> and <strong>AWS_SECRET_ACCESS_KEY</strong> must be set as environment secrets — they cannot be stored here.
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-[#0F1F3D]">Sender address</Label>
+                      <Input value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)} placeholder="support@example.com" className="bg-white" />
+                      <p className="text-xs text-stone-500">Must be a verified SES sender. Overrides EMAIL_FROM env var.</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-[#0F1F3D]">AWS region</Label>
+                      <Input value={awsRegion} onChange={(e) => setAwsRegion(e.target.value)} placeholder="us-east-1" className="bg-white font-mono text-sm" />
+                      <p className="text-xs text-stone-500">Overrides AWS_REGION env var.</p>
+                    </div>
+                  </div>
                   <Button
-                    onClick={handleSaveWhatsApp}
+                    onClick={() => handleSaveSystem({ emailFrom: emailFrom || null, awsRegion: awsRegion || null })}
                     disabled={updateSettings.isPending}
                     className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
                   >
-                    {updateSettings.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    Save
+                    {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save email settings
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Fleet Hub */}
+              <Card className="shadow-sm border-stone-200">
+                <CardHeader className="pb-4 border-b border-stone-100 bg-stone-50/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Radio className="h-4 w-4 text-[#EFB323]" />
+                      <h2 className="text-base font-semibold text-[#0F1F3D]">Fleet Hub</h2>
+                    </div>
+                    <StatusBadge ok={!!(settings?.fleetApiKeyConfigured)} label="API key set" />
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+                    <strong>FLEET_API_KEY</strong> must be set as an environment secret.
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-[#0F1F3D]">Fleet Hub URL</Label>
+                    <Input value={fleetHubUrl} onChange={(e) => setFleetHubUrl(e.target.value)} placeholder="https://hub.example.com" className="bg-white font-mono text-sm" />
+                    <p className="text-xs text-stone-500">Base URL of the central fleet hub this instance pushes heartbeats to. Overrides FLEET_HUB_URL env var.</p>
+                  </div>
+                  <Button
+                    onClick={() => handleSaveSystem({ fleetHubUrl: fleetHubUrl || null })}
+                    disabled={updateSettings.isPending}
+                    className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
+                  >
+                    {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save fleet settings
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Object Storage */}
+              <Card className="shadow-sm border-stone-200">
+                <CardHeader className="pb-4 border-b border-stone-100 bg-stone-50/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Database className="h-4 w-4 text-[#EFB323]" />
+                      <h2 className="text-base font-semibold text-[#0F1F3D]">Object Storage</h2>
+                    </div>
+                    <StatusBadge ok={!!(settings?.storageConfigured)} label="Configured" />
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-[#0F1F3D]">Private object directory</Label>
+                    <Input value={privateObjectDir} onChange={(e) => setPrivateObjectDir(e.target.value)} placeholder="/my-bucket/ekai-attachments" className="bg-white font-mono text-sm" />
+                    <p className="text-xs text-stone-500">
+                      GCS path where ticket attachments are stored, e.g. <code className="bg-stone-100 px-1 rounded">/bucket-name/prefix</code>. Overrides PRIVATE_OBJECT_DIR env var. GCS credentials are handled by the Replit Object Storage sidecar.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => handleSaveSystem({ privateObjectDir: privateObjectDir || null })}
+                    disabled={updateSettings.isPending}
+                    className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
+                  >
+                    {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save storage settings
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Portal */}
+              <Card className="shadow-sm border-stone-200">
+                <CardHeader className="pb-4 border-b border-stone-100 bg-stone-50/50">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-[#EFB323]" />
+                    <h2 className="text-base font-semibold text-[#0F1F3D]">Portal</h2>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-[#0F1F3D]">Public URL</Label>
+                      <Input value={portalUrl} onChange={(e) => setPortalUrl(e.target.value)} placeholder="https://support.example.com" className="bg-white font-mono text-sm" />
+                      <p className="text-xs text-stone-500">Used in email links. Overrides PORTAL_URL env var.</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-[#0F1F3D]">Log level</Label>
+                      <select
+                        value={logLevel}
+                        onChange={(e) => setLogLevel(e.target.value)}
+                        className="w-full h-9 rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                      >
+                        <option value="">— default (info) —</option>
+                        <option value="trace">trace</option>
+                        <option value="debug">debug</option>
+                        <option value="info">info</option>
+                        <option value="warn">warn</option>
+                        <option value="error">error</option>
+                      </select>
+                      <p className="text-xs text-stone-500">Overrides LOG_LEVEL env var. Takes effect within 60 s.</p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => handleSaveSystem({ portalUrl: portalUrl || null, logLevel: logLevel || null })}
+                    disabled={updateSettings.isPending}
+                    className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
+                  >
+                    {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save portal settings
                   </Button>
                 </CardContent>
               </Card>

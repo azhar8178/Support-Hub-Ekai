@@ -18,5 +18,23 @@ export interface SiteSettings {
   whatsappNumber: string | null;
   /** @nullable */
   slackWebhookUrl: string | null;
+  /** @nullable */
+  emailFrom: string | null;
+  /** @nullable */
+  awsRegion: string | null;
+  /** True when AWS SES credentials are present in env vars */
+  emailConfigured: boolean;
+  /** @nullable */
+  fleetHubUrl: string | null;
+  /** True when FLEET_API_KEY is present in env vars */
+  fleetApiKeyConfigured: boolean;
+  /** @nullable */
+  privateObjectDir: string | null;
+  /** True when object storage is reachable */
+  storageConfigured: boolean;
+  /** @nullable */
+  portalUrl: string | null;
+  /** @nullable */
+  logLevel: string | null;
   updatedAt: string;
 }

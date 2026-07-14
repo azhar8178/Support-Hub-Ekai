@@ -12,6 +12,7 @@ import {
   saveAttachmentObject,
   deleteAttachmentObject,
 } from "../lib/objectStorage";
+import { invalidateSystemConfigCache } from "../lib/systemConfig";
 
 const router: IRouter = Router();
 
@@ -19,6 +20,15 @@ const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 const LOGO_STORAGE_KEY = "branding/logo";
 
 function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
+  const emailConfigured = !!(
+    process.env["AWS_ACCESS_KEY_ID"] &&
+    process.env["AWS_SECRET_ACCESS_KEY"]
+  );
+  const fleetApiKeyConfigured = !!(process.env["FLEET_API_KEY"]);
+  const storageConfigured = !!(
+    (row?.privateObjectDir ?? process.env["PRIVATE_OBJECT_DIR"])
+  );
+
   if (!row) {
     return {
       id: 0,
@@ -27,6 +37,15 @@ function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
       logoUrl: null,
       whatsappNumber: null,
       slackWebhookUrl: null,
+      emailFrom: null,
+      awsRegion: null,
+      emailConfigured,
+      fleetHubUrl: null,
+      fleetApiKeyConfigured,
+      privateObjectDir: null,
+      storageConfigured,
+      portalUrl: null,
+      logLevel: null,
       updatedAt: new Date().toISOString(),
     };
   }
@@ -37,6 +56,15 @@ function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
     logoUrl: row.logoStorageKey ? "/api/branding/logo" : null,
     whatsappNumber: row.whatsappNumber ?? null,
     slackWebhookUrl: row.slackWebhookUrl ?? null,
+    emailFrom: row.emailFrom ?? null,
+    awsRegion: row.awsRegion ?? null,
+    emailConfigured,
+    fleetHubUrl: row.fleetHubUrl ?? null,
+    fleetApiKeyConfigured,
+    privateObjectDir: row.privateObjectDir ?? null,
+    storageConfigured,
+    portalUrl: row.portalUrl ?? null,
+    logLevel: row.logLevel ?? null,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -71,6 +99,13 @@ router.patch(
     if (parsed.data.tagline !== undefined) fields.tagline = parsed.data.tagline ?? null;
     if (parsed.data.whatsappNumber !== undefined) fields.whatsappNumber = parsed.data.whatsappNumber ?? null;
     if (parsed.data.slackWebhookUrl !== undefined) fields.slackWebhookUrl = parsed.data.slackWebhookUrl ?? null;
+    if (parsed.data.emailFrom !== undefined) fields.emailFrom = parsed.data.emailFrom ?? null;
+    if (parsed.data.awsRegion !== undefined) fields.awsRegion = parsed.data.awsRegion ?? null;
+    if (parsed.data.fleetHubUrl !== undefined) fields.fleetHubUrl = parsed.data.fleetHubUrl ?? null;
+    if (parsed.data.privateObjectDir !== undefined) fields.privateObjectDir = parsed.data.privateObjectDir ?? null;
+    if (parsed.data.portalUrl !== undefined) fields.portalUrl = parsed.data.portalUrl ?? null;
+    if (parsed.data.logLevel !== undefined) fields.logLevel = parsed.data.logLevel ?? null;
+    invalidateSystemConfigCache();
 
     await db
       .insert(siteSettingsTable)

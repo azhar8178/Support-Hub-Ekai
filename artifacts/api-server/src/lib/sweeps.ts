@@ -328,7 +328,8 @@ export async function runFleetAlerts(now: Date): Promise<void> {
  * to the central hub. Runs at most once every 5 minutes.
  */
 async function pushHeartbeatToHub(now: Date): Promise<void> {
-  const hubUrl = process.env["FLEET_HUB_URL"];
+  const { getFleetHubUrl } = await import("./systemConfig");
+  const hubUrl = await getFleetHubUrl();
   const apiKey = process.env["FLEET_API_KEY"];
   if (!hubUrl || !apiKey) return;
   if (now.getTime() - lastHeartbeatPushAt < HEARTBEAT_PUSH_INTERVAL_MS) return;
