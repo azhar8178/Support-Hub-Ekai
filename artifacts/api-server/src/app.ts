@@ -37,7 +37,7 @@ if (AUTH_MODE === "local") {
   // Must come before routes so req.session is available everywhere.
   // The session table is created automatically on first startup.
   const { createSessionMiddleware } = await import("./middlewares/localAuth.js");
-  app.use(createSessionMiddleware());
+  app.use(await createSessionMiddleware());
 
   // When running behind a reverse proxy (nginx / Caddy) in production, tell
   // Express to trust the X-Forwarded-* headers so secure cookies work.
