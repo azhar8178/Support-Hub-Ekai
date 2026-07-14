@@ -38,7 +38,25 @@ export const GetCurrentUserResponse = zod.object({
   "orgName": zod.string().nullable(),
   "active": zod.boolean(),
   "createdAt": zod.string(),
-  "lastLogin": zod.string().nullable()
+  "lastLogin": zod.string().nullable(),
+  "setupWizardDismissed": zod.boolean()
+})
+
+
+/**
+ * @summary Mark the setup wizard as dismissed for the current user
+ */
+export const DismissWizardResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.enum(['customer', 'ekai_agent', 'admin']),
+  "orgId": zod.number().nullable(),
+  "orgName": zod.string().nullable(),
+  "active": zod.boolean(),
+  "createdAt": zod.string(),
+  "lastLogin": zod.string().nullable(),
+  "setupWizardDismissed": zod.boolean()
 })
 
 
@@ -61,7 +79,8 @@ export const AcceptInviteResponse = zod.object({
   "orgName": zod.string().nullable(),
   "active": zod.boolean(),
   "createdAt": zod.string(),
-  "lastLogin": zod.string().nullable()
+  "lastLogin": zod.string().nullable(),
+  "setupWizardDismissed": zod.boolean()
 })
 
 
@@ -778,7 +797,8 @@ export const ListAgentsResponseItem = zod.object({
   "orgName": zod.string().nullable(),
   "active": zod.boolean(),
   "createdAt": zod.string(),
-  "lastLogin": zod.string().nullable()
+  "lastLogin": zod.string().nullable(),
+  "setupWizardDismissed": zod.boolean()
 })
 export const ListAgentsResponse = zod.array(ListAgentsResponseItem)
 
@@ -945,7 +965,8 @@ export const ListUsersResponseItem = zod.object({
   "orgName": zod.string().nullable(),
   "active": zod.boolean(),
   "createdAt": zod.string(),
-  "lastLogin": zod.string().nullable()
+  "lastLogin": zod.string().nullable(),
+  "setupWizardDismissed": zod.boolean()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
 
@@ -973,7 +994,8 @@ export const UpdateUserResponse = zod.object({
   "orgName": zod.string().nullable(),
   "active": zod.boolean(),
   "createdAt": zod.string(),
-  "lastLogin": zod.string().nullable()
+  "lastLogin": zod.string().nullable(),
+  "setupWizardDismissed": zod.boolean()
 })
 
 

@@ -270,6 +270,77 @@ export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUs
 
 
 
+export const getDismissWizardUrl = () => {
+
+
+
+
+  return `/api/auth/wizard-dismissed`
+}
+
+/**
+ * @summary Mark the setup wizard as dismissed for the current user
+ */
+export const dismissWizard = async ( options?: RequestInit): Promise<PortalUser> => {
+
+  return customFetch<PortalUser>(getDismissWizardUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDismissWizardMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissWizard>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dismissWizard>>, TError,void, TContext> => {
+
+const mutationKey = ['dismissWizard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dismissWizard>>, void> = () => {
+
+
+          return  dismissWizard(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DismissWizardMutationResult = NonNullable<Awaited<ReturnType<typeof dismissWizard>>>
+
+    export type DismissWizardMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark the setup wizard as dismissed for the current user
+ */
+export const useDismissWizard = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissWizard>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof dismissWizard>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDismissWizardMutationOptions(options));
+    }
+
 export const getAcceptInviteUrl = () => {
 
 

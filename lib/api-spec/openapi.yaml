@@ -50,6 +50,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /auth/wizard-dismissed:
+    post:
+      operationId: dismissWizard
+      tags: [auth]
+      summary: Mark the setup wizard as dismissed for the current user
+      responses:
+        "200":
+          description: Wizard dismissed; updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalUser"
   /invites/accept:
     post:
       operationId: acceptInvite
@@ -1408,7 +1420,8 @@ components:
         active: { type: boolean }
         createdAt: { type: string }
         lastLogin: { type: ["string", "null"] }
-      required: [id, email, name, role, orgId, orgName, active, createdAt, lastLogin]
+        setupWizardDismissed: { type: boolean }
+      required: [id, email, name, role, orgId, orgName, active, createdAt, lastLogin, setupWizardDismissed]
     PortalUserUpdate:
       type: object
       properties:

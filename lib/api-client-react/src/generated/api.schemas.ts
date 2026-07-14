@@ -200,6 +200,7 @@ export interface PortalUser {
   createdAt: string;
   /** @nullable */
   lastLogin: string | null;
+  setupWizardDismissed: boolean;
 }
 
 export type PortalUserUpdateRole = typeof PortalUserUpdateRole[keyof typeof PortalUserUpdateRole];

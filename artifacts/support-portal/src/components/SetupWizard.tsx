@@ -21,6 +21,8 @@ import {
   useListUsers,
   useCreateInvite,
   useListSeverities,
+  useDismissWizard,
+  getGetCurrentUserQueryKey,
   getListInvitesQueryKey,
   InviteRole,
 } from "@workspace/api-client-react";
@@ -434,15 +436,26 @@ export interface SetupWizardProps {
 export function SetupWizard({ onNavigateToTab }: SetupWizardProps) {
   const { data: currentUser } = useGetCurrentUser();
   const { data: users, isLoading: usersLoading } = useListUsers();
+  const dismissWizardMutation = useDismissWizard();
   const [step, setStep] = useState(0);
   const [open, setOpen] = useState(false);
 
-  // Decide whether to show — wait until both queries resolve
+  // Decide whether to show — wait until both queries resolve.
+  // The server flag (setupWizardDismissed) is the source of truth so the
+  // wizard stays suppressed across all devices/browsers. localStorage is kept
+  // as a fast client-side cache to avoid a loading flash on repeat visits.
   useEffect(() => {
     if (usersLoading || !currentUser) return;
 
-    const dismissed = localStorage.getItem(WIZARD_DISMISSED_KEY);
-    if (dismissed) return;
+    // Server flag wins — if already dismissed, never show again.
+    if (currentUser.setupWizardDismissed) {
+      localStorage.setItem(WIZARD_DISMISSED_KEY, "1");
+      return;
+    }
+
+    // Fast client-side cache: skip the dialog if locally known to be dismissed.
+    const locallyDismissed = localStorage.getItem(WIZARD_DISMISSED_KEY);
+    if (locallyDismissed) return;
 
     // Show if the system only has one user (the bootstrapped admin)
     const userCount = users?.length ?? 0;
@@ -452,8 +465,16 @@ export function SetupWizard({ onNavigateToTab }: SetupWizardProps) {
   }, [usersLoading, users, currentUser]);
 
   const dismiss = () => {
+    // Optimistically close and cache locally.
     localStorage.setItem(WIZARD_DISMISSED_KEY, "1");
     setOpen(false);
+    // Persist server-side so other devices/browsers see it too.
+    dismissWizardMutation.mutate(undefined, {
+      onSuccess: (updatedUser) => {
+        // Update the cached current-user so the flag is reflected immediately.
+        queryClient.setQueryData(getGetCurrentUserQueryKey(), updatedUser);
+      },
+    });
   };
 
   const handleDone = () => {

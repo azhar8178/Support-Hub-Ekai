@@ -19,6 +19,9 @@ export const usersTable = pgTable("users", {
   passwordHash: text("password_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   lastLogin: timestamp("last_login", { withTimezone: true }),
+  // Tracks whether the first-run setup wizard was dismissed — persisted
+  // server-side so the wizard is suppressed across all devices/browsers.
+  setupWizardDismissed: boolean("setup_wizard_dismissed").notNull().default(false),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({

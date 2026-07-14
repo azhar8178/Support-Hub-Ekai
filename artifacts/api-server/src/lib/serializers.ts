@@ -105,6 +105,7 @@ export function serializeUser(user: User, orgName: string | null): {
   active: boolean;
   createdAt: string;
   lastLogin: string | null;
+  setupWizardDismissed: boolean;
 } {
   return {
     id: user.id,
@@ -116,5 +117,6 @@ export function serializeUser(user: User, orgName: string | null): {
     active: user.active,
     createdAt: user.createdAt.toISOString(),
     lastLogin: user.lastLogin?.toISOString() ?? null,
+    setupWizardDismissed: user.setupWizardDismissed,
   };
 }

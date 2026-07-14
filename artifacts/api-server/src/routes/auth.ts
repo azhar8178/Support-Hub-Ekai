@@ -31,6 +31,28 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/auth/wizard-dismissed — mark the setup wizard as dismissed
+// ---------------------------------------------------------------------------
+
+router.post("/auth/wizard-dismissed", requireAuth, async (req, res): Promise<void> => {
+  const user = req.portalUser!;
+  const [updated] = await db
+    .update(usersTable)
+    .set({ setupWizardDismissed: true })
+    .where(eq(usersTable.id, user.id))
+    .returning();
+  let orgName: string | null = null;
+  if (updated && updated.orgId != null) {
+    const [org] = await db
+      .select()
+      .from(organisationsTable)
+      .where(eq(organisationsTable.id, updated.orgId));
+    orgName = org?.name ?? null;
+  }
+  res.json(GetCurrentUserResponse.parse(serializeUser(updated ?? user, orgName)));
+});
+
+// ---------------------------------------------------------------------------
 // Local auth mode: login + logout
 // ---------------------------------------------------------------------------
 

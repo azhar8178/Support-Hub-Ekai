@@ -20,4 +20,5 @@ export interface PortalUser {
   createdAt: string;
   /** @nullable */
   lastLogin: string | null;
+  setupWizardDismissed: boolean;
 }
