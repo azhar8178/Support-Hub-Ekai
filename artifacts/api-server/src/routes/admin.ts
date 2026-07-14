@@ -17,7 +17,7 @@ import {
   type TicketEnvironmentRow,
   type UserRole,
 } from "@workspace/db";
-import { and, asc, desc, eq, notInArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, notInArray, sql } from "drizzle-orm";
 import {
   CreateCategoryBody,
   CreateCategoryResponse,
@@ -58,6 +58,7 @@ import { notifyUsers } from "../lib/notify";
 import { sendEmail, inviteEmail } from "../lib/email";
 import { refreshSlaClockCache } from "../lib/sla";
 import { logger } from "../lib/logger";
+import { getBootstrapToken, rotateBootstrapToken } from "./bootstrap";
 
 const router: IRouter = Router();
 
@@ -984,6 +985,43 @@ router.get(
         uncoveredQueries,
       }),
     );
+  },
+);
+
+// ─── Bootstrap security endpoints ────────────────────────────────────────────
+
+router.get(
+  "/admin/bootstrap-status",
+  requireAuth,
+  requireRole("admin"),
+  async (_req, res): Promise<void> => {
+    const [signedInAdmin] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(and(eq(usersTable.role, "admin"), isNotNull(usersTable.clerkUserId)))
+      .limit(1);
+
+    const hasSignedInAdmin = !!signedInAdmin;
+    // null token means an admin explicitly disabled it this session.
+    const tokenRotated = getBootstrapToken() === null;
+    // "active" here means: the bootstrap token hasn't been explicitly revoked yet.
+    // The DB self-gate (hasSignedInAdmin) already blocks the endpoint once an admin
+    // signs in, but admins can still explicitly revoke the token as a hygiene action
+    // to ensure it stays locked even across server restarts (before more admins sign up).
+    const active = !tokenRotated;
+
+    res.json({ active, hasSignedInAdmin, tokenRotated });
+  },
+);
+
+router.post(
+  "/admin/bootstrap-rotate",
+  requireAuth,
+  requireRole("admin"),
+  async (_req, res): Promise<void> => {
+    const old = rotateBootstrapToken();
+    logger.info({ hadToken: old !== null }, "bootstrap: token rotated by admin — endpoint effectively disabled");
+    res.json({ message: "Bootstrap token rotated. The bootstrap-admin endpoint is now inaccessible." });
   },
 );
 

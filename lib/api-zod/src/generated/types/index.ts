@@ -10,6 +10,8 @@ export * from './agentMetrics';
 export * from './apiMessage';
 export * from './appNotification';
 export * from './appNotificationType';
+export * from './bootstrapRotateResult';
+export * from './bootstrapStatus';
 export * from './brandingPublic';
 export * from './customer';
 export * from './customerDetail';

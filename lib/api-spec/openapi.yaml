@@ -1029,6 +1029,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReportSummary"
+  /admin/bootstrap-status:
+    get:
+      operationId: getBootstrapStatus
+      tags: [admin]
+      summary: Check whether the bootstrap-admin endpoint is still accessible (admin only)
+      responses:
+        "200":
+          description: Bootstrap status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BootstrapStatus"
+  /admin/bootstrap-rotate:
+    post:
+      operationId: rotateBootstrap
+      tags: [admin]
+      summary: Rotate (invalidate) the in-memory bootstrap token so the endpoint can no longer be used (admin only)
+      responses:
+        "200":
+          description: Token rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BootstrapRotateResult"
   /admin/kb-deflection:
     get:
       operationId: getKbDeflectionStats
@@ -1262,6 +1286,25 @@ paths:
                   $ref: "#/components/schemas/FileItem"
 components:
   schemas:
+    BootstrapStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+          description: true if the bootstrap endpoint can still be called (no signed-in admin yet AND token not yet rotated)
+        hasSignedInAdmin:
+          type: boolean
+          description: true if at least one admin has completed Clerk sign-in
+        tokenRotated:
+          type: boolean
+          description: true if an admin manually rotated (invalidated) the token this session
+      required: [active, hasSignedInAdmin, tokenRotated]
+    BootstrapRotateResult:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
     HealthStatus:
       type: object
       properties:

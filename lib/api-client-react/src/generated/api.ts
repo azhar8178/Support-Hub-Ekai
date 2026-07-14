@@ -23,6 +23,8 @@ import type {
   AgentMetrics,
   ApiMessage,
   AppNotification,
+  BootstrapRotateResult,
+  BootstrapStatus,
   BrandingPublic,
   Customer,
   CustomerDetail,
@@ -4060,6 +4062,154 @@ export function useGetReports<TData = Awaited<ReturnType<typeof getReports>>, TE
 
 
 
+
+export const getGetBootstrapStatusUrl = () => {
+
+
+
+
+  return `/api/admin/bootstrap-status`
+}
+
+/**
+ * @summary Check whether the bootstrap-admin endpoint is still accessible (admin only)
+ */
+export const getBootstrapStatus = async ( options?: RequestInit): Promise<BootstrapStatus> => {
+
+  return customFetch<BootstrapStatus>(getGetBootstrapStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBootstrapStatusQueryKey = () => {
+    return [
+    `/api/admin/bootstrap-status`
+    ] as const;
+    }
+
+
+export const getGetBootstrapStatusQueryOptions = <TData = Awaited<ReturnType<typeof getBootstrapStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBootstrapStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBootstrapStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBootstrapStatus>>> = ({ signal }) => getBootstrapStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBootstrapStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBootstrapStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getBootstrapStatus>>>
+export type GetBootstrapStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Check whether the bootstrap-admin endpoint is still accessible (admin only)
+ */
+
+export function useGetBootstrapStatus<TData = Awaited<ReturnType<typeof getBootstrapStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBootstrapStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBootstrapStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRotateBootstrapUrl = () => {
+
+
+
+
+  return `/api/admin/bootstrap-rotate`
+}
+
+/**
+ * @summary Rotate (invalidate) the in-memory bootstrap token so the endpoint can no longer be used (admin only)
+ */
+export const rotateBootstrap = async ( options?: RequestInit): Promise<BootstrapRotateResult> => {
+
+  return customFetch<BootstrapRotateResult>(getRotateBootstrapUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRotateBootstrapMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateBootstrap>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rotateBootstrap>>, TError,void, TContext> => {
+
+const mutationKey = ['rotateBootstrap'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rotateBootstrap>>, void> = () => {
+
+
+          return  rotateBootstrap(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RotateBootstrapMutationResult = NonNullable<Awaited<ReturnType<typeof rotateBootstrap>>>
+
+    export type RotateBootstrapMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Rotate (invalidate) the in-memory bootstrap token so the endpoint can no longer be used (admin only)
+ */
+export const useRotateBootstrap = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateBootstrap>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rotateBootstrap>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRotateBootstrapMutationOptions(options));
+    }
 
 export const getGetKbDeflectionStatsUrl = () => {
 

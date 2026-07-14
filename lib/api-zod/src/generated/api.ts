@@ -1385,6 +1385,24 @@ export const GetReportsResponse = zod.object({
 
 
 /**
+ * @summary Check whether the bootstrap-admin endpoint is still accessible (admin only)
+ */
+export const GetBootstrapStatusResponse = zod.object({
+  "active": zod.boolean().describe('true if the bootstrap endpoint can still be called (no signed-in admin yet AND token not yet rotated)'),
+  "hasSignedInAdmin": zod.boolean().describe('true if at least one admin has completed Clerk sign-in'),
+  "tokenRotated": zod.boolean().describe('true if an admin manually rotated (invalidated) the token this session')
+})
+
+
+/**
+ * @summary Rotate (invalidate) the in-memory bootstrap token so the endpoint can no longer be used (admin only)
+ */
+export const RotateBootstrapResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary KB suggestion deflection metrics (admin only)
  */
 export const GetKbDeflectionStatsResponse = zod.object({

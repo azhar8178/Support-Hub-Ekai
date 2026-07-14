@@ -20,6 +20,9 @@ import {
   useUpdateEnvironment,
   useGetReports,
   useGetKbDeflectionStats,
+  useGetBootstrapStatus,
+  useRotateBootstrap,
+  getGetBootstrapStatusQueryKey,
   getTaxonomyUsage,
   getListInvitesQueryKey,
   getListOrgsQueryKey,
@@ -36,7 +39,7 @@ import { queryClient } from "@/lib/queryClient";
 import { 
   Users, Building, Mail, SlidersHorizontal, BarChart3, Plus, Search, 
   Check, X, Loader2, Copy, AlertTriangle, TrendingUp, Clock, BookOpen,
-  Pencil, RotateCcw, Archive, Send
+  Pencil, RotateCcw, Archive, Send, ShieldAlert, ShieldCheck, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +69,88 @@ import {
 } from "@/components/ui/alert-dialog";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+// ─── Bootstrap Security Banner ────────────────────────────────────────────────
+
+function BootstrapSecurityBanner() {
+  const { data: status, isLoading } = useGetBootstrapStatus();
+  const rotate = useRotateBootstrap();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Don't render until we know the status; hide entirely when not active
+  if (isLoading || !status?.active) return null;
+
+  const handleRotate = async () => {
+    try {
+      await rotate.mutateAsync();
+      queryClient.invalidateQueries({ queryKey: getGetBootstrapStatusQueryKey() });
+      toast.success("Bootstrap token rotated — endpoint is now locked");
+      setConfirmOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to rotate token");
+    }
+  };
+
+  return (
+    <>
+      <div className="bg-amber-50 border border-amber-300 rounded-lg px-5 py-4 flex items-start gap-4">
+        <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-900">
+            Bootstrap setup token not yet revoked
+          </p>
+          <p className="text-sm text-amber-800 mt-0.5">
+            The initial setup token is still in server memory. The{" "}
+            <code className="bg-amber-100 px-1 rounded text-xs">/api/bootstrap-admin</code>{" "}
+            endpoint is already blocked because you&apos;re signed in, but explicitly revoking the
+            token prevents it from becoming usable again after a server restart (before all admin
+            accounts are fully provisioned).
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0 border-amber-400 text-amber-800 hover:bg-amber-100"
+          onClick={() => setConfirmOpen(true)}
+          disabled={rotate.isPending}
+        >
+          {rotate.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          Revoke Token
+        </Button>
+      </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke bootstrap token?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This immediately clears the in-memory setup token. The{" "}
+              <code className="bg-stone-100 px-1 rounded text-xs">/api/bootstrap-admin</code>{" "}
+              endpoint will return 404 for all callers for the remainder of this server session —
+              regardless of what token they supply. A new token is generated on the next server
+              restart. This cannot be undone without restarting the server.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={handleRotate}
+            >
+              Revoke Token
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState("users");
 
@@ -76,7 +161,8 @@ export default function AdminDashboardPage() {
         <p className="text-stone-500 mt-1">Manage users, organizations, invites, and system configuration.</p>
       </div>
 
-      <div className="flex-1 overflow-auto p-8 max-w-[1400px] mx-auto w-full">
+      <div className="flex-1 overflow-auto p-8 max-w-[1400px] mx-auto w-full space-y-6">
+        <BootstrapSecurityBanner />
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-white border border-stone-200 shadow-sm p-1 rounded-lg h-12">
             <TabsTrigger value="users" className="data-[state=active]:bg-stone-100 rounded-md px-4"><Users className="h-4 w-4 mr-2" /> Users</TabsTrigger>

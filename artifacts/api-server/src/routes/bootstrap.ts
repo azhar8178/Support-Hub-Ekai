@@ -2,10 +2,12 @@
  * Bootstrap admin endpoint — creates the very first admin account without
  * requiring an existing authenticated session.
  *
- * Two-layer protection:
- *  1. A one-time in-memory token generated at server startup (logged to the
+ * Three-layer protection:
+ *  1. Manual disable: an admin can call POST /admin/bootstrap-rotate to set the
+ *     in-memory token to null — the endpoint then returns 404 for any caller.
+ *  2. A one-time in-memory token generated at server startup (logged to the
  *     console — visible only to someone with log/shell access to this server).
- *  2. Self-gating: once any admin has completed initial setup (clerkUserId set
+ *  3. Self-gating: once any admin has completed initial setup (clerkUserId set
  *     in clerk mode, or passwordHash set in local mode), the endpoint returns 404.
  *
  * The token is never written to disk or committed to source control.
@@ -37,13 +39,41 @@ import { logger } from "../lib/logger";
 const AUTH_MODE = process.env.AUTH_MODE ?? "clerk";
 
 // Generated once per server process — never persisted to disk or env.
-export const BOOTSTRAP_TOKEN = randomBytes(24).toString("base64url");
+// Mutable so admins can rotate (invalidate) it via the admin API.
+let _bootstrapToken: string | null = randomBytes(24).toString("base64url");
+
+/** Read the current bootstrap token (null = already rotated/disabled). */
+export function getBootstrapToken(): string | null {
+  return _bootstrapToken;
+}
+
+/**
+ * Disable the in-memory bootstrap token permanently (for this server process).
+ * After calling this, `/bootstrap-admin` returns 404 for any caller regardless
+ * of what token they supply — the endpoint is completely locked down until the
+ * next server restart.
+ * Returns the old token value so the caller can log it if needed.
+ */
+export function rotateBootstrapToken(): string | null {
+  const old = _bootstrapToken;
+  _bootstrapToken = null; // null = permanently disabled this session
+  return old;
+}
 
 const router: IRouter = Router();
 
 router.post("/bootstrap-admin", async (req, res): Promise<void> => {
   // -------------------------------------------------------------------------
-  // Layer 1 (self-gate): permanently disabled once an admin has completed setup.
+  // Layer 1a (manual disable): an admin explicitly rotated/disabled the token.
+  // -------------------------------------------------------------------------
+  const currentToken = getBootstrapToken();
+  if (currentToken === null) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // Layer 1b (self-gate): permanently disabled once an admin has completed setup.
   //
   //   Clerk mode: any admin whose clerkUserId is set (i.e. has signed in).
   //   Local mode: any admin whose passwordHash is set (i.e. bootstrap ran before).
@@ -72,9 +102,10 @@ router.post("/bootstrap-admin", async (req, res): Promise<void> => {
     bootstrapToken?: unknown;
   };
 
-  if (!bootstrapToken || bootstrapToken !== BOOTSTRAP_TOKEN) {
+  if (!bootstrapToken || bootstrapToken !== currentToken) {
+    // Log the current token so the legitimate operator can find it in logs.
     logger.warn(
-      { bootstrapToken: BOOTSTRAP_TOKEN },
+      { bootstrapToken: currentToken },
       "bootstrap: invalid token supplied — use the token above to authorize",
     );
     res
