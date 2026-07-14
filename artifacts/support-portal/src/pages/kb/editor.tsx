@@ -194,11 +194,11 @@ export default function KbEditorPage() {
       </div>
 
       <div className="flex-1 overflow-auto p-6">
+        <Form {...form}>
         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
           
           <div className="lg:col-span-3">
-            <Form {...form}>
-              <form className="space-y-6">
+            <div className="space-y-6">
                 
                 <FormField
                   control={form.control}
@@ -254,8 +254,7 @@ export default function KbEditorPage() {
                     )}
                   </TabsContent>
                 </Tabs>
-              </form>
-            </Form>
+            </div>
           </div>
 
           <div className="lg:col-span-1 space-y-6">
@@ -312,6 +311,7 @@ export default function KbEditorPage() {
           </div>
           
         </div>
+        </Form>
       </div>
     </div>
   );
