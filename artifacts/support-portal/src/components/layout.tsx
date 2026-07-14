@@ -1,6 +1,6 @@
 import { type PortalUser, useGetPublicBranding } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
-import { useClerk } from "@clerk/react";
+import { useAuthActions } from "@/contexts/auth-context";
 import { 
   Bell, 
   LayoutDashboard, 
@@ -40,7 +40,7 @@ const SIDEBAR_KEY = "sidebar_collapsed";
 
 export default function Layout({ user, children }: LayoutProps) {
   const [location] = useLocation();
-  const { signOut } = useClerk();
+  const { signOut } = useAuthActions();
   const { data: brandingData } = useGetPublicBranding();
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -253,7 +253,7 @@ export default function Layout({ user, children }: LayoutProps) {
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="text-red-600 cursor-pointer focus:text-red-600" 
-                  onClick={() => signOut({ redirectUrl: import.meta.env.BASE_URL.replace(/\/$/, "") || "/" })}
+                  onClick={() => signOut()}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>

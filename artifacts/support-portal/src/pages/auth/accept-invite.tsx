@@ -5,10 +5,22 @@ import { useClerk } from "@clerk/react";
 import { ShieldAlert, Loader2, ArrowRight, Building, Mail, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function AcceptInvitePage() {
-  const [location, setLocation] = useLocation();
-  const { session } = useClerk();
-  
+// ---------------------------------------------------------------------------
+// Auth-mode constant (replaced at build time by Vite)
+// ---------------------------------------------------------------------------
+const AUTH_MODE = import.meta.env.VITE_AUTH_MODE ?? "clerk";
+
+// ---------------------------------------------------------------------------
+// Shared inner component — receives `isSignedIn` as a plain boolean so the
+// caller controls how "signed in" is determined (Clerk vs local cookie session).
+// ---------------------------------------------------------------------------
+interface InnerProps {
+  isSignedIn: boolean;
+}
+
+function AcceptInviteInner({ isSignedIn }: InnerProps) {
+  const [, setLocation] = useLocation();
+
   // Extract token from URL
   const searchParams = new URLSearchParams(window.location.search);
   const token = searchParams.get("token");
@@ -47,8 +59,7 @@ export default function AcceptInvitePage() {
       setIsAccepting(true);
       await acceptInvite.mutateAsync({ data: { token: activeToken } });
       sessionStorage.removeItem("ekai_invite_token");
-      // Success! Clear URL params and go to dashboard
-      window.history.replaceState({}, '', '/dashboard');
+      window.history.replaceState({}, "", "/dashboard");
       setLocation("/dashboard");
     } catch (err: any) {
       setAcceptError(err?.message || "Failed to accept invite. It may have expired.");
@@ -56,18 +67,16 @@ export default function AcceptInvitePage() {
     }
   };
 
-  // Automatically try to accept if they are signed in and land here with a token
+  // Automatically try to accept once signed in with a valid token
   useEffect(() => {
-    if (session && activeToken && preview && !isAccepting && !acceptError) {
-      // Small delay for UI smoothness
+    if (isSignedIn && activeToken && preview && !isAccepting && !acceptError) {
       const timer = setTimeout(() => {
         handleAccept();
       }, 1000);
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [session, activeToken, preview, isAccepting, acceptError]);
-
+  }, [isSignedIn, activeToken, preview, isAccepting, acceptError]);
 
   // State 1: No token
   if (!activeToken) {
@@ -113,18 +122,18 @@ export default function AcceptInvitePage() {
     );
   }
 
-  // State 4: Need to sign in/up
-  if (!session && preview) {
+  // State 4: Need to sign in/up (clerk mode only — in local mode isSignedIn is always true here)
+  if (!isSignedIn && preview) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-stone-50 px-4 py-12">
         <div className="w-full max-w-md bg-white rounded-2xl p-8 border border-stone-200 shadow-sm text-center">
           <div className="mx-auto w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-6 border border-amber-100">
             <Mail className="h-8 w-8 text-[#EFB323]" />
           </div>
-          
+
           <h1 className="text-2xl font-bold text-[#0F1F3D] mb-2">You've been invited!</h1>
           <p className="text-stone-600 mb-6 text-sm">
-            Join the Ekai Support Portal as a <span className="font-semibold capitalize">{preview.role.replace('_', ' ')}</span>
+            Join the Ekai Support Portal as a <span className="font-semibold capitalize">{preview.role.replace("_", " ")}</span>
             {preview.orgName && <span> for <span className="font-semibold">{preview.orgName}</span></span>}.
           </p>
 
@@ -147,7 +156,8 @@ export default function AcceptInvitePage() {
               Create Account <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <p className="text-sm text-stone-500">
-              Already have an account? <Link href="/sign-in" className="text-[#B45309] font-medium hover:underline">Sign in</Link>
+              Already have an account?{" "}
+              <Link href="/sign-in" className="text-[#B45309] font-medium hover:underline">Sign in</Link>
             </p>
           </div>
         </div>
@@ -178,10 +188,37 @@ export default function AcceptInvitePage() {
               <CheckCircle2 className="h-5 w-5 text-amber-700" />
             </div>
             <h1 className="text-xl font-bold text-[#0F1F3D] mb-2">Setting up your access...</h1>
-            <p className="text-stone-500 text-sm">Please wait while we link your account to {preview?.orgName || 'the portal'}.</p>
+            <p className="text-stone-500 text-sm">
+              Please wait while we link your account to {preview?.orgName || "the portal"}.
+            </p>
           </>
         )}
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Clerk wrapper — useClerk() is only called inside this component, which is
+// only rendered when VITE_AUTH_MODE=clerk. That way it is always inside
+// <ClerkProvider> and never violates the rules of hooks.
+// ---------------------------------------------------------------------------
+function AcceptInviteClerk() {
+  const { session } = useClerk();
+  return <AcceptInviteInner isSignedIn={!!session} />;
+}
+
+// ---------------------------------------------------------------------------
+// Local auth wrapper — in local mode the user must already be signed in via
+// cookie session to reach this page (AuthenticatedApp guards the route).
+// ---------------------------------------------------------------------------
+function AcceptInviteLocal() {
+  return <AcceptInviteInner isSignedIn={true} />;
+}
+
+// ---------------------------------------------------------------------------
+// Public export — routes to the correct wrapper based on build-time auth mode.
+// ---------------------------------------------------------------------------
+export default function AcceptInvitePage() {
+  return AUTH_MODE === "local" ? <AcceptInviteLocal /> : <AcceptInviteClerk />;
 }
