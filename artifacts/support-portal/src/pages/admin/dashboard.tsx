@@ -128,11 +128,11 @@ function BootstrapSecurityBanner() {
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke bootstrap token?</AlertDialogTitle>
             <AlertDialogDescription>
-              This immediately clears the in-memory setup token. The{" "}
+              This immediately clears the setup token and saves a permanent disabled flag to the
+              database. The{" "}
               <code className="bg-stone-100 px-1 rounded text-xs">/api/bootstrap-admin</code>{" "}
-              endpoint will return 404 for all callers for the remainder of this server session —
-              regardless of what token they supply. A new token is generated on the next server
-              restart. This cannot be undone without restarting the server.
+              endpoint will return 404 for all callers — even after a server restart or
+              redeployment. This cannot be undone without a direct database change.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

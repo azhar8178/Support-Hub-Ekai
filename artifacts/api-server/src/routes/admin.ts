@@ -7,6 +7,7 @@ import {
   kbSearchLogTable,
   kbSuggestionEventsTable,
   organisationsTable,
+  siteSettingsTable,
   slaConfigTable,
   ticketCategoriesTable,
   ticketEnvironmentsTable,
@@ -58,7 +59,7 @@ import { notifyUsers } from "../lib/notify";
 import { sendEmail, inviteEmail } from "../lib/email";
 import { refreshSlaClockCache } from "../lib/sla";
 import { logger } from "../lib/logger";
-import { getBootstrapToken, rotateBootstrapToken } from "./bootstrap";
+import { getBootstrapToken, rotateBootstrapToken, persistBootstrapDisabled } from "./bootstrap";
 
 const router: IRouter = Router();
 
@@ -1002,12 +1003,16 @@ router.get(
       .limit(1);
 
     const hasSignedInAdmin = !!signedInAdmin;
-    // null token means an admin explicitly disabled it this session.
-    const tokenRotated = getBootstrapToken() === null;
-    // "active" here means: the bootstrap token hasn't been explicitly revoked yet.
-    // The DB self-gate (hasSignedInAdmin) already blocks the endpoint once an admin
-    // signs in, but admins can still explicitly revoke the token as a hygiene action
-    // to ensure it stays locked even across server restarts (before more admins sign up).
+
+    // Check both in-memory token (rotated this session) AND the DB persisted flag
+    // (rotated in a previous session / deployment).
+    const [settings] = await db
+      .select({ bootstrapDisabled: siteSettingsTable.bootstrapDisabled })
+      .from(siteSettingsTable)
+      .limit(1);
+    const tokenRotated = getBootstrapToken() === null || (settings?.bootstrapDisabled ?? false);
+
+    // "active" means the token exists and has not been revoked — show the banner.
     const active = !tokenRotated;
 
     res.json({ active, hasSignedInAdmin, tokenRotated });
@@ -1020,8 +1025,10 @@ router.post(
   requireRole("admin"),
   async (_req, res): Promise<void> => {
     const old = rotateBootstrapToken();
-    logger.info({ hadToken: old !== null }, "bootstrap: token rotated by admin — endpoint effectively disabled");
-    res.json({ message: "Bootstrap token rotated. The bootstrap-admin endpoint is now inaccessible." });
+    // Persist the disabled flag to the DB so it survives server restarts.
+    await persistBootstrapDisabled();
+    logger.info({ hadToken: old !== null }, "bootstrap: token rotated by admin — endpoint permanently disabled");
+    res.json({ message: "Bootstrap token rotated. The bootstrap-admin endpoint is now permanently inaccessible." });
   },
 );
 

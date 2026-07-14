@@ -3,7 +3,7 @@ import { logger } from "./lib/logger";
 import { seedIfEmpty } from "./lib/seed";
 import { refreshSlaClockCache } from "./lib/sla";
 import { startSweeps } from "./lib/sweeps";
-import { getBootstrapToken } from "./routes/bootstrap";
+import { getBootstrapToken, initBootstrap } from "./routes/bootstrap";
 
 const rawPort = process.env["PORT"];
 
@@ -27,17 +27,22 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 
-  // Log the bootstrap token so the operator can use it before the first admin
-  // signs in.  It lives only in memory — never committed to disk or source.
-  logger.warn(
-    { bootstrapToken: getBootstrapToken() },
-    "BOOTSTRAP: use this token (valid until the first admin signs in) with " +
-      "POST /api/bootstrap-admin to create the first admin invite. " +
-      "Or run: pnpm --filter @workspace/api-server run bootstrap-admin -- --email <email>",
-  );
-
-  seedIfEmpty()
+  // Check DB for persisted bootstrap-disabled flag before logging the token.
+  // If a previous admin already rotated it, we suppress the token and stay silent.
+  initBootstrap()
+    .then(() => {
+      const token = getBootstrapToken();
+      if (token !== null) {
+        logger.warn(
+          { bootstrapToken: token },
+          "BOOTSTRAP: use this token (valid until the first admin signs in) with " +
+            "POST /api/bootstrap-admin to create the first admin invite. " +
+            "Or run: pnpm --filter @workspace/api-server run bootstrap-admin -- --email <email>",
+        );
+      }
+    })
+    .then(() => seedIfEmpty())
     .then(() => refreshSlaClockCache())
     .then(() => startSweeps())
-    .catch((err2) => logger.error({ err: err2 }, "seed failed"));
+    .catch((err2) => logger.error({ err: err2 }, "startup failed"));
 });

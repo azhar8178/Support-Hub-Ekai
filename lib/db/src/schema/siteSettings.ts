@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
 /**
  * Single-row table (id = 1) storing portal-wide configuration:
@@ -20,6 +20,8 @@ export const siteSettingsTable = pgTable("site_settings", {
   privateObjectDir: text("private_object_dir"),
   portalUrl: text("portal_url"),
   logLevel: text("log_level"),
+  // Set to true by POST /admin/bootstrap-rotate — persists across restarts.
+  bootstrapDisabled: boolean("bootstrap_disabled").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

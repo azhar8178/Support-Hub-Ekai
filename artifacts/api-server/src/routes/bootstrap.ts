@@ -32,7 +32,7 @@
 
 import { randomBytes } from "node:crypto";
 import { Router, type IRouter } from "express";
-import { db, invitesTable, usersTable } from "@workspace/db";
+import { db, invitesTable, siteSettingsTable, usersTable } from "@workspace/db";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
@@ -40,6 +40,7 @@ const AUTH_MODE = process.env.AUTH_MODE ?? "clerk";
 
 // Generated once per server process — never persisted to disk or env.
 // Mutable so admins can rotate (invalidate) it via the admin API.
+// initBootstrap() will set this to null if the DB flag is already set.
 let _bootstrapToken: string | null = randomBytes(24).toString("base64url");
 
 /** Read the current bootstrap token (null = already rotated/disabled). */
@@ -60,16 +61,72 @@ export function rotateBootstrapToken(): string | null {
   return old;
 }
 
+/**
+ * Check the DB bootstrapDisabled flag at startup.
+ * If it is set, silently null out the in-memory token so the endpoint never
+ * becomes active again — even after a server restart or redeployment.
+ * Call this once, early in the startup sequence, before logging the token.
+ */
+export async function initBootstrap(): Promise<void> {
+  try {
+    const [row] = await db
+      .select({ bootstrapDisabled: siteSettingsTable.bootstrapDisabled })
+      .from(siteSettingsTable)
+      .limit(1);
+    if (row?.bootstrapDisabled) {
+      _bootstrapToken = null;
+      logger.info("bootstrap: disabled flag found in DB — endpoint suppressed");
+    }
+  } catch (err) {
+    // Non-fatal: if the DB is not yet migrated (column doesn't exist yet), keep
+    // the token active. The admin can rotate manually and the column will appear
+    // after the next drizzle push.
+    logger.warn({ err }, "bootstrap: could not read bootstrapDisabled flag — proceeding with active token");
+  }
+}
+
+/**
+ * Persist the bootstrapDisabled flag to the DB so the decision survives
+ * server restarts and redeployments. Call this immediately after
+ * rotateBootstrapToken() succeeds.
+ */
+export async function persistBootstrapDisabled(): Promise<void> {
+  await db
+    .insert(siteSettingsTable)
+    .values({ id: 1, bootstrapDisabled: true })
+    .onConflictDoUpdate({
+      target: siteSettingsTable.id,
+      set: { bootstrapDisabled: true, updatedAt: new Date() },
+    });
+}
+
 const router: IRouter = Router();
 
 router.post("/bootstrap-admin", async (req, res): Promise<void> => {
   // -------------------------------------------------------------------------
-  // Layer 1a (manual disable): an admin explicitly rotated/disabled the token.
+  // Layer 1a (manual disable): check both the in-memory flag AND the persisted
+  // DB flag so that rotation survives server restarts / redeployments even if
+  // initBootstrap() hasn't completed yet (e.g. very early requests).
   // -------------------------------------------------------------------------
   const currentToken = getBootstrapToken();
   if (currentToken === null) {
     res.status(404).json({ message: "Not found" });
     return;
+  }
+  // Belt-and-suspenders: also check the persisted DB flag directly.
+  try {
+    const [settings] = await db
+      .select({ bootstrapDisabled: siteSettingsTable.bootstrapDisabled })
+      .from(siteSettingsTable)
+      .limit(1);
+    if (settings?.bootstrapDisabled) {
+      _bootstrapToken = null; // sync the in-memory state
+      res.status(404).json({ message: "Not found" });
+      return;
+    }
+  } catch {
+    // If the column doesn't exist yet (pre-migration), fall through to the
+    // other protection layers (self-gate and token check).
   }
 
   // -------------------------------------------------------------------------
