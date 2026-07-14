@@ -4,6 +4,7 @@ import { ArrowLeft, ThumbsUp, ThumbsDown, Edit, Calendar, Loader2 } from "lucide
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -110,7 +111,7 @@ export default function KbDetailPage() {
       {/* Content */}
       <div className="flex-1 max-w-3xl w-full mx-auto px-6 py-12">
         <div className="prose prose-stone prose-amber max-w-none prose-headings:text-[#0F1F3D] prose-a:text-[#B45309]">
-          <ReactMarkdown>{article.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{article.content}</ReactMarkdown>
         </div>
 
         {/* Feedback Section */}
