@@ -3,7 +3,7 @@
  *
  * Non-sensitive values (URLs, addresses, region names) can be stored in the
  * database and edited from the admin Settings page.  Sensitive credentials
- * (AWS keys, fleet API key) always come from environment variables only.
+ * (AWS keys) always come from environment variables only.
  *
  * The cached getter refreshes every 60 seconds so the server picks up changes
  * made through the UI without a restart.
@@ -71,11 +71,6 @@ export async function getEmailFrom(): Promise<string | null> {
 export async function getAwsRegion(): Promise<string | null> {
   const cfg = await getCachedConfig();
   return getConfigValue(cfg?.awsRegion, process.env.AWS_REGION);
-}
-
-export async function getFleetHubUrl(): Promise<string | null> {
-  const cfg = await getCachedConfig();
-  return getConfigValue(cfg?.fleetHubUrl, process.env.FLEET_HUB_URL);
 }
 
 export async function getPrivateObjectDir(): Promise<string | null> {

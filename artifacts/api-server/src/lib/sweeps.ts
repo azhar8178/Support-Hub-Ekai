@@ -14,12 +14,10 @@ import { getAgentAndAdminIds, notifyUsers } from "./notify";
 import { sweepPushReceipts } from "./push";
 import { logger } from "./logger";
 import { sendSlackFleetAlert } from "./slack";
-import { collectHealthStatus } from "../routes/health";
 import { recordHeartbeat } from "../routes/deployments";
 
 const SWEEP_INTERVAL_MS = 60_000;
 const AUTO_CLOSE_BUSINESS_DAYS = 5;
-const HEARTBEAT_PUSH_INTERVAL_MS = 5 * 60_000; // 5 minutes
 const FLEET_POLL_INTERVAL_MS = 5 * 60_000;     // poll each deployment's /healthz every 5 min
 const OFFLINE_THRESHOLD_MS = 10 * 60_000; // 10 minutes
 const ALERT_COOLDOWN_MS = 30 * 60_000; // don't re-alert within 30 min
@@ -38,7 +36,6 @@ const HEARTBEAT_RETENTION_MS = 24 * 3600_000;
 const HEARTBEAT_PRUNE_INTERVAL_MS = 3600_000; // 1 hour
 
 let lastKbEventPruneAt = 0;
-let lastHeartbeatPushAt = 0;
 let lastHeartbeatPruneAt = 0;
 let lastFleetPollAt = 0;
 
@@ -324,47 +321,12 @@ export async function runFleetAlerts(now: Date): Promise<void> {
 }
 
 /**
- * If FLEET_HUB_URL and FLEET_API_KEY are set, push this instance's health
- * to the central hub. Runs at most once every 5 minutes.
- */
-async function pushHeartbeatToHub(now: Date): Promise<void> {
-  const { getFleetHubUrl } = await import("./systemConfig");
-  const hubUrl = await getFleetHubUrl();
-  const apiKey = process.env["FLEET_API_KEY"];
-  if (!hubUrl || !apiKey) return;
-  if (now.getTime() - lastHeartbeatPushAt < HEARTBEAT_PUSH_INTERVAL_MS) return;
-
-  lastHeartbeatPushAt = now.getTime();
-
-  try {
-    const health = await collectHealthStatus();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    try {
-      const endpoint = hubUrl.replace(/\/$/, "") + "/api/admin/deployments/heartbeat";
-      await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, health }),
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-    logger.debug({ hubUrl }, "heartbeat pushed to fleet hub");
-  } catch (err) {
-    logger.error({ err, hubUrl }, "failed to push heartbeat to fleet hub");
-  }
-}
-
-/**
  * Periodic background sweep:
  * 1. SLA 75% warning notifications for open tickets approaching a deadline.
  * 2. Auto-escalate unassigned tickets at ≥75% of resolution SLA.
  * 3. Auto-close Resolved tickets after 5 business days.
  * 4. Fetch due Expo push delivery receipts from the persisted queue.
  * 5. Fleet health alerting for registered client deployments.
- * 6. Heartbeat push to central fleet hub (if configured).
  */
 export async function runSweep(): Promise<void> {
   const now = new Date();
@@ -442,9 +404,6 @@ export async function runSweep(): Promise<void> {
 
   // --- Fleet health alerting ---
   await runFleetAlerts(now);
-
-  // --- Heartbeat push to central hub (if configured) ---
-  await pushHeartbeatToHub(now);
 }
 
 export function startSweeps(): void {

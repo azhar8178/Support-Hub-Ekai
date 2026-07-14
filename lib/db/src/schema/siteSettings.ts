@@ -17,7 +17,6 @@ export const siteSettingsTable = pgTable("site_settings", {
   // Runtime-configurable system settings (non-sensitive; secrets stay in env vars)
   emailFrom: text("email_from"),
   awsRegion: text("aws_region"),
-  fleetHubUrl: text("fleet_hub_url"),
   privateObjectDir: text("private_object_dir"),
   portalUrl: text("portal_url"),
   logLevel: text("log_level"),

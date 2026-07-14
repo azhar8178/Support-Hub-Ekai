@@ -20,8 +20,6 @@ export interface SiteSettingsUpdate {
   /** @nullable */
   awsRegion?: string | null;
   /** @nullable */
-  fleetHubUrl?: string | null;
-  /** @nullable */
   privateObjectDir?: string | null;
   /** @nullable */
   portalUrl?: string | null;

@@ -24,7 +24,6 @@ function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
     process.env["AWS_ACCESS_KEY_ID"] &&
     process.env["AWS_SECRET_ACCESS_KEY"]
   );
-  const fleetApiKeyConfigured = !!(process.env["FLEET_API_KEY"]);
   const storageConfigured = !!(
     (row?.privateObjectDir ?? process.env["PRIVATE_OBJECT_DIR"])
   );
@@ -40,8 +39,6 @@ function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
       emailFrom: null,
       awsRegion: null,
       emailConfigured,
-      fleetHubUrl: null,
-      fleetApiKeyConfigured,
       privateObjectDir: null,
       storageConfigured,
       portalUrl: null,
@@ -59,8 +56,6 @@ function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
     emailFrom: row.emailFrom ?? null,
     awsRegion: row.awsRegion ?? null,
     emailConfigured,
-    fleetHubUrl: row.fleetHubUrl ?? null,
-    fleetApiKeyConfigured,
     privateObjectDir: row.privateObjectDir ?? null,
     storageConfigured,
     portalUrl: row.portalUrl ?? null,
@@ -101,7 +96,6 @@ router.patch(
     if (parsed.data.slackWebhookUrl !== undefined) fields.slackWebhookUrl = parsed.data.slackWebhookUrl ?? null;
     if (parsed.data.emailFrom !== undefined) fields.emailFrom = parsed.data.emailFrom ?? null;
     if (parsed.data.awsRegion !== undefined) fields.awsRegion = parsed.data.awsRegion ?? null;
-    if (parsed.data.fleetHubUrl !== undefined) fields.fleetHubUrl = parsed.data.fleetHubUrl ?? null;
     if (parsed.data.privateObjectDir !== undefined) fields.privateObjectDir = parsed.data.privateObjectDir ?? null;
     if (parsed.data.portalUrl !== undefined) fields.portalUrl = parsed.data.portalUrl ?? null;
     if (parsed.data.logLevel !== undefined) fields.logLevel = parsed.data.logLevel ?? null;

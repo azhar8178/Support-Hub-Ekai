@@ -1910,14 +1910,12 @@ components:
         emailFrom: { type: ["string", "null"] }
         awsRegion: { type: ["string", "null"] }
         emailConfigured: { type: boolean, description: "True when AWS SES credentials are present in env vars" }
-        fleetHubUrl: { type: ["string", "null"] }
-        fleetApiKeyConfigured: { type: boolean, description: "True when FLEET_API_KEY is present in env vars" }
         privateObjectDir: { type: ["string", "null"] }
         storageConfigured: { type: boolean, description: "True when object storage is reachable" }
         portalUrl: { type: ["string", "null"] }
         logLevel: { type: ["string", "null"] }
         updatedAt: { type: string }
-      required: [id, companyName, tagline, logoUrl, whatsappNumber, slackWebhookUrl, emailFrom, awsRegion, emailConfigured, fleetHubUrl, fleetApiKeyConfigured, privateObjectDir, storageConfigured, portalUrl, logLevel, updatedAt]
+      required: [id, companyName, tagline, logoUrl, whatsappNumber, slackWebhookUrl, emailFrom, awsRegion, emailConfigured, privateObjectDir, storageConfigured, portalUrl, logLevel, updatedAt]
     SiteSettingsUpdate:
       type: object
       properties:
@@ -1927,7 +1925,6 @@ components:
         slackWebhookUrl: { type: ["string", "null"] }
         emailFrom: { type: ["string", "null"] }
         awsRegion: { type: ["string", "null"] }
-        fleetHubUrl: { type: ["string", "null"] }
         privateObjectDir: { type: ["string", "null"] }
         portalUrl: { type: ["string", "null"] }
         logLevel: { type: ["string", "null"] }

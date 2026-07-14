@@ -72,7 +72,6 @@ export default function AdminSettingsPage() {
   // System tab state
   const [emailFrom, setEmailFrom] = useState("");
   const [awsRegion, setAwsRegion] = useState("");
-  const [fleetHubUrl, setFleetHubUrl] = useState("");
   const [privateObjectDir, setPrivateObjectDir] = useState("");
   const [portalUrl, setPortalUrl] = useState("");
   const [logLevel, setLogLevel] = useState("");
@@ -89,7 +88,6 @@ export default function AdminSettingsPage() {
       setWhatsappSaved(!!(settings.whatsappNumber));
       setEmailFrom(settings.emailFrom ?? "");
       setAwsRegion(settings.awsRegion ?? "");
-      setFleetHubUrl(settings.fleetHubUrl ?? "");
       setPrivateObjectDir(settings.privateObjectDir ?? "");
       setPortalUrl(settings.portalUrl ?? "");
       setLogLevel(settings.logLevel ?? "");
@@ -332,7 +330,7 @@ export default function AdminSettingsPage() {
             {/* ── SYSTEM TAB ── */}
             <TabsContent value="system" className="space-y-6">
               <p className="text-sm text-stone-500">
-                Non-sensitive configuration managed at runtime. Sensitive credentials (AWS keys, fleet API key) must be set as environment secrets and are shown here as status only.
+                Non-sensitive configuration managed at runtime. Sensitive credentials (AWS keys) must be set as environment secrets and are shown here as status only.
               </p>
 
               {/* Email / AWS SES */}
@@ -369,37 +367,6 @@ export default function AdminSettingsPage() {
                   >
                     {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save email settings
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Fleet Hub */}
-              <Card className="shadow-sm border-stone-200">
-                <CardHeader className="pb-4 border-b border-stone-100 bg-stone-50/50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Radio className="h-4 w-4 text-[#EFB323]" />
-                      <h2 className="text-base font-semibold text-[#0F1F3D]">Fleet Hub</h2>
-                    </div>
-                    <StatusBadge ok={!!(settings?.fleetApiKeyConfigured)} label="API key set" />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-5 space-y-4">
-                  <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-                    <strong>FLEET_API_KEY</strong> must be set as an environment secret.
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-[#0F1F3D]">Fleet Hub URL</Label>
-                    <Input value={fleetHubUrl} onChange={(e) => setFleetHubUrl(e.target.value)} placeholder="https://hub.example.com" className="bg-white font-mono text-sm" />
-                    <p className="text-xs text-stone-500">Base URL of the central fleet hub this instance pushes heartbeats to. Overrides FLEET_HUB_URL env var.</p>
-                  </div>
-                  <Button
-                    onClick={() => handleSaveSystem({ fleetHubUrl: fleetHubUrl || null })}
-                    disabled={updateSettings.isPending}
-                    className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
-                  >
-                    {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Save fleet settings
                   </Button>
                 </CardContent>
               </Card>
