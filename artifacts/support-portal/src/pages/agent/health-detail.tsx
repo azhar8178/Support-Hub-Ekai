@@ -30,13 +30,14 @@ import { Loader2, ArrowLeft, Check } from "lucide-react";
 // Helpers
 // ---------------------------------------------------------------------------
 
-const STATUS_NUM: Record<string, number> = { DOWN: 0, DEGRADED: 1, HEALTHY: 2, UNKNOWN: -1 };
+const STATUS_NUM: Record<string, number> = { DOWN: 0, OFFLINE: 0, DEGRADED: 1, HEALTHY: 2, UNKNOWN: -1 };
 const NUM_STATUS: Record<number, string> = { 0: "DOWN", 1: "DEGRADED", 2: "HEALTHY", [-1]: "UNKNOWN" };
 
 const STATUS_BADGE: Record<string, string> = {
   HEALTHY:  "bg-emerald-100 text-emerald-700 border-emerald-200",
   DEGRADED: "bg-amber-100 text-amber-700 border-amber-200",
   DOWN:     "bg-red-100 text-red-700 border-red-200",
+  OFFLINE:  "bg-red-100 text-red-800 border-red-200",
   UNKNOWN:  "bg-stone-100 text-stone-600 border-stone-200",
 };
 

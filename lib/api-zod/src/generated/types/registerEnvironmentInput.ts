@@ -14,4 +14,6 @@ export interface RegisterEnvironmentInput {
   region: string;
   runtime: string;
   environment: string;
+  /** push | poll — defaults to push */
+  heartbeatMode?: string;
 }

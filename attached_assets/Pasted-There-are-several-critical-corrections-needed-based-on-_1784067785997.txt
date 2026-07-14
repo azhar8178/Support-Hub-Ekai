@@ -1,0 +1,275 @@
+There are several critical corrections needed based on Ekai's 
+deployment architecture. Ekai's platform runs inside customer 
+private cloud environments (AWS VPCs, Azure VNets, GCP VPCs). 
+The support portal at support.ekai.ai CANNOT reach into customer 
+networks. Customer deployments push outbound to us — we never 
+pull inbound from them.
+
+---
+
+CORRECTION 1 — FLIP THE DEFAULT HEARTBEAT MODE
+
+Currently the Fleet tab defaults to "Hub polls" mode where the 
+portal calls /api/healthz on the customer deployment URL. 
+This must be changed:
+
+- Default mode for all new environment registrations = CLIENT PUSH
+- Hub polls mode = secondary option, only for publicly accessible 
+  URLs (dev/staging environments explicitly)
+- On the Register Environment form, add a field:
+    Heartbeat Mode:
+    (*) Client Push — deployment sends heartbeats to this portal
+                      [RECOMMENDED — works in private networks]
+    ( ) Hub Poll    — portal fetches from deployment URL
+                      [Only for publicly accessible environments]
+- Add a warning banner on Hub Poll selection:
+    "⚠ Hub polling requires the deployment URL to be publicly 
+    reachable from the internet. Not suitable for production 
+    deployments in private VPCs."
+
+---
+
+CORRECTION 2 — CLIENT PUSH FLOW (FULL IMPLEMENTATION)
+
+When an environment is registered in Client Push mode:
+
+1. Generate a unique push token (format: ek_fleet_<32 hex chars>)
+2. Show it ONCE after registration in a modal:
+   
+   "Your environment has been registered. Configure your 
+    Ekai deployment with these environment variables:"
+   
+   FLEET_HUB_URL=https://support.ekai.ai
+   FLEET_API_KEY=ek_fleet_xxxxxxxxxxxxxxxxxxxx
+   
+   "This key will not be shown again. Store it securely and 
+    provide it to your deployment team."
+   
+   [Copy to clipboard] [I've saved this key — Done]
+
+3. Store token hashed (bcrypt) in push_tokens table
+4. Display only first 12 chars + "..." in the UI thereafter
+
+The ingest endpoint POST /api/fleet/heartbeat must:
+- Accept header: X-Fleet-API-Key: <token>
+- Validate token by hashing and comparing (never plaintext compare)
+- Accept payload:
+  {
+    "timestamp": "ISO8601",
+    "status": "healthy" | "degraded" | "down",
+    "version": "string",
+    "services": [
+      {
+        "name": "string",
+        "status": "healthy" | "degraded" | "down",
+        "latency_ms": number,
+        "cpu_percent": number | null,
+        "memory_percent": number | null,
+        "error_rate_percent": number | null
+      }
+    ],
+    "platform": {
+      "cloud": "aws" | "azure" | "gcp" | "other",
+      "region": "string",
+      "runtime": "ecs" | "eks" | "aks" | "gke" | 
+                 "docker" | "k8s" | "vm" | "other",
+      "os": "string"
+    }
+  }
+- Write to deployment_heartbeats table
+- Update deployment status + lastSeen
+- Trigger alert logic if status changed
+- Return: { "received": true, "interval_seconds": 300 }
+- This endpoint has NO NextAuth session — API key only
+- Rate limit: reject if same token posts within 60 seconds
+
+---
+
+CORRECTION 3 — MISSED HEARTBEAT DETECTION
+
+Create a background check that runs every 5 minutes.
+In Next.js this should be a route handler that gets called 
+by a cron job or Replit's scheduled tasks:
+
+GET /api/fleet/check-heartbeats (internal, requires 
+CRON_SECRET header matching env var CRON_SECRET)
+
+Logic:
+- Find all deployments in CLIENT PUSH mode where 
+  lastSeen < now minus 10 minutes AND status != OFFLINE
+- For each: set status = OFFLINE
+- Create health_alert (type: MISSED_HEARTBEAT)
+- Send email to support@ekai.ai:
+    Subject: [FLEET] Missed heartbeat: {deployment name} 
+             ({org name})
+    Body: Last seen: X minutes ago, environment details,
+          link to fleet dashboard
+
+---
+
+CORRECTION 4 — HEALTH AGENT SCRIPT
+
+Create /agent/health-agent.py — a standalone Python script 
+that runs inside the customer's deployment and sends 
+heartbeats to the portal. This is the CLIENT PUSH agent.
+
+Requirements:
+- Pure Python — only stdlib + requests + psutil
+- Works on Python 3.8+
+- Zero framework dependencies
+- Runs as a long-running process OR as a one-shot 
+  (called by external scheduler)
+
+Configuration via environment variables:
+  FLEET_HUB_URL      - https://support.ekai.ai
+  FLEET_API_KEY      - the token from registration
+  FLEET_INTERVAL     - push interval seconds (default: 300)
+  FLEET_SERVICES     - JSON array of services to probe
+  FLEET_CLOUD        - aws | azure | gcp | other
+  FLEET_REGION       - e.g. eu-west-1
+  FLEET_RUNTIME      - ecs | eks | aks | gke | docker | 
+                       k8s | vm | other
+  FLEET_VERSION      - current Ekai deployment version
+
+FLEET_SERVICES format:
+[
+  {
+    "name": "ekai-api",
+    "type": "api",
+    "url": "http://localhost:8080/health",
+    "timeout": 5
+  },
+  {
+    "name": "ekai-db",
+    "type": "database",
+    "url": "http://db-host:5432",
+    "timeout": 3
+  }
+]
+
+Service health logic:
+- HTTP/HTTPS URL: GET request
+    200-399 under 500ms  = healthy
+    200-399 500-2000ms   = degraded  
+    non-200 or >2000ms   = degraded
+    timeout / refused    = down
+- TCP host:port (no http): socket connect
+    connects under timeout = healthy
+    timeout / refused      = down
+- psutil for CPU/memory if available, null if not
+
+Overall status:
+  any service = down     → down
+  any service = degraded → degraded
+  all healthy            → healthy
+
+Script structure:
+1. Load and validate all env vars on startup
+   (exit with clear error if FLEET_HUB_URL or 
+   FLEET_API_KEY missing)
+2. Log startup: "Ekai Fleet Agent starting. 
+   Monitoring X services. Push interval: Ys"
+3. Loop:
+   a. Probe all services
+   b. Collect system metrics
+   c. Build payload
+   d. POST to FLEET_HUB_URL/api/fleet/heartbeat
+      with X-Fleet-API-Key header
+   e. Log: timestamp, status, HTTP response, 
+      next push in Ys
+   f. On HTTP error: log warning, do not crash
+   g. Sleep FLEET_INTERVAL seconds
+4. Handle SIGTERM gracefully (log shutdown, exit 0)
+
+Also create /agent/Dockerfile:
+FROM python:3.11-slim
+RUN pip install --no-cache-dir requests psutil
+WORKDIR /agent
+COPY health-agent.py .
+CMD ["python", "-u", "health-agent.py"]
+
+Also create /agent/README.md with deployment instructions 
+for each platform. The README must include copy-paste 
+commands for:
+
+1. Docker (universal):
+   docker run -d --name ekai-fleet-agent \
+     -e FLEET_HUB_URL=https://support.ekai.ai \
+     -e FLEET_API_KEY=ek_fleet_xxx \
+     -e FLEET_CLOUD=aws \
+     -e FLEET_REGION=eu-west-1 \
+     -e FLEET_RUNTIME=ecs \
+     -e FLEET_VERSION=1.0.0 \
+     -e FLEET_SERVICES='[{"name":"ekai-api","type":"api","url":"http://ekai-api:8080/health","timeout":5}]' \
+     --restart unless-stopped \
+     ekai/fleet-agent:latest
+
+2. AWS ECS (add as sidecar container in task definition):
+   JSON snippet showing the container definition with 
+   all env vars as secrets from Secrets Manager
+
+3. Azure Container Instances:
+   az container create command with env vars
+
+4. GCP Cloud Run Jobs:
+   gcloud run jobs create command with env vars
+
+5. Kubernetes (any cloud) CronJob:
+   Full YAML manifest with env vars from a Secret
+
+6. Linux VM / bare metal:
+   crontab entry calling docker run
+
+---
+
+CORRECTION 5 — FLEET HEALTH DASHBOARD
+
+The existing /health and /agent/health pages need to 
+show real data from deployment_heartbeats.
+
+For the /health page (customer view):
+- Show only environments belonging to their organisation
+- Each environment card must show:
+    * Status badge: HEALTHY / DEGRADED / OFFLINE / UNKNOWN
+    * Last heartbeat: "3 minutes ago" (live relative time)
+    * Heartbeat mode badge: "Client Push" or "Hub Poll"
+    * Services list from last heartbeat payload
+    * If OFFLINE: red banner "No heartbeat received for 
+      X minutes"
+    * 24-hour status sparkline (15-min buckets from 
+      deployment_heartbeats history)
+- Auto-refresh every 60 seconds using SWR
+
+For the /agent/health page (Ekai ops view):
+- All deployments across all customers
+- Summary row: X Healthy | X Degraded | X Offline | X Unknown
+- Highlight OFFLINE and DEGRADED rows in red/amber
+- Show last heartbeat age — flag anything >8 minutes in red
+- Clicking a row expands inline to show service breakdown
+  from the latest heartbeat payload
+- Alert feed: last 20 health_alerts, newest first, 
+  with acknowledge button
+
+---
+
+CORRECTION 6 — AUTO TICKET CREATION FROM ALERTS
+
+When health_alert is created with toStatus = DOWN or OFFLINE:
+- Auto-create a ticket with:
+    severity: P1
+    title: "[FLEET] {deployment name} is DOWN — {org name}"
+    category: Infrastructure
+    assigned to: first available EKAI_AGENT user
+    internal note: "Auto-created from fleet health alert. 
+    Last heartbeat: {timestamp}. 
+    Affected services: {comma list of down services}"
+- Link ticket ID back to health_alert.linkedTicketId
+
+When toStatus = DEGRADED:
+- Auto-create P2 ticket with same pattern
+
+When alert resolves (status returns to HEALTHY):
+- Add message to the linked ticket:
+    "Environment returned to healthy status at {timestamp}. 
+     Total downtime: X minutes."
+- Change ticket status to Resolved

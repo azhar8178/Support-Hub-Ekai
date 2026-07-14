@@ -332,7 +332,7 @@ router.post("/tickets/:id/messages", requireAuth, async (req, res): Promise<void
         .set({ firstResponseAt: new Date() })
         .where(eq(ticketsTable.id, ticket.id));
     }
-    if (ticket.raisedById !== user.id) {
+    if (ticket.raisedById != null && ticket.raisedById !== user.id) {
       await notifyUsers([ticket.raisedById], {
         type: "agent_reply",
         title: `New reply on ticket #${ticket.id}`,

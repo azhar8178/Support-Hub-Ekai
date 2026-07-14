@@ -35,6 +35,7 @@ function serializeEnv(
     region: row.region,
     runtime: row.runtime,
     apiKeyPrefix: row.apiKeyPrefix,
+    heartbeatMode: row.heartbeatMode ?? "push",
     environment: row.environment,
     status: row.status,
     lastSeen: row.lastSeen?.toISOString() ?? null,
@@ -79,7 +80,7 @@ function serializeAlert(
 // ADMIN: List all environments
 // ---------------------------------------------------------------------------
 router.get(
-  "/admin/environments",
+  "/admin/fleet/environments",
   requireAuth,
   requireRole("admin", "ekai_agent"),
   async (_req, res): Promise<void> => {
@@ -112,6 +113,7 @@ router.post(
       region?: string;
       runtime?: string;
       environment?: string;
+      heartbeatMode?: string;
     };
 
     if (!orgId || !name?.trim() || !cloud?.trim() || !region?.trim() || !runtime?.trim() || !environment?.trim()) {
@@ -131,11 +133,14 @@ router.post(
       return;
     }
 
-    // Generate API key: ek_live_ + 32 random hex chars
+    // Generate API key: ek_fleet_ + 32 random hex chars
     const randomPart = randomBytes(16).toString("hex"); // 32 hex chars
-    const plainKey = `ek_live_${randomPart}`;
-    const apiKeyPrefix = plainKey.substring(0, 16); // "ek_live_" + first 8 hex chars
+    const plainKey = `ek_fleet_${randomPart}`;
+    // Store first 12 chars as prefix for fast lookup + display ("ek_fleet_xxx")
+    const apiKeyPrefix = plainKey.substring(0, 12);
     const apiKeyHash = await bcrypt.hash(plainKey, 12);
+
+    const heartbeatMode = (req.body as any).heartbeatMode === "poll" ? "poll" : "push";
 
     const [row] = await db
       .insert(customerEnvironmentsTable)
@@ -146,6 +151,7 @@ router.post(
         region: region.trim(),
         runtime: runtime.trim(),
         environment: environment.trim(),
+        heartbeatMode,
         apiKeyHash,
         apiKeyPrefix,
       })
@@ -163,7 +169,7 @@ router.post(
 // ADMIN: Soft-delete environment
 // ---------------------------------------------------------------------------
 router.delete(
-  "/admin/environments/:id",
+  "/admin/fleet/environments/:id",
   requireAuth,
   requireRole("admin"),
   async (req, res): Promise<void> => {
@@ -185,7 +191,7 @@ router.delete(
 // ADMIN/AGENT: Get snapshots for an environment (last 7 days)
 // ---------------------------------------------------------------------------
 router.get(
-  "/admin/environments/:id/snapshots",
+  "/admin/fleet/environments/:id/snapshots",
   requireAuth,
   requireRole("admin", "ekai_agent"),
   async (req, res): Promise<void> => {
@@ -213,7 +219,7 @@ router.get(
 // ADMIN/AGENT: Get alerts for an environment
 // ---------------------------------------------------------------------------
 router.get(
-  "/admin/environments/:id/alerts",
+  "/admin/fleet/environments/:id/alerts",
   requireAuth,
   requireRole("admin", "ekai_agent"),
   async (req, res): Promise<void> => {
@@ -235,7 +241,7 @@ router.get(
 // ADMIN/AGENT: List all health alerts (across all environments)
 // ---------------------------------------------------------------------------
 router.get(
-  "/admin/health-alerts",
+  "/admin/fleet/health-alerts",
   requireAuth,
   requireRole("admin", "ekai_agent"),
   async (_req, res): Promise<void> => {
@@ -263,7 +269,7 @@ router.get(
 // ADMIN/AGENT: Acknowledge an alert
 // ---------------------------------------------------------------------------
 router.post(
-  "/admin/health-alerts/:id/acknowledge",
+  "/admin/fleet/health-alerts/:id/acknowledge",
   requireAuth,
   requireRole("admin", "ekai_agent"),
   async (req, res): Promise<void> => {
@@ -293,7 +299,7 @@ router.post(
 // CUSTOMER: List own environments
 // ---------------------------------------------------------------------------
 router.get(
-  "/environments",
+  "/fleet/environments",
   requireAuth,
   async (req, res): Promise<void> => {
     const user = (req as any).localUser;
@@ -321,7 +327,7 @@ router.get(
 // CUSTOMER: Latest snapshot for own environment
 // ---------------------------------------------------------------------------
 router.get(
-  "/environments/:id/snapshots",
+  "/fleet/environments/:id/snapshots",
   requireAuth,
   async (req, res): Promise<void> => {
     const user = (req as any).localUser;

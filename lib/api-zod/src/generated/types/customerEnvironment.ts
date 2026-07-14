@@ -15,9 +15,12 @@ export interface CustomerEnvironment {
   cloud: string;
   region: string;
   runtime: string;
+  /** First 12 chars of the ek_fleet_ key (display only) */
   apiKeyPrefix: string;
+  /** push | poll */
+  heartbeatMode: string;
   environment: string;
-  /** HEALTHY | DEGRADED | DOWN | UNKNOWN */
+  /** HEALTHY | DEGRADED | DOWN | OFFLINE | UNKNOWN */
   status: string;
   /** @nullable */
   lastSeen: string | null;

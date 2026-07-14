@@ -29,9 +29,7 @@ export const ticketsTable = pgTable("tickets", {
   orgId: integer("org_id")
     .notNull()
     .references(() => organisationsTable.id),
-  raisedById: integer("raised_by_id")
-    .notNull()
-    .references(() => usersTable.id),
+  raisedById: integer("raised_by_id").references(() => usersTable.id),
   assignedToId: integer("assigned_to_id").references(() => usersTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -60,9 +58,7 @@ export const ticketMessagesTable = pgTable("ticket_messages", {
   ticketId: integer("ticket_id")
     .notNull()
     .references(() => ticketsTable.id),
-  authorId: integer("author_id")
-    .notNull()
-    .references(() => usersTable.id),
+  authorId: integer("author_id").references(() => usersTable.id),
   content: text("content").notNull(),
   isInternal: boolean("is_internal").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

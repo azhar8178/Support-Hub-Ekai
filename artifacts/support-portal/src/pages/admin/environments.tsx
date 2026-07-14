@@ -9,7 +9,7 @@ import { useState } from "react";
 import {
   useListAdminEnvironments,
   useRegisterCustomerEnvironment,
-  useDeleteEnvironment,
+  useDeleteCustomerEnvironment,
   useListOrgs,
   getListAdminEnvironmentsQueryKey,
 } from "@workspace/api-client-react";
@@ -54,6 +54,7 @@ function statusBadge(status: string) {
     HEALTHY:  "bg-emerald-100 text-emerald-800 border-emerald-200",
     DEGRADED: "bg-amber-100 text-amber-800 border-amber-200",
     DOWN:     "bg-red-100 text-red-800 border-red-200",
+    OFFLINE:  "bg-red-100 text-red-800 border-red-200",
     UNKNOWN:  "bg-stone-100 text-stone-600 border-stone-200",
   };
   return (
@@ -264,7 +265,7 @@ function RegisterDialog({ onClose }: { onClose: () => void }) {
 
 export default function AdminEnvironmentsPage() {
   const { data: envs, isLoading } = useListAdminEnvironments();
-  const deleteEnv = useDeleteEnvironment();
+  const deleteEnv = useDeleteCustomerEnvironment();
 
   const [showRegister, setShowRegister] = useState(false);
   const [revealKey, setRevealKey] = useState<string | null>(null);
@@ -326,7 +327,7 @@ export default function AdminEnvironmentsPage() {
             <table className="w-full text-sm">
               <thead className="bg-stone-50 border-b border-stone-200">
                 <tr>
-                  {["Organisation", "Environment", "Cloud / Region", "Runtime", "Status", "Last seen", "Agent version", "API key prefix", ""].map((h) => (
+                  {["Organisation", "Environment", "Mode", "Cloud / Region", "Runtime", "Status", "Last seen", "Key prefix", ""].map((h) => (
                     <th key={h} className="text-left text-xs font-semibold text-stone-500 uppercase tracking-wider px-4 py-3">{h}</th>
                   ))}
                 </tr>
@@ -340,13 +341,17 @@ export default function AdminEnvironmentsPage() {
                       <div className="text-xs text-stone-400">{env.environment}</div>
                     </td>
                     <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${env.heartbeatMode === "poll" ? "bg-stone-100 text-stone-600 border-stone-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
+                        {env.heartbeatMode === "poll" ? "Hub Poll" : "Client Push"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="font-medium uppercase">{env.cloud}</div>
                       <div className="text-xs text-stone-400">{env.region}</div>
                     </td>
                     <td className="px-4 py-3 text-stone-600">{env.runtime}</td>
                     <td className="px-4 py-3">{statusBadge(env.status)}</td>
                     <td className="px-4 py-3 text-stone-600">{relativeTime(env.lastSeen)}</td>
-                    <td className="px-4 py-3 text-stone-500 font-mono text-xs">{env.agentVersion ?? "—"}</td>
                     <td className="px-4 py-3 font-mono text-xs text-stone-500">{env.apiKeyPrefix}…</td>
                     <td className="px-4 py-3">
                       <Button

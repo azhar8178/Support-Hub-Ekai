@@ -52,6 +52,7 @@ const STATUS_COLORS: Record<string, { row: string; badge: string; dot: string }>
   HEALTHY:  { row: "",               badge: "bg-emerald-100 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
   DEGRADED: { row: "bg-amber-50/40", badge: "bg-amber-100 text-amber-700 border-amber-200",       dot: "bg-amber-500"   },
   DOWN:     { row: "bg-red-50/40",   badge: "bg-red-100 text-red-700 border-red-200",             dot: "bg-red-500"     },
+  OFFLINE:  { row: "bg-red-50/40",   badge: "bg-red-100 text-red-800 border-red-200",             dot: "bg-red-600"     },
   UNKNOWN:  { row: "bg-stone-50/40", badge: "bg-stone-100 text-stone-600 border-stone-200",       dot: "bg-stone-400"   },
 };
 
@@ -229,7 +230,7 @@ export default function AgentHealthPage() {
     total:    envs?.length ?? 0,
     healthy:  envs?.filter((e) => e.status === "HEALTHY").length  ?? 0,
     degraded: envs?.filter((e) => e.status === "DEGRADED").length ?? 0,
-    down:     envs?.filter((e) => e.status === "DOWN").length     ?? 0,
+    down:     envs?.filter((e) => e.status === "DOWN" || e.status === "OFFLINE").length ?? 0,
     unknown:  envs?.filter((e) => e.status === "UNKNOWN").length  ?? 0,
   };
 
@@ -278,7 +279,7 @@ export default function AgentHealthPage() {
             />
             {[
               { label: "Cloud", value: filterCloud, setter: setFilterCloud, options: ["all","aws","azure","gcp","other"] },
-              { label: "Status", value: filterStatus, setter: setFilterStatus, options: ["all","HEALTHY","DEGRADED","DOWN","UNKNOWN"] },
+              { label: "Status", value: filterStatus, setter: setFilterStatus, options: ["all","HEALTHY","DEGRADED","DOWN","OFFLINE","UNKNOWN"] },
               { label: "Env type", value: filterEnvType, setter: setFilterEnvType, options: ["all","production","staging","dev"] },
             ].map(({ label, value, setter, options }) => (
               <Select key={label} value={value} onValueChange={setter}>

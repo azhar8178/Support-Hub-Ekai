@@ -1296,7 +1296,7 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/FileItem"
-  /api/admin/environments:
+  /admin/fleet/environments:
     get:
       operationId: listAdminEnvironments
       tags: [environments]
@@ -1327,9 +1327,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RegisterEnvironmentResult"
-  /api/admin/environments/{id}:
+  /admin/fleet/environments/{id}:
     delete:
-      operationId: deleteEnvironment
+      operationId: deleteCustomerEnvironment
       tags: [environments]
       summary: Soft-delete a customer environment
       parameters:
@@ -1344,7 +1344,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
-  /api/admin/environments/{id}/snapshots:
+  /admin/fleet/environments/{id}/snapshots:
     get:
       operationId: listAdminEnvironmentSnapshots
       tags: [environments]
@@ -1363,7 +1363,7 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/HealthSnapshot"
-  /api/admin/environments/{id}/alerts:
+  /admin/fleet/environments/{id}/alerts:
     get:
       operationId: listEnvironmentAlerts
       tags: [environments]
@@ -1382,7 +1382,7 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/HealthAlert"
-  /api/admin/health-alerts:
+  /admin/fleet/health-alerts:
     get:
       operationId: listHealthAlerts
       tags: [environments]
@@ -1396,7 +1396,7 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/HealthAlert"
-  /api/admin/health-alerts/{id}/acknowledge:
+  /admin/fleet/health-alerts/{id}/acknowledge:
     post:
       operationId: acknowledgeHealthAlert
       tags: [environments]
@@ -1413,7 +1413,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
-  /api/environments:
+  /fleet/environments:
     get:
       operationId: listMyEnvironments
       tags: [environments]
@@ -1427,7 +1427,7 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CustomerEnvironment"
-  /api/environments/{id}/snapshots:
+  /fleet/environments/{id}/snapshots:
     get:
       operationId: listEnvironmentSnapshots
       tags: [environments]
@@ -2169,14 +2169,15 @@ components:
         cloud: { type: string }
         region: { type: string }
         runtime: { type: string }
-        apiKeyPrefix: { type: string }
+        apiKeyPrefix: { type: string, description: "First 12 chars of the ek_fleet_ key (display only)" }
+        heartbeatMode: { type: string, description: "push | poll" }
         environment: { type: string }
-        status: { type: string, description: "HEALTHY | DEGRADED | DOWN | UNKNOWN" }
+        status: { type: string, description: "HEALTHY | DEGRADED | DOWN | OFFLINE | UNKNOWN" }
         lastSeen: { type: ["string", "null"] }
         agentVersion: { type: ["string", "null"] }
         active: { type: boolean }
         createdAt: { type: string }
-      required: [id, orgId, orgName, name, cloud, region, runtime, apiKeyPrefix, environment, status, lastSeen, agentVersion, active, createdAt]
+      required: [id, orgId, orgName, name, cloud, region, runtime, apiKeyPrefix, heartbeatMode, environment, status, lastSeen, agentVersion, active, createdAt]
     RegisterEnvironmentInput:
       type: object
       properties:
@@ -2186,6 +2187,7 @@ components:
         region: { type: string }
         runtime: { type: string }
         environment: { type: string }
+        heartbeatMode: { type: string, description: "push | poll — defaults to push", default: "push" }
       required: [orgId, name, cloud, region, runtime, environment]
     RegisterEnvironmentResult:
       type: object

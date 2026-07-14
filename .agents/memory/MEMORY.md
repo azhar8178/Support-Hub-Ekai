@@ -12,3 +12,4 @@
 - [Taxonomy as data](taxonomy-as-data.md) — severity/category/environment are admin-editable rows (severities live on sla_config); retire not delete, validate at runtime, keep retired in SLA cache but filter active for top-rank.
 - [Local auth mode](local-auth-mode.md) — AUTH_MODE=local adds password+session auth; VITE_AUTH_MODE build arg must match; both must be set together or login breaks.
 - [Health telemetry system](health-telemetry-system.md) — API key auth, rate-limit, operationId naming rules, looseObject/zod v3 fix, query options pattern for new env health feature.
+- [Fleet system paths](fleet-system-paths.md) — fleet routes live under /admin/fleet/... and /fleet/... (not /admin/environments) to avoid taxonomy collision; token format ek_fleet_; raisedById is nullable for auto-created tickets.

@@ -93,7 +93,7 @@ export async function applyStatusChange(
 
   // Notify the customer who raised the ticket (unless they made the change).
   const recipients = new Set<number>();
-  if (ticket.raisedById !== actor?.id) recipients.add(ticket.raisedById);
+  if (ticket.raisedById != null && ticket.raisedById !== actor?.id) recipients.add(ticket.raisedById);
   if (ticket.assignedToId && ticket.assignedToId !== actor?.id) recipients.add(ticket.assignedToId);
   await notifyUsers([...recipients], {
     type: "status_changed",

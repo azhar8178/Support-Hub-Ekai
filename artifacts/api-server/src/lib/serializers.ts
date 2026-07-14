@@ -21,7 +21,7 @@ export interface TicketDto {
   environment: string;
   orgId: number;
   orgName: string;
-  raisedById: number;
+  raisedById: number | null;
   raisedByName: string;
   assignedToId: number | null;
   assignedToName: string | null;
@@ -67,8 +67,8 @@ export function serializeTicketRow(row: TicketRow, now: Date = new Date()): Tick
     environment: t.environment,
     orgId: t.orgId,
     orgName: row.org?.name ?? "Unknown",
-    raisedById: t.raisedById,
-    raisedByName: row.raisedBy?.name ?? "Unknown",
+    raisedById: t.raisedById ?? null,
+    raisedByName: row.raisedBy?.name ?? "System",
     assignedToId: t.assignedToId,
     assignedToName: row.assignee?.name ?? null,
     createdAt: t.createdAt.toISOString(),

@@ -5336,7 +5336,7 @@ export const getListAdminEnvironmentsUrl = () => {
 
 
 
-  return `/api/api/admin/environments`
+  return `/api/admin/fleet/environments`
 }
 
 /**
@@ -5359,7 +5359,7 @@ export const listAdminEnvironments = async ( options?: RequestInit): Promise<Cus
 
 export const getListAdminEnvironmentsQueryKey = () => {
     return [
-    `/api/api/admin/environments`
+    `/api/admin/fleet/environments`
     ] as const;
     }
 
@@ -5413,7 +5413,7 @@ export const getRegisterCustomerEnvironmentUrl = () => {
 
 
 
-  return `/api/api/admin/environments`
+  return `/api/admin/fleet/environments`
 }
 
 /**
@@ -5479,20 +5479,20 @@ export const useRegisterCustomerEnvironment = <TError = ErrorType<unknown>,
       return useMutation(getRegisterCustomerEnvironmentMutationOptions(options));
     }
 
-export const getDeleteEnvironmentUrl = (id: number,) => {
+export const getDeleteCustomerEnvironmentUrl = (id: number,) => {
 
 
 
 
-  return `/api/api/admin/environments/${id}`
+  return `/api/admin/fleet/environments/${id}`
 }
 
 /**
  * @summary Soft-delete a customer environment
  */
-export const deleteEnvironment = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
+export const deleteCustomerEnvironment = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
 
-  return customFetch<ApiMessage>(getDeleteEnvironmentUrl(id),
+  return customFetch<ApiMessage>(getDeleteCustomerEnvironmentUrl(id),
   {
     ...options,
     method: 'DELETE'
@@ -5505,11 +5505,11 @@ export const deleteEnvironment = async (id: number, options?: RequestInit): Prom
 
 
 
-export const getDeleteEnvironmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEnvironment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteEnvironment>>, TError,{id: number}, TContext> => {
+export const getDeleteCustomerEnvironmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCustomerEnvironment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCustomerEnvironment>>, TError,{id: number}, TContext> => {
 
-const mutationKey = ['deleteEnvironment'];
+const mutationKey = ['deleteCustomerEnvironment'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -5519,10 +5519,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEnvironment>>, {id: number}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCustomerEnvironment>>, {id: number}> = (props) => {
           const {id} = props ?? {};
 
-          return  deleteEnvironment(id,requestOptions)
+          return  deleteCustomerEnvironment(id,requestOptions)
         }
 
 
@@ -5532,22 +5532,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type DeleteEnvironmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEnvironment>>>
+    export type DeleteCustomerEnvironmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCustomerEnvironment>>>
 
-    export type DeleteEnvironmentMutationError = ErrorType<unknown>
+    export type DeleteCustomerEnvironmentMutationError = ErrorType<unknown>
 
     /**
  * @summary Soft-delete a customer environment
  */
-export const useDeleteEnvironment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEnvironment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useDeleteCustomerEnvironment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCustomerEnvironment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteEnvironment>>,
+        Awaited<ReturnType<typeof deleteCustomerEnvironment>>,
         TError,
         {id: number},
         TContext
       > => {
-      return useMutation(getDeleteEnvironmentMutationOptions(options));
+      return useMutation(getDeleteCustomerEnvironmentMutationOptions(options));
     }
 
 export const getListAdminEnvironmentSnapshotsUrl = (id: number,) => {
@@ -5555,7 +5555,7 @@ export const getListAdminEnvironmentSnapshotsUrl = (id: number,) => {
 
 
 
-  return `/api/api/admin/environments/${id}/snapshots`
+  return `/api/admin/fleet/environments/${id}/snapshots`
 }
 
 /**
@@ -5578,7 +5578,7 @@ export const listAdminEnvironmentSnapshots = async (id: number, options?: Reques
 
 export const getListAdminEnvironmentSnapshotsQueryKey = (id: number,) => {
     return [
-    `/api/api/admin/environments/${id}/snapshots`
+    `/api/admin/fleet/environments/${id}/snapshots`
     ] as const;
     }
 
@@ -5632,7 +5632,7 @@ export const getListEnvironmentAlertsUrl = (id: number,) => {
 
 
 
-  return `/api/api/admin/environments/${id}/alerts`
+  return `/api/admin/fleet/environments/${id}/alerts`
 }
 
 /**
@@ -5655,7 +5655,7 @@ export const listEnvironmentAlerts = async (id: number, options?: RequestInit): 
 
 export const getListEnvironmentAlertsQueryKey = (id: number,) => {
     return [
-    `/api/api/admin/environments/${id}/alerts`
+    `/api/admin/fleet/environments/${id}/alerts`
     ] as const;
     }
 
@@ -5709,7 +5709,7 @@ export const getListHealthAlertsUrl = () => {
 
 
 
-  return `/api/api/admin/health-alerts`
+  return `/api/admin/fleet/health-alerts`
 }
 
 /**
@@ -5732,7 +5732,7 @@ export const listHealthAlerts = async ( options?: RequestInit): Promise<HealthAl
 
 export const getListHealthAlertsQueryKey = () => {
     return [
-    `/api/api/admin/health-alerts`
+    `/api/admin/fleet/health-alerts`
     ] as const;
     }
 
@@ -5786,7 +5786,7 @@ export const getAcknowledgeHealthAlertUrl = (id: number,) => {
 
 
 
-  return `/api/api/admin/health-alerts/${id}/acknowledge`
+  return `/api/admin/fleet/health-alerts/${id}/acknowledge`
 }
 
 /**
@@ -5857,7 +5857,7 @@ export const getListMyEnvironmentsUrl = () => {
 
 
 
-  return `/api/api/environments`
+  return `/api/fleet/environments`
 }
 
 /**
@@ -5880,7 +5880,7 @@ export const listMyEnvironments = async ( options?: RequestInit): Promise<Custom
 
 export const getListMyEnvironmentsQueryKey = () => {
     return [
-    `/api/api/environments`
+    `/api/fleet/environments`
     ] as const;
     }
 
@@ -5934,7 +5934,7 @@ export const getListEnvironmentSnapshotsUrl = (id: number,) => {
 
 
 
-  return `/api/api/environments/${id}/snapshots`
+  return `/api/fleet/environments/${id}/snapshots`
 }
 
 /**
@@ -5957,7 +5957,7 @@ export const listEnvironmentSnapshots = async (id: number, options?: RequestInit
 
 export const getListEnvironmentSnapshotsQueryKey = (id: number,) => {
     return [
-    `/api/api/environments/${id}/snapshots`
+    `/api/fleet/environments/${id}/snapshots`
     ] as const;
     }
 

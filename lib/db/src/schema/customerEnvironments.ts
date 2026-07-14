@@ -22,6 +22,8 @@ export const customerEnvironmentsTable = pgTable("customer_environments", {
   status: text("status").notNull().default("UNKNOWN"), // HEALTHY | DEGRADED | DOWN | UNKNOWN
   lastSeen: timestamp("last_seen", { withTimezone: true }),
   agentVersion: text("agent_version"),
+  /** push = client sends heartbeats; poll = portal fetches from deployment URL */
+  heartbeatMode: text("heartbeat_mode").notNull().default("push"),
   /** Soft-delete: false means decommissioned, historical snapshots are kept */
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

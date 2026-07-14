@@ -32,6 +32,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> =
   HEALTHY:  { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
   DEGRADED: { bg: "bg-amber-50 border-amber-200",     text: "text-amber-700",   dot: "bg-amber-500"   },
   DOWN:     { bg: "bg-red-50 border-red-200",          text: "text-red-700",     dot: "bg-red-500"     },
+  OFFLINE:  { bg: "bg-red-50 border-red-200",          text: "text-red-700",     dot: "bg-red-500"     },
   UNKNOWN:  { bg: "bg-stone-50 border-stone-200",      text: "text-stone-500",   dot: "bg-stone-400"   },
 };
 
@@ -82,7 +83,7 @@ function TimelineBar({ snapshots }: { snapshots: Array<{ timestamp: string; over
       return t >= bStart && t < bEnd;
     });
     if (!inBucket.length) return "UNKNOWN";
-    if (inBucket.some((s) => s.overallStatus === "DOWN"))     return "DOWN";
+    if (inBucket.some((s) => s.overallStatus === "DOWN" || s.overallStatus === "OFFLINE")) return "DOWN";
     if (inBucket.some((s) => s.overallStatus === "DEGRADED")) return "DEGRADED";
     return "HEALTHY";
   });
@@ -91,6 +92,7 @@ function TimelineBar({ snapshots }: { snapshots: Array<{ timestamp: string; over
     HEALTHY:  "bg-emerald-500",
     DEGRADED: "bg-amber-400",
     DOWN:     "bg-red-500",
+    OFFLINE:  "bg-red-500",
     UNKNOWN:  "bg-stone-200",
   };
 
@@ -110,7 +112,7 @@ function TimelineBar({ snapshots }: { snapshots: Array<{ timestamp: string; over
         ))}
       </div>
       <div className="flex gap-4 mt-2">
-        {(["HEALTHY","DEGRADED","DOWN","UNKNOWN"] as const).map((s) => (
+        {(["HEALTHY","DEGRADED","DOWN","OFFLINE","UNKNOWN"] as const).map((s) => (
           <span key={s} className="flex items-center gap-1 text-xs text-stone-500">
             <span className={`inline-block h-2 w-2 rounded-sm ${colorMap[s]}`} />
             {s.charAt(0) + s.slice(1).toLowerCase()}
@@ -166,7 +168,7 @@ function EnvCard({ env }: { env: { id: number; name: string; cloud: string; regi
       </div>
 
       {/* Missed heartbeat banner */}
-      {env.status === "UNKNOWN" && (
+      {(env.status === "UNKNOWN" || env.status === "OFFLINE") && (
         <div className="mx-6 mb-4 p-3 rounded-lg bg-stone-100 border border-stone-200 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-stone-500 shrink-0 mt-0.5" />
           <p className="text-sm text-stone-600">
