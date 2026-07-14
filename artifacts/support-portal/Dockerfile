@@ -41,8 +41,12 @@ RUN pnpm --filter @workspace/api-client-react run build 2>/dev/null || true
 # BASE_PATH defaults to / for a standalone Docker deployment.
 # Override at build time with: --build-arg BASE_PATH=/your/prefix
 ARG BASE_PATH=/
-ARG VITE_CLERK_PUBLISHABLE_KEY
+# AUTH_MODE controls which login UI is compiled into the portal.
+# Use "clerk" (default) for Clerk-based auth, "local" for self-hosted password auth.
+ARG VITE_AUTH_MODE=clerk
+ARG VITE_CLERK_PUBLISHABLE_KEY=
 ENV BASE_PATH=${BASE_PATH}
+ENV VITE_AUTH_MODE=${VITE_AUTH_MODE}
 ENV VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY}
 # PORT is required by vite.config.ts even during build; use a throwaway value
 ENV PORT=3001

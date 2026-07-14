@@ -12,8 +12,14 @@
 #
 # Quick start:
 #   1. cp .env.example .env   # and fill in your real values
-#   2. docker compose up -d
+#   2. docker compose up -d --build
 #   3. Open http://localhost (or the PORTAL_PORT you configured)
+#
+# Auth modes:
+#   AUTH_MODE=local  (default, recommended for self-hosting)
+#     No external accounts needed. Run bootstrap-admin after first start.
+#   AUTH_MODE=clerk
+#     Requires a Clerk account and CLERK_* keys from dashboard.clerk.com.
 # =============================================================================
 
 services:
@@ -75,20 +81,30 @@ services:
       NODE_ENV:                     production
       PORT:                         8080
       DATABASE_URL:                 postgres://${POSTGRES_USER:-ekai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ekai}
-      CLERK_PUBLISHABLE_KEY:        ${CLERK_PUBLISHABLE_KEY}
-      CLERK_SECRET_KEY:             ${CLERK_SECRET_KEY}
       PORTAL_URL:                   ${PORTAL_URL}
+
+      # Auth mode — "local" (default) or "clerk"
+      AUTH_MODE:                    ${AUTH_MODE:-local}
+
+      # Local auth: strong random secret for session cookies.
+      # Generate with: openssl rand -hex 32
+      # Required when AUTH_MODE=local.
+      SESSION_SECRET:               ${SESSION_SECRET:-}
+
+      # Clerk auth — only required when AUTH_MODE=clerk
+      CLERK_PUBLISHABLE_KEY:        ${CLERK_PUBLISHABLE_KEY:-}
+      CLERK_SECRET_KEY:             ${CLERK_SECRET_KEY:-}
+
       # Email (AWS SES) — optional; leave blank to disable email notifications
       AWS_ACCESS_KEY_ID:            ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY:        ${AWS_SECRET_ACCESS_KEY:-}
       AWS_REGION:                   ${AWS_REGION:-us-east-1}
       EMAIL_FROM:                   ${EMAIL_FROM:-}
+
       # Object storage — optional; leave blank to store attachments in Postgres
       DEFAULT_OBJECT_STORAGE_BUCKET_ID: ${DEFAULT_OBJECT_STORAGE_BUCKET_ID:-}
       PRIVATE_OBJECT_DIR:           ${PRIVATE_OBJECT_DIR:-}
-      # Fleet monitoring — optional; set only for push-mode deployments
-      FLEET_HUB_URL:                ${FLEET_HUB_URL:-}
-      FLEET_API_KEY:                ${FLEET_API_KEY:-}
+
       # Logging
       LOG_LEVEL:                    ${LOG_LEVEL:-info}
     ports:
@@ -111,7 +127,10 @@ services:
       context: .
       dockerfile: artifacts/support-portal/Dockerfile
       args:
-        VITE_CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY}
+        # Must match AUTH_MODE on the api-server — controls which login UI is compiled in.
+        VITE_AUTH_MODE: ${AUTH_MODE:-local}
+        # Only needed when AUTH_MODE=clerk
+        VITE_CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-}
         BASE_PATH: /
     restart: unless-stopped
     depends_on:

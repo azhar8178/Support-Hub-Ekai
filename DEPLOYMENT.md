@@ -1,28 +1,27 @@
 # Ekai — Deployment Guide
 
-This guide covers every supported deployment path for Ekai: self-hosted on a bare-metal server or VM, Docker Compose for a single-host production setup, and Kubernetes for multi-replica cloud deployments (via raw manifests or the included Helm chart). Read through the [Prerequisites](#prerequisites) and [Environment Variables Reference](#environment-variables-reference) sections first regardless of which path you choose.
+This guide covers every supported deployment path for Ekai: Ubuntu + Docker (the recommended self-hosted path), Docker Compose on any host, bare-metal VM, and Kubernetes for multi-replica cloud deployments.
 
 ---
 
 ## Table of contents
 
 1. [Architecture overview](#architecture-overview)
-2. [Prerequisites](#prerequisites)
-3. [Environment variables reference](#environment-variables-reference)
-4. [Database setup](#database-setup)
-5. [Clerk authentication setup](#clerk-authentication-setup)
-6. [Email (AWS SES)](#email-aws-ses)
-7. [Object storage (Google Cloud Storage)](#object-storage-google-cloud-storage)
+2. [Authentication](#authentication)
+3. [Prerequisites](#prerequisites)
+4. [Environment variables reference](#environment-variables-reference)
+5. [Database setup](#database-setup)
+6. [Ubuntu + Docker (recommended)](#ubuntu--docker-recommended)
+7. [Docker Compose (any host)](#docker-compose)
 8. [Self-hosted (bare metal / VM)](#self-hosted-bare-metal--vm)
-9. [Docker Compose](#docker-compose)
-10. [Testing the stack](#testing-the-stack)
-11. [Kubernetes](#kubernetes)
-    - [Raw manifests](#step-by-step)
-    - [Helm chart](#helm-chart)
-12. [Fleet monitoring](#fleet-monitoring)
-13. [Health check endpoint](#health-check-endpoint)
-14. [Upgrading](#upgrading)
-15. [Troubleshooting](#troubleshooting)
+9. [Email (AWS SES)](#email-aws-ses)
+10. [Object storage (Google Cloud Storage)](#object-storage-google-cloud-storage)
+11. [Testing the stack](#testing-the-stack)
+12. [Kubernetes](#kubernetes)
+13. [Fleet monitoring](#fleet-monitoring)
+14. [Health check endpoint](#health-check-endpoint)
+15. [Upgrading](#upgrading)
+16. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -38,7 +37,7 @@ This guide covers every supported deployment path for Ekai: self-hosted on a bar
                          │          API Server              │
                          │   Express 5 · Node 24 · ESM      │
                          │                                  │
-                         │  • REST endpoints (Clerk auth)   │
+                         │  • REST endpoints (session auth) │
                          │  • Background sweeps (60 s tick) │
                          │  • Fleet poll / alert sweep      │
                          └──────────────┬──────────────────┘
@@ -51,11 +50,31 @@ This guide covers every supported deployment path for Ekai: self-hosted on a bar
 **API Server** — the only stateful service. It:
 - Serves all REST endpoints under `/api/`
 - Runs background sweeps every 60 seconds (SLA alerts, auto-escalation, auto-close, fleet health checks)
-- Optionally pushes its own health to a remote fleet hub (push mode)
 
 **Support Portal** — a fully static React SPA. After `vite build` it is a directory of HTML/JS/CSS files that any web server can serve. nginx is the recommended server; it also proxies `/api/*` to the API server.
 
 **PostgreSQL 16** — the single source of truth. All schema is managed by Drizzle ORM; there are no raw migration files.
+
+---
+
+## Authentication
+
+Ekai supports two authentication modes selected at deploy time via the `AUTH_MODE` environment variable.
+
+### Local mode (`AUTH_MODE=local`) — recommended for self-hosting
+
+Built-in email + password authentication. No external accounts or services needed.
+
+- Sessions are stored in PostgreSQL (auto-created `session` table), so they survive server restarts.
+- Passwords are hashed with bcrypt (cost factor 12).
+- Requires `SESSION_SECRET` — a 32-byte random hex string.
+- The first admin account is created via the [bootstrap endpoint](#first-admin-bootstrap).
+
+### Clerk mode (`AUTH_MODE=clerk`)
+
+Delegates authentication to [Clerk](https://clerk.com). Users sign in via Clerk's hosted UI and are linked to portal records by email. Requires `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` from the Clerk dashboard.
+
+> The portal is built with the auth mode baked in at **build time** (`VITE_AUTH_MODE`). The build arg must match the API server's `AUTH_MODE` at runtime. Mismatching them will break the login flow.
 
 ---
 
@@ -66,7 +85,8 @@ This guide covers every supported deployment path for Ekai: self-hosted on a bar
 | Node.js | 24 | LTS recommended |
 | pnpm | 10 | `npm install -g pnpm` or `corepack enable` |
 | PostgreSQL | 16 | 15 may work but is untested |
-| Docker | 26 | Compose deployments only |
+| Docker | 26 | Docker Compose deployments |
+| Docker Compose | v2 | Bundled with Docker Desktop; `docker compose` (not `docker-compose`) |
 | kubectl + helm | any current | Kubernetes deployments only |
 
 ---
@@ -78,28 +98,31 @@ This guide covers every supported deployment path for Ekai: self-hosted on a bar
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `PORT` | ✅ | — | TCP port the HTTP server listens on |
-| `DATABASE_URL` | ✅ | — | PostgreSQL connection string, e.g. `postgres://user:pass@host:5432/ekai` |
-| `CLERK_PUBLISHABLE_KEY` | ✅ | — | Clerk publishable key (`pk_live_…` or `pk_test_…`) |
-| `CLERK_SECRET_KEY` | ✅ | — | Clerk secret key (`sk_live_…` or `sk_test_…`) |
-| `PORTAL_URL` | ✅ | — | Public URL of the support portal, used in notification email links |
+| `DATABASE_URL` | ✅ | — | PostgreSQL connection string |
+| `PORTAL_URL` | ✅ | — | Public URL of the support portal (used in email links and CORS) |
+| `AUTH_MODE` | — | `local` | `local` or `clerk` |
+| `SESSION_SECRET` | local✅ | — | Random 32-byte hex secret for session cookies. Generate: `openssl rand -hex 32` |
+| `CLERK_PUBLISHABLE_KEY` | clerk✅ | — | Clerk publishable key (`pk_live_…` or `pk_test_…`) |
+| `CLERK_SECRET_KEY` | clerk✅ | — | Clerk secret key (`sk_live_…`) |
 | `NODE_ENV` | — | `development` | Set to `production` for all deployments |
 | `LOG_LEVEL` | — | `info` | Pino log level: `fatal` `error` `warn` `info` `debug` `trace` |
 | `AWS_ACCESS_KEY_ID` | — | — | AWS credentials for SES email. All three AWS vars must be set to enable email |
 | `AWS_SECRET_ACCESS_KEY` | — | — | ↑ |
 | `AWS_REGION` | — | `us-east-1` | AWS region for SES |
-| `EMAIL_FROM` | — | — | Verified SES sender address, e.g. `support@yourcompany.com` |
-| `DEFAULT_OBJECT_STORAGE_BUCKET_ID` | — | — | GCS bucket name. If unset, attachments are stored as base64 in Postgres (≤5 MB) |
+| `EMAIL_FROM` | — | — | Verified SES sender address |
+| `DEFAULT_OBJECT_STORAGE_BUCKET_ID` | — | — | GCS bucket name. If unset, attachments stored as base64 in Postgres (≤5 MB) |
 | `PRIVATE_OBJECT_DIR` | — | — | Prefix/path inside the GCS bucket for private attachments |
 | `FLEET_HUB_URL` | — | — | Push mode only — base URL of the Ekai hub this deployment reports to |
-| `FLEET_API_KEY` | — | — | Push mode only — API key issued by the hub admin (see [Fleet monitoring](#fleet-monitoring)) |
+| `FLEET_API_KEY` | — | — | Push mode only — API key issued by the hub admin |
 
 ### Support Portal (build-time)
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `PORT` | ✅ | — | Port for `vite dev` / `vite preview`. Not needed after `vite build` (nginx ignores it) |
-| `BASE_PATH` | ✅ | — | URL base path for the SPA, e.g. `/`. Must match the path your reverse proxy serves the portal at |
-| `VITE_CLERK_PUBLISHABLE_KEY` | ✅ | — | Same value as the API server's `CLERK_PUBLISHABLE_KEY`. Embedded into the JS bundle at build time |
+| `PORT` | ✅ | — | Port for `vite dev` / `vite preview`. Not needed after `vite build` |
+| `BASE_PATH` | ✅ | — | URL base path for the SPA, e.g. `/` |
+| `VITE_AUTH_MODE` | — | `clerk` | Must match the API server's `AUTH_MODE`. Set to `local` for self-hosted builds |
+| `VITE_CLERK_PUBLISHABLE_KEY` | clerk✅ | — | Same as `CLERK_PUBLISHABLE_KEY`. Embedded into the JS bundle at build time |
 
 > **Note:** `VITE_*` variables are embedded into the compiled JavaScript bundle at `vite build` time. Changing them after the build has no effect — you must rebuild the portal.
 
@@ -109,15 +132,14 @@ This guide covers every supported deployment path for Ekai: self-hosted on a bar
 
 Ekai uses [Drizzle ORM](https://orm.drizzle.team/) with `drizzle-kit push` to synchronise the schema. There are no numbered migration files; the schema is always defined in code.
 
-### First run (interactive — recommended for production upgrades)
+### First run
 
 ```bash
-# From the repo root, with the database reachable from your machine
 DATABASE_URL="postgres://user:pass@host:5432/ekai" \
   pnpm --filter @workspace/db run push
 ```
 
-Drizzle prints a diff of every DDL statement it will execute and asks for confirmation before applying. This creates all tables, indexes, and constraints. It is safe to run multiple times.
+Drizzle prints a diff of every DDL statement and asks for confirmation. Safe to run multiple times.
 
 ### Non-interactive (CI / Docker)
 
@@ -126,196 +148,234 @@ DATABASE_URL="postgres://user:pass@host:5432/ekai" \
   pnpm --filter @workspace/db run push-force
 ```
 
-The `push-force` script adds `--force` to skip the confirmation prompt. Use this in automated pipelines. The Docker Compose `migrator` service runs this automatically before the API server starts.
+The Docker Compose `migrator` service runs this automatically before the API server starts.
 
 ### On upgrade
 
-Run one of the commands above after pulling new code. Drizzle detects schema differences and applies only the necessary DDL.
+Run the push command after pulling new code. Drizzle applies only the necessary DDL.
 
-> ⚠️ **Drizzle push is not zero-downtime for destructive changes** (column renames, type changes). Review the interactive diff carefully and take a database backup before upgrading in production.
-
----
-
-## Clerk authentication setup
-
-Ekai uses [Clerk](https://clerk.com) for authentication. Every user account must exist in both Clerk and the Ekai `users` table; new users are invited via the portal admin UI.
-
-1. Create a Clerk application at [dashboard.clerk.com](https://dashboard.clerk.com).
-2. Under **API Keys**, copy the **Publishable key** and **Secret key**.
-3. Under **Paths → Sign-in URL**, set it to your portal's sign-in page (e.g. `https://support.yourcompany.com/auth`).
-4. Under **Allowlist**, add your portal domain if you want to restrict sign-ups.
-5. Set `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` on the API server, and `VITE_CLERK_PUBLISHABLE_KEY` (same value as the publishable key) at portal build time.
+> ⚠️ **Drizzle push is not zero-downtime for destructive changes.** Review the interactive diff carefully and take a database backup before upgrading in production.
 
 ---
 
-## Email (AWS SES)
+## First admin bootstrap
 
-Email notifications are optional. When all three AWS variables are set (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `EMAIL_FROM`), the API server sends emails for ticket updates, invites, and SLA warnings.
+After the API server starts for the first time (empty database), create the first admin account:
 
-1. Verify your sender domain or address in the [SES console](https://console.aws.amazon.com/ses/).
-2. Create an IAM user with `ses:SendRawEmail` permission.
-3. Generate access key credentials for that user.
-4. Set the four variables in the API server's environment.
-
-If the variables are absent, email is silently disabled — the application runs normally without it.
-
----
-
-## Object storage (Google Cloud Storage)
-
-By default, file attachments are stored as base64 in PostgreSQL with a 5 MB cap per file. To support larger files and better performance, configure Google Cloud Storage:
-
-1. Create a GCS bucket. Make it **private** (no public access).
-2. Grant the API server's service account `storage.objectAdmin` on the bucket.
-   - On GKE: use [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity).
-   - Elsewhere: create a service-account key and mount it; set `GOOGLE_APPLICATION_CREDENTIALS` to the key file path.
-3. Set `DEFAULT_OBJECT_STORAGE_BUCKET_ID` to the bucket name.
-4. Optionally set `PRIVATE_OBJECT_DIR` to a path prefix (e.g. `attachments`).
-
----
-
-## Self-hosted (bare metal / VM)
-
-### 1. Install dependencies
+**Step 1 — Get the bootstrap token from the server logs:**
 
 ```bash
-# Node 24 via nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-nvm install 24
-nvm use 24
+# Docker Compose
+docker compose logs api-server | grep bootstrapToken
 
-# pnpm
-corepack enable
-corepack prepare pnpm@latest --activate
+# systemd
+journalctl -u ekai-api | grep bootstrapToken
 ```
 
-### 2. Clone and install
+**Step 2 — Call the bootstrap endpoint:**
 
 ```bash
-git clone https://github.com/your-org/ekai.git
-cd ekai
-pnpm install --frozen-lockfile
+curl -s -X POST http://localhost:8080/api/bootstrap-admin \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "you@yourcompany.com",
+    "bootstrapToken": "<token-from-logs>"
+  }' | jq .
+```
+
+**Local mode** — the response contains `initialPassword`. Use it to sign in immediately:
+
+```json
+{
+  "email": "you@yourcompany.com",
+  "initialPassword": "abc123...",
+  "loginUrl": "https://support.yourcompany.com"
+}
+```
+
+**Clerk mode** — the response contains `inviteUrl`. Visit it to complete sign-up via Clerk.
+
+> The bootstrap endpoint permanently returns 404 once the first admin has completed setup. It re-enables on every server restart (new token), but only until an admin is configured.
+
+---
+
+## Ubuntu + Docker (recommended)
+
+This is the recommended path for self-hosting on a fresh Ubuntu 22.04 / 24.04 instance.
+
+### 1. Install Docker
+
+```bash
+# Update apt and install prerequisites
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+
+# Add Docker's official GPG key and repo
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+  https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Allow running Docker without sudo (log out and back in after this)
+sudo usermod -aG docker $USER
+```
+
+Verify:
+
+```bash
+docker --version        # Docker version 26.x.x
+docker compose version  # Docker Compose version v2.x.x
+```
+
+### 2. Clone the repository
+
+```bash
+sudo mkdir -p /opt/ekai
+sudo chown $USER:$USER /opt/ekai
+git clone https://github.com/your-org/ekai.git /opt/ekai
+cd /opt/ekai
 ```
 
 ### 3. Configure environment
 
 ```bash
 cp .env.example .env
-# Edit .env with your values — DATABASE_URL, CLERK_*, etc.
+nano .env
 ```
 
-### 4. Push the database schema
+Fill in these values at minimum:
+
+```dotenv
+# Database
+POSTGRES_PASSWORD=<strong-random-password>
+
+# Auth (local mode — no Clerk account needed)
+AUTH_MODE=local
+SESSION_SECRET=<output of: openssl rand -hex 32>
+
+# Your server's public URL (used in emails and CORS)
+PORTAL_URL=https://support.yourcompany.com
+```
+
+Generate the session secret:
 
 ```bash
-source .env   # or export DATABASE_URL=... manually
-pnpm --filter @workspace/db run push
+openssl rand -hex 32
 ```
 
-### 5. Build the API server
+### 4. Validate config
 
 ```bash
-pnpm --filter @workspace/api-server run build
-# Output: artifacts/api-server/dist/index.mjs
+./scripts/check-env.sh
 ```
 
-### 6. Build the support portal
+### 5. Build and start
 
 ```bash
-export PORT=3001            # required by vite.config.ts even for builds
-export BASE_PATH=/
-export VITE_CLERK_PUBLISHABLE_KEY=pk_live_...
-
-pnpm --filter @workspace/support-portal run build
-# Output: artifacts/support-portal/dist/public/
+docker compose up -d --build
 ```
 
-### 7. Start the API server
+This will:
+1. Pull `postgres:16-alpine`
+2. Build the API server and portal images from source
+3. Run the `migrator` to apply the database schema
+4. Start the API server and portal
+
+Check that everything is running:
 
 ```bash
-NODE_ENV=production \
-PORT=8080 \
-DATABASE_URL=postgres://... \
-CLERK_PUBLISHABLE_KEY=pk_live_... \
-CLERK_SECRET_KEY=sk_live_... \
-PORTAL_URL=https://support.yourcompany.com \
-  node --enable-source-maps artifacts/api-server/dist/index.mjs
+docker compose ps
+docker compose logs -f api-server
 ```
 
-Use a process manager (systemd, PM2, supervisor) to keep it running.
-
-**systemd unit example** (`/etc/systemd/system/ekai-api.service`):
-
-```ini
-[Unit]
-Description=Ekai API Server
-After=network.target postgresql.service
-
-[Service]
-Type=simple
-User=ekai
-WorkingDirectory=/opt/ekai
-EnvironmentFile=/opt/ekai/.env
-ExecStart=/usr/bin/node --enable-source-maps artifacts/api-server/dist/index.mjs
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
+### 6. Bootstrap the first admin account
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now ekai-api
+# Get the bootstrap token
+docker compose logs api-server | grep bootstrapToken
+
+# Create the admin user
+curl -s -X POST http://localhost:8080/api/bootstrap-admin \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@yourcompany.com","bootstrapToken":"<token>"}' | jq .
 ```
 
-### 8. Serve the support portal
+Note the `initialPassword` in the response. Open `http://your-server-ip` and sign in.
 
-Point nginx at `artifacts/support-portal/dist/public/` and proxy `/api` to the API server.
+**Change your password immediately** in Admin → Team after first login.
 
-**nginx site config** (`/etc/nginx/sites-available/ekai`):
+### 7. Configure SSL with Caddy (recommended)
 
-```nginx
-server {
-    listen 443 ssl;
-    server_name support.yourcompany.com;
+Caddy automatically provisions Let's Encrypt certificates with zero configuration.
 
-    ssl_certificate     /etc/letsencrypt/live/support.yourcompany.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/support.yourcompany.com/privkey.pem;
+```bash
+sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+  | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+  | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt-get update && sudo apt-get install -y caddy
+```
 
-    root /opt/ekai/artifacts/support-portal/dist/public;
-    index index.html;
+`/etc/caddy/Caddyfile`:
 
-    # Proxy API calls to the backend
-    location /api/ {
-        proxy_pass         http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header   Host              $host;
-        proxy_set_header   X-Real-IP         $remote_addr;
-        proxy_set_header   X-Forwarded-Proto $scheme;
-        client_max_body_size 100m;
-    }
-
-    # SPA fallback
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
+```caddyfile
+support.yourcompany.com {
+    reverse_proxy localhost:80
 }
 ```
+
+```bash
+sudo systemctl enable --now caddy
+```
+
+Caddy will obtain a TLS certificate automatically and renew it. Your portal is now available at `https://support.yourcompany.com`.
+
+Alternatively, use **nginx** — see the [Self-hosted (bare metal / VM)](#self-hosted-bare-metal--vm) section for an example nginx config.
+
+### 8. Auto-start on boot
+
+Docker's `restart: unless-stopped` policy keeps containers running across reboots automatically when Docker itself is enabled:
+
+```bash
+sudo systemctl enable docker
+```
+
+No additional configuration needed.
+
+### 9. Upgrading
+
+```bash
+cd /opt/ekai
+git pull
+docker compose up -d --build
+```
+
+The `migrator` service applies any schema changes automatically before the API server restarts.
 
 ---
 
 ## Docker Compose
 
-Docker Compose brings up Postgres, the API server, and the portal in one command.
+Docker Compose brings up Postgres, the API server, and the portal in one command and works on any host with Docker installed.
 
 ### Quick start
 
 ```bash
 # 1. Copy and edit the environment file
 cp .env.example .env
-nano .env   # fill in POSTGRES_PASSWORD, CLERK_*, etc.
+nano .env   # fill in POSTGRES_PASSWORD, SESSION_SECRET, PORTAL_URL
 
-# 2. Validate required variables before starting (catches missing config early)
+# 2. Validate required variables before starting
 set -a; source .env; set +a
 ./scripts/check-env.sh
 
@@ -346,15 +406,7 @@ PORTAL_PORT=8443
 
 ### Database migration
 
-Schema migration is handled automatically by the `migrator` service. On every `docker compose up`, the `migrator` container runs `drizzle-kit push --force` against the database and exits before the API server or portal start. You do not need to run any migration command manually.
-
-If you need to inspect the schema diff interactively (recommended before production upgrades), run the migration from your host machine while Postgres is running:
-
-```bash
-source .env
-DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}" \
-  pnpm --filter @workspace/db run push
-```
+Schema migration is handled automatically by the `migrator` service. On every `docker compose up`, the `migrator` container runs `drizzle-kit push --force` and exits before the API server or portal start.
 
 ### Rebuilding after code changes
 
@@ -364,398 +416,243 @@ docker compose up -d --build api-server portal
 
 ---
 
+## Self-hosted (bare metal / VM)
+
+### 1. Install dependencies
+
+```bash
+# Node 24 via nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+nvm install 24 && nvm use 24
+
+# pnpm
+corepack enable && corepack prepare pnpm@latest --activate
+```
+
+### 2. Clone and install
+
+```bash
+git clone https://github.com/your-org/ekai.git && cd ekai
+pnpm install --frozen-lockfile
+```
+
+### 3. Configure environment
+
+```bash
+cp .env.example .env
+# Edit: DATABASE_URL, AUTH_MODE, SESSION_SECRET, PORTAL_URL
+```
+
+### 4. Push the database schema
+
+```bash
+source .env
+pnpm --filter @workspace/db run push
+```
+
+### 5. Build the API server
+
+```bash
+pnpm --filter @workspace/api-server run build
+# Output: artifacts/api-server/dist/index.mjs
+```
+
+### 6. Build the support portal
+
+```bash
+export PORT=3001 BASE_PATH=/ VITE_AUTH_MODE=local
+pnpm --filter @workspace/support-portal run build
+# Output: artifacts/support-portal/dist/public/
+```
+
+### 7. Start the API server
+
+```bash
+NODE_ENV=production \
+PORT=8080 \
+AUTH_MODE=local \
+SESSION_SECRET=<your-secret> \
+DATABASE_URL=postgres://... \
+PORTAL_URL=https://support.yourcompany.com \
+  node --enable-source-maps artifacts/api-server/dist/index.mjs
+```
+
+**systemd unit** (`/etc/systemd/system/ekai-api.service`):
+
+```ini
+[Unit]
+Description=Ekai API Server
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=ekai
+WorkingDirectory=/opt/ekai
+EnvironmentFile=/opt/ekai/.env
+ExecStart=/usr/bin/node --enable-source-maps artifacts/api-server/dist/index.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl enable --now ekai-api
+```
+
+### 8. Serve the support portal
+
+Point nginx at `artifacts/support-portal/dist/public/` and proxy `/api` to the API server.
+
+**nginx site config** (`/etc/nginx/sites-available/ekai`):
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name support.yourcompany.com;
+
+    ssl_certificate     /etc/letsencrypt/live/support.yourcompany.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/support.yourcompany.com/privkey.pem;
+
+    root /opt/ekai/artifacts/support-portal/dist/public;
+    index index.html;
+
+    location /api/ {
+        proxy_pass         http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        # Required for secure session cookies when behind a proxy
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        client_max_body_size 100m;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+---
+
+## Email (AWS SES)
+
+Email notifications are optional. When all three AWS variables are set (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `EMAIL_FROM`), the API server sends emails for ticket updates and SLA warnings.
+
+1. Verify your sender domain or address in the [SES console](https://console.aws.amazon.com/ses/).
+2. Create an IAM user with `ses:SendRawEmail` permission.
+3. Generate access key credentials for that user.
+4. Set the four variables in the API server's environment.
+
+If the variables are absent, email is silently disabled.
+
+---
+
+## Object storage (Google Cloud Storage)
+
+By default, file attachments are stored as base64 in PostgreSQL with a 5 MB cap. To support larger files:
+
+1. Create a private GCS bucket.
+2. Grant the API server's service account `storage.objectAdmin` on the bucket.
+3. Set `DEFAULT_OBJECT_STORAGE_BUCKET_ID` to the bucket name.
+4. Optionally set `PRIVATE_OBJECT_DIR` to a path prefix (e.g. `attachments`).
+
+---
+
 ## Testing the stack
 
-Use the smoke-test script to verify that a schema migration succeeds on a clean database and that the API server comes up healthy. Run this locally before pushing a schema change, and add it to your CI pipeline to catch broken migrations before they reach production.
-
 ```bash
 ./scripts/smoke-test-compose.sh
 ```
 
-The script:
-
-1. Builds the `migrator` and `api-server` images from the local source tree.
-2. Starts a fresh Postgres instance with an empty database (an isolated Docker volume scoped to the test run).
-3. Runs the `migrator` service (`drizzle-kit push --force`) and **fails immediately** if it exits non-zero.
-4. Polls `GET /api/healthz` on the API server until it returns HTTP 200.
-5. Tears everything down (including the ephemeral volume) on exit — whether the test passed or failed.
-
-### Environment variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `POSTGRES_PASSWORD` | `smoke-test-secret` | Password for the test Postgres instance |
-| `API_PORT` | `18080` | Host port for the API server (avoids clashing with a dev stack on 8080) |
-| `WAIT_SECS` | `120` | Seconds to wait for the API server to become healthy |
-| `COMPOSE_PROJECT` | `ekai-smoke` | Docker Compose project name (keeps test containers isolated) |
-| `CLERK_PUBLISHABLE_KEY` | stub value | Stub Clerk key — `/api/healthz` does not require real auth |
-| `CLERK_SECRET_KEY` | stub value | ↑ |
-
-To run with real Clerk credentials (e.g. to test authenticated flows after smoke testing):
-
-```bash
-CLERK_PUBLISHABLE_KEY=pk_test_... \
-CLERK_SECRET_KEY=sk_test_... \
-./scripts/smoke-test-compose.sh
-```
-
-### Running in CI (GitHub Actions example)
-
-```yaml
-- name: Smoke-test Docker Compose stack
-  run: ./scripts/smoke-test-compose.sh
-```
-
-No additional setup is required — Docker is available by default on all GitHub-hosted runners. The script uses a unique Compose project name (`ekai-smoke`) so it does not interfere with other services running on the same host.
+The script builds images, starts a fresh Postgres instance, runs the migrator, polls `GET /api/healthz` until healthy, then tears down.
 
 ---
 
 ## Kubernetes
 
-The manifests in `deploy/k8s/` target a standard Kubernetes cluster with an nginx ingress controller. They have been tested on EKS (AWS), AKS (Azure), and GKE (Google Cloud).
-
-### Directory layout
-
-```
-deploy/k8s/
-├── api-server.yaml     # Secret, ConfigMap, Deployment, Service, HPA
-└── support-portal.yaml # ConfigMap (nginx config), Deployment, Service, Ingress
-```
+The manifests in `deploy/k8s/` target a standard Kubernetes cluster with an nginx ingress controller.
 
 ### Step-by-step
 
 #### 1. Build and push images
 
-The API server Dockerfile has two relevant build targets:
-- **`runtime`** (default) — slim production image, no schema sources or drizzle-kit
-- **`migrator`** — contains `lib/db/` sources and drizzle-kit; runs `push-force` on start
-
 ```bash
 TAG=$(git rev-parse --short HEAD)
 
-# API server runtime image
-docker build \
-  -f artifacts/api-server/Dockerfile \
-  -t your-registry/ekai-api-server:${TAG} \
-  .
-docker push your-registry/ekai-api-server:${TAG}
+# API server runtime
+docker build -f artifacts/api-server/Dockerfile \
+  -t your-registry/ekai-api-server:${TAG} . && \
+  docker push your-registry/ekai-api-server:${TAG}
 
-# Migrator image (separate target from the same Dockerfile)
-docker build \
-  -f artifacts/api-server/Dockerfile \
-  --target migrator \
-  -t your-registry/ekai-migrate:${TAG} \
-  .
-docker push your-registry/ekai-migrate:${TAG}
+# Migrator (separate build target)
+docker build -f artifacts/api-server/Dockerfile --target migrator \
+  -t your-registry/ekai-migrate:${TAG} . && \
+  docker push your-registry/ekai-migrate:${TAG}
 
-# Support portal (Clerk key and BASE_PATH are baked in at build time)
-docker build \
-  -f artifacts/support-portal/Dockerfile \
-  --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_live_... \
+# Support portal — bake in auth mode at build time
+docker build -f artifacts/support-portal/Dockerfile \
+  --build-arg VITE_AUTH_MODE=local \
   --build-arg BASE_PATH=/ \
-  -t your-registry/ekai-portal:${TAG} \
-  .
-docker push your-registry/ekai-portal:${TAG}
+  -t your-registry/ekai-portal:${TAG} . && \
+  docker push your-registry/ekai-portal:${TAG}
 ```
 
-#### 2. Create the namespace
+#### 2–7. Apply manifests
+
+Follow the same steps as before (namespace, secrets, image refs, hostnames, `kubectl apply`). See [previous step-by-step](#step-by-step) for the full flow.
+
+When populating the `api-server` Secret, set `AUTH_MODE=local` and `SESSION_SECRET` instead of Clerk keys:
 
 ```bash
-kubectl create namespace ekai
+echo -n "local" | base64          # AUTH_MODE
+echo -n "<your-secret>" | base64  # SESSION_SECRET
 ```
-
-#### 3. Populate secrets
-
-Edit `deploy/k8s/api-server.yaml` and replace every `<base64-encoded-…>` placeholder:
-
-```bash
-echo -n "sk_live_..." | base64    # CLERK_SECRET_KEY
-echo -n "postgres://..."  | base64 # DATABASE_URL
-# etc.
-```
-
-#### 4. Update image references
-
-In both YAML files, replace `your-registry/ekai-api-server:latest` (and the portal equivalent) with the tags you pushed in step 1.
-
-#### 5. Update hostnames
-
-In `support-portal.yaml`, replace `support.yourcompany.com` with your real domain in the Ingress spec.
-
-#### 6. Apply manifests
-
-```bash
-kubectl apply -f deploy/k8s/api-server.yaml
-kubectl apply -f deploy/k8s/support-portal.yaml
-```
-
-#### 7. Push the database schema
-
-Use the dedicated `migrator` image (built with `--target migrator` in step 1). It contains the schema sources and `drizzle-kit` — the runtime image does not.
-
-```bash
-kubectl run ekai-migrate --rm -it --restart=Never \
-  --image=your-registry/ekai-migrate:${TAG} \
-  --env="DATABASE_URL=postgres://user:pass@your-db-host:5432/ekai" \
-  -n ekai
-```
-
-The container runs `drizzle-kit push --force` and exits. Re-run this job on every upgrade before rolling out new API server pods.
-
-#### 8. Verify
-
-```bash
-kubectl get pods -n ekai
-kubectl logs -n ekai -l app=ekai-api-server
-curl https://support.yourcompany.com/api/healthz
-```
-
-### Horizontal scaling
-
-The API server is stateless beyond the database and can be scaled freely:
-
-```bash
-kubectl scale deployment ekai-api-server -n ekai --replicas=4
-```
-
-The included HorizontalPodAutoscaler in `api-server.yaml` auto-scales based on CPU utilisation (70% target).
-
-> **Note on background sweeps:** The fleet poll and SLA sweeps run in every API server pod. For large deployments, consider setting `FLEET_POLL_INTERVAL_MS` higher or externalising sweeps to a dedicated worker pod.
-
----
 
 ### Helm chart
-
-The Helm chart in `deploy/helm/ekai/` templates all of the same resources as the raw manifests and makes upgrades a single command. Use it when you want per-environment value overrides, secret injection via `--set`, or GitOps tooling (Argo CD, Flux).
-
-#### Directory layout
-
-```
-deploy/helm/ekai/
-├── Chart.yaml
-├── values.yaml                  # defaults — override with -f or --set
-├── values.staging.yaml          # staging overrides (single replica, debug logs, staging domain)
-├── values.production.yaml       # production overrides (HPA, resource limits, prod cert issuer)
-└── templates/
-    ├── _helpers.tpl
-    ├── namespace.yaml
-    ├── api-secret.yaml
-    ├── api-configmap.yaml
-    ├── api-deployment.yaml
-    ├── api-service.yaml
-    ├── api-hpa.yaml
-    ├── portal-configmap.yaml
-    ├── portal-deployment.yaml
-    ├── portal-service.yaml
-    └── ingress.yaml
-```
-
-#### Prerequisites
-
-```bash
-# Helm 3
-brew install helm        # macOS
-# or: https://helm.sh/docs/intro/install/
-helm version             # confirm ≥ 3.0
-```
-
-#### First install
-
-Build and push your images first (see [Step 1](#1-build-and-push-images) above), then:
 
 ```bash
 helm install ekai ./deploy/helm/ekai \
   --set api.image.tag="${TAG}" \
   --set portal.image.tag="${TAG}" \
-  --set api.image.repository="your-registry/ekai-api-server" \
-  --set portal.image.repository="your-registry/ekai-portal" \
-  --set api.secrets.CLERK_PUBLISHABLE_KEY="pk_live_..." \
-  --set api.secrets.CLERK_SECRET_KEY="sk_live_..." \
   --set api.secrets.DATABASE_URL="postgres://user:pass@host:5432/ekai" \
+  --set api.config.AUTH_MODE="local" \
+  --set api.secrets.SESSION_SECRET="<your-secret>" \
   --set api.config.PORTAL_URL="https://support.yourcompany.com" \
   --set ingress.host="support.yourcompany.com"
 ```
-
-Or create a `my-values.yaml` and keep secrets out of your shell history:
-
-```yaml
-# my-values.yaml  (keep this file out of version control)
-api:
-  image:
-    repository: your-registry/ekai-api-server
-    tag: "abc1234"
-  config:
-    PORTAL_URL: "https://support.yourcompany.com"
-    EMAIL_FROM: "support@yourcompany.com"
-  secrets:
-    CLERK_PUBLISHABLE_KEY: "pk_live_..."
-    CLERK_SECRET_KEY: "sk_live_..."
-    DATABASE_URL: "postgres://user:pass@host:5432/ekai"
-    AWS_ACCESS_KEY_ID: "AKIA..."
-    AWS_SECRET_ACCESS_KEY: "..."
-
-portal:
-  image:
-    repository: your-registry/ekai-portal
-    tag: "abc1234"
-
-ingress:
-  host: support.yourcompany.com
-```
-
-```bash
-helm install ekai ./deploy/helm/ekai -f my-values.yaml
-```
-
-#### Environment promotion (staging → production)
-
-The included overlay files make it safe to run a staging cluster alongside production without copy-pasting values. Helm merges files left-to-right, so later files win.
-
-**Deploy to staging:**
-
-```bash
-TAG=staging   # or a specific staging build SHA
-
-helm upgrade --install ekai-staging ./deploy/helm/ekai \
-  -f deploy/helm/values.yaml \
-  -f deploy/helm/values.staging.yaml \
-  --set api.image.tag="${TAG}" \
-  --set portal.image.tag="${TAG}" \
-  --set api.secrets.CLERK_PUBLISHABLE_KEY="pk_test_..." \
-  --set api.secrets.CLERK_SECRET_KEY="sk_test_..." \
-  --set api.secrets.DATABASE_URL="postgres://user:pass@staging-db:5432/ekai" \
-  -n ekai-staging --create-namespace
-```
-
-Staging uses a single replica, debug-level logging, relaxed resource limits, and the Let's Encrypt *staging* issuer — so a misconfiguration here costs nothing.
-
-**Promote to production** (after validating on staging):
-
-```bash
-TAG=$(git rev-parse --short HEAD)   # pin to exact commit SHA
-
-helm upgrade --install ekai ./deploy/helm/ekai \
-  -f deploy/helm/values.yaml \
-  -f deploy/helm/values.production.yaml \
-  --set api.image.tag="${TAG}" \
-  --set portal.image.tag="${TAG}" \
-  --set api.secrets.CLERK_PUBLISHABLE_KEY="pk_live_..." \
-  --set api.secrets.CLERK_SECRET_KEY="sk_live_..." \
-  --set api.secrets.DATABASE_URL="postgres://user:pass@prod-db:5432/ekai" \
-  -n ekai --create-namespace
-```
-
-Production restores the full HPA (`minReplicas: 2`, `maxReplicas: 10`), tighter resource envelopes, and the Let's Encrypt production issuer.
-
-> **Promotion checklist**
-> 1. Run the smoke-test script against the staging cluster first (`./scripts/smoke-test-compose.sh`).
-> 2. Back up the production database before every schema change.
-> 3. Run the migrator against production before rolling out new pods (see [Upgrading](#upgrading-one-command)).
-> 4. Use `pk_live_` / `sk_live_` Clerk keys for production — `pk_test_` keys will not authenticate real users.
-
----
-
-#### Upgrading (one command)
-
-```bash
-TAG=$(git rev-parse --short HEAD)
-
-# 1. Build and push new images (same as raw-manifest flow)
-docker build -f artifacts/api-server/Dockerfile -t your-registry/ekai-api-server:${TAG} . && \
-  docker push your-registry/ekai-api-server:${TAG}
-docker build -f artifacts/support-portal/Dockerfile \
-  --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_live_... \
-  --build-arg BASE_PATH=/ \
-  -t your-registry/ekai-portal:${TAG} . && \
-  docker push your-registry/ekai-portal:${TAG}
-
-# 2. Run the migrator against your database (same as raw-manifest flow)
-kubectl run ekai-migrate --rm -it --restart=Never \
-  --image=your-registry/ekai-migrate:${TAG} \
-  --env="DATABASE_URL=postgres://user:pass@host:5432/ekai" \
-  -n ekai
-
-# 3. Roll out the new images — zero-downtime rolling update
-helm upgrade ekai ./deploy/helm/ekai -f my-values.yaml \
-  --set api.image.tag="${TAG}" \
-  --set portal.image.tag="${TAG}"
-```
-
-`helm upgrade` performs a rolling update identical to the raw-manifest path: `maxUnavailable: 0` keeps the old pods serving traffic until the new ones pass their readiness probes.
-
-#### Key values reference
-
-| Value | Default | Description |
-|---|---|---|
-| `api.image.repository` | `your-registry/ekai-api-server` | API server image |
-| `api.image.tag` | `latest` | Image tag — pin to a git SHA in production |
-| `api.replicas` | `2` | Desired pod count (overridden by HPA when enabled) |
-| `api.hpa.enabled` | `true` | Enable HorizontalPodAutoscaler |
-| `api.hpa.minReplicas` | `2` | HPA lower bound |
-| `api.hpa.maxReplicas` | `10` | HPA upper bound |
-| `api.resources.*` | see values.yaml | CPU/memory requests and limits |
-| `api.config.PORTAL_URL` | `https://support.yourcompany.com` | Public portal URL (used in email links) |
-| `api.config.LOG_LEVEL` | `info` | Pino log level |
-| `api.config.FLEET_HUB_URL` | `""` | Set for push-mode fleet clients |
-| `api.secrets.*` | `""` | Sensitive credentials — never commit real values |
-| `portal.image.repository` | `your-registry/ekai-portal` | Portal image |
-| `portal.image.tag` | `latest` | Image tag |
-| `portal.replicas` | `2` | Desired pod count |
-| `ingress.enabled` | `true` | Create an Ingress resource |
-| `ingress.host` | `support.yourcompany.com` | Hostname for the Ingress rule and TLS cert |
-| `ingress.tls.enabled` | `true` | Enable TLS on the Ingress |
-| `ingress.tls.certManagerClusterIssuer` | `letsencrypt-prod` | cert-manager issuer; set to `""` to omit |
-
-#### Feature flags
-
-Optional integrations are enabled by populating the corresponding secret values:
-
-| Feature | Secret key(s) to set |
-|---|---|
-| Email (AWS SES) | `api.secrets.AWS_ACCESS_KEY_ID`, `api.secrets.AWS_SECRET_ACCESS_KEY`, and `api.config.EMAIL_FROM` |
-| Object storage (GCS) | `api.secrets.DEFAULT_OBJECT_STORAGE_BUCKET_ID` |
-| Fleet push mode | `api.secrets.FLEET_API_KEY` and `api.config.FLEET_HUB_URL` |
-
-When a secret value is empty, the corresponding `Secret` key is omitted and the feature is silently disabled, matching the raw-manifest behaviour.
-
-#### Using an external secret manager
-
-For production, avoid passing secrets via `--set` or plain YAML. Instead:
-
-- **Kubernetes External Secrets / Vault** — create the `ekai-api-secrets` Secret externally and set `api.secrets.*` to `""` so the chart does not overwrite it.
-- **Sealed Secrets** — encrypt your `my-values.yaml` secrets with `kubeseal` before committing.
 
 ---
 
 ## Fleet monitoring
 
-Ekai includes a built-in fleet health dashboard that monitors client Ekai deployments from a central hub.
+Ekai includes a built-in fleet health dashboard that monitors remote Ekai installations from a central hub.
 
 ### Poll mode (default — no client configuration)
 
-By default, the hub polls each registered deployment's `GET /api/healthz` endpoint every 5 minutes. No environment variables need to be set on the client deployment.
+The hub polls each registered deployment's `GET /api/healthz` endpoint every 5 minutes. No environment variables need to be set on the client.
 
 To register a client deployment:
 1. In the support portal, go to **Admin → Fleet**.
-2. Click **Register deployment** and enter a name and the base URL of the client instance (e.g. `https://client.example.com`).
+2. Click **Register deployment** and enter a name and the base URL of the client instance.
 3. The hub will begin polling within 5 minutes.
 
-Use this mode for any deployment the hub can reach over the network (public internet or shared VPN).
+### Push mode (for air-gapped / private deployments)
 
-### Push mode (opt-in — for air-gapped / private deployments)
+If the client is behind a firewall the hub can't reach:
 
-If the client deployment is in a private network that the hub cannot reach (e.g. behind a corporate firewall with no inbound rules), switch it to push mode:
-
-1. In the fleet UI, click the **Hub polls** badge next to the deployment and switch to **Client pushes**.
-2. Copy the displayed API key (shown once).
-3. On the client deployment, set two environment variables and restart the API server:
+1. In the fleet UI, switch the deployment to **Client pushes**.
+2. Copy the displayed API key.
+3. On the client, set two environment variables and restart:
 
 ```bash
-FLEET_HUB_URL=https://support.yourcompany.com   # URL of the hub
+FLEET_HUB_URL=https://support.yourcompany.com
 FLEET_API_KEY=<key-from-step-2>
 ```
 
-The client will then push a heartbeat to the hub every 5 minutes automatically.
+The client pushes a heartbeat to the hub every 5 minutes automatically.
 
 ### Alert thresholds
 
@@ -763,8 +660,6 @@ The client will then push a heartbeat to the hub every 5 minutes automatically.
 |---|---|---|
 | No heartbeat | 10 minutes without a successful check | 30 minutes |
 | DB degraded | `db.status == "degraded"` in health JSON | 30 minutes |
-
-Alerts are sent to the deployment's configured Slack webhook (configurable per-deployment in the fleet UI) and as in-app push notifications to all admin users.
 
 ---
 
@@ -777,111 +672,88 @@ Alerts are sent to the deployment's configured Slack webhook (configurable per-d
 ```json
 {
   "status": "healthy",
-  "timestamp": "2026-07-13T12:00:00.000Z",
-  "db": {
-    "status": "healthy",
-    "latencyMs": 3
-  },
-  "pushQueueDepth": 0,
-  "slaBreachCount": 0,
+  "timestamp": "2026-07-14T12:00:00.000Z",
+  "db": { "status": "healthy", "latencyMs": 3 },
   "openTicketCount": 42,
   "emailConfigured": true,
   "storageConfigured": false
 }
 ```
 
-| Field | Values | Meaning |
-|---|---|---|
-| `status` | `healthy` `degraded` `offline` | Overall instance health |
-| `db.status` | `healthy` `degraded` | Database reachability |
-| `db.latencyMs` | integer ms or `null` | Round-trip time for `SELECT 1` |
-| `emailConfigured` | boolean | Whether AWS SES env vars are set |
-| `storageConfigured` | boolean | Whether GCS env vars are set |
-
-**Kubernetes probe configuration:**
-
-```yaml
-livenessProbe:
-  httpGet:
-    path: /api/healthz
-    port: 8080
-  initialDelaySeconds: 20
-  periodSeconds: 30
-  failureThreshold: 3
-
-readinessProbe:
-  httpGet:
-    path: /api/healthz
-    port: 8080
-  initialDelaySeconds: 10
-  periodSeconds: 10
-  failureThreshold: 2
-```
-
 ---
 
 ## Upgrading
 
-1. **Back up the database** before every upgrade:
+1. **Back up the database:**
    ```bash
    pg_dump -Fc -d "$DATABASE_URL" -f ekai-backup-$(date +%Y%m%d).dump
    ```
 
-2. Pull the new code:
+2. Pull new code and reinstall:
    ```bash
-   git pull
-   pnpm install --frozen-lockfile
+   git pull && pnpm install --frozen-lockfile
    ```
 
-3. Push schema changes (inspect the diff before confirming):
+3. Apply schema changes:
    ```bash
    DATABASE_URL=... pnpm --filter @workspace/db run push
    ```
 
 4. Rebuild and restart:
-   - **Self-hosted:** `pnpm --filter @workspace/api-server run build && systemctl restart ekai-api`
    - **Docker Compose:** `docker compose up -d --build`
-   - **Kubernetes (raw manifests):** Build new images → update Deployment image tags → `kubectl rollout status`
+   - **Bare metal:** rebuild + `systemctl restart ekai-api`
    - **Kubernetes (Helm):** `helm upgrade ekai ./deploy/helm/ekai -f my-values.yaml --set api.image.tag="${TAG}" --set portal.image.tag="${TAG}"`
 
 ---
 
 ## Troubleshooting
 
+### API server fails to start: "SESSION_SECRET is required"
+
+Running `AUTH_MODE=local` without a session secret set. Generate one:
+
+```bash
+openssl rand -hex 32
+```
+
+Add it to `.env` as `SESSION_SECRET=<value>`.
+
+### Portal shows the Clerk login page instead of the password form (or vice versa)
+
+The portal is compiled with a baked-in auth mode (`VITE_AUTH_MODE`). The build arg must match the API server's `AUTH_MODE`. Rebuild the portal image:
+
+```bash
+docker compose up -d --build portal
+```
+
 ### API server fails to start: "PORT environment variable is required"
 
-The `PORT` variable is mandatory. Set it before starting the process:
 ```bash
 PORT=8080 node --enable-source-maps artifacts/api-server/dist/index.mjs
 ```
 
-### `DATABASE_URL, ensure the database is provisioned`
+### `DATABASE_URL` connection error
 
-The API server or `drizzle-kit push` cannot connect to Postgres. Check:
-- The connection string format: `postgres://user:password@host:5432/dbname`
-- Postgres is running and accepting connections on the specified host/port
-- The user has `CREATE TABLE` privileges
-- Firewall / security-group rules allow the connection
+Check the connection string format: `postgres://user:password@host:5432/dbname`. Verify Postgres is running and the user has `CREATE TABLE` privileges.
 
 ### Portal shows a blank page / 404 on all routes
 
-The `BASE_PATH` build argument must match the URL path prefix the web server uses to serve the portal. If the portal is served at the root, use `BASE_PATH=/`. If it is served at `/portal`, use `BASE_PATH=/portal` and rebuild the image.
+The `BASE_PATH` build argument must match the URL path prefix the web server uses. If served at root, use `BASE_PATH=/`.
 
 ### Clerk auth errors: "Unauthorized" on every request
 
 - Confirm `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` are set on the API server.
-- Confirm `VITE_CLERK_PUBLISHABLE_KEY` was set at portal **build** time (not at runtime).
-- The publishable key in the portal JS bundle must match the one on the API server.
-- Ensure `PORTAL_URL` is listed as an allowed origin in your Clerk dashboard.
-
-### Fleet deployment shows "offline" immediately after registration
-
-- **Poll mode:** The hub polls on a 5-minute schedule. Wait one cycle. If still offline, check that the deployment URL is reachable from the hub (test with `curl <url>/api/healthz`).
-- **Push mode:** Verify `FLEET_HUB_URL` and `FLEET_API_KEY` are set correctly on the client and the process was restarted. Check client API server logs for heartbeat push errors.
+- Confirm `VITE_CLERK_PUBLISHABLE_KEY` was set at portal **build** time (not runtime).
+- The publishable key in the portal bundle must match the API server.
 
 ### Emails are not being sent
 
-- Confirm all three required email variables are set: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `EMAIL_FROM`.
-- Verify the SES sender domain/address is verified in the AWS console.
-- Check that the IAM user has `ses:SendRawEmail` permission.
-- In SES sandbox mode, recipient addresses must also be verified. [Move out of sandbox](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html) for production use.
+- Confirm all three email variables are set: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `EMAIL_FROM`.
+- Verify the SES sender domain is verified.
+- Check the IAM user has `ses:SendRawEmail` permission.
+- In SES sandbox mode, recipient addresses must also be verified.
+
+### Fleet deployment shows "offline" immediately after registration
+
+- **Poll mode:** Wait one 5-minute cycle. Verify the deployment URL is reachable: `curl <url>/api/healthz`
+- **Push mode:** Check `FLEET_HUB_URL` and `FLEET_API_KEY` on the client. Check client logs for heartbeat push errors.

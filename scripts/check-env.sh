@@ -21,15 +21,24 @@ YELLOW='\033[1;33m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
+AUTH_MODE="${AUTH_MODE:-local}"
+
 # -----------------------------------------------------------------------------
-# Required variables — the stack will not work without these
+# Always-required variables
 # -----------------------------------------------------------------------------
 REQUIRED_VARS=(
   "POSTGRES_PASSWORD"
-  "CLERK_PUBLISHABLE_KEY"
-  "CLERK_SECRET_KEY"
   "PORTAL_URL"
 )
+
+# -----------------------------------------------------------------------------
+# Auth-mode-specific required variables
+# -----------------------------------------------------------------------------
+if [[ "$AUTH_MODE" == "clerk" ]]; then
+  REQUIRED_VARS+=("CLERK_PUBLISHABLE_KEY" "CLERK_SECRET_KEY")
+else
+  REQUIRED_VARS+=("SESSION_SECRET")
+fi
 
 # -----------------------------------------------------------------------------
 # Check each required variable
@@ -47,12 +56,12 @@ done
 # Report results
 # -----------------------------------------------------------------------------
 if [[ ${#missing[@]} -eq 0 ]]; then
-  echo -e "${GREEN}✓ All required environment variables are set.${RESET}"
+  echo -e "${GREEN}✓ All required environment variables are set (AUTH_MODE=${AUTH_MODE}).${RESET}"
   exit 0
 fi
 
-echo -e "${RED}${BOLD}ERROR: Missing required environment variables${RESET}"
-echo -e "${RED}──────────────────────────────────────────────${RESET}"
+echo -e "${RED}${BOLD}ERROR: Missing required environment variables (AUTH_MODE=${AUTH_MODE})${RESET}"
+echo -e "${RED}──────────────────────────────────────────────────────────────────${RESET}"
 for var in "${missing[@]}"; do
   echo -e "  ${RED}✗ ${var}${RESET} is not set or is empty"
 done
@@ -65,6 +74,9 @@ for var in "${missing[@]}"; do
   case "$var" in
     POSTGRES_PASSWORD)
       echo -e "       ${BOLD}POSTGRES_PASSWORD${RESET} — choose a strong password for the database"
+      ;;
+    SESSION_SECRET)
+      echo -e "       ${BOLD}SESSION_SECRET${RESET} — run: openssl rand -hex 32"
       ;;
     CLERK_PUBLISHABLE_KEY)
       echo -e "       ${BOLD}CLERK_PUBLISHABLE_KEY${RESET} — from https://dashboard.clerk.com → API Keys (pk_live_… or pk_test_…)"

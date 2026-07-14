@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import { getAuth, clerkClient } from "@clerk/express";
 import { db, invitesTable, organisationsTable, usersTable } from "@workspace/db";
 import { and, eq, isNull } from "drizzle-orm";
 import {
@@ -10,7 +9,13 @@ import {
 import { requireAuth, resolvePortalUser } from "../middlewares/requireAuth";
 import { serializeUser } from "../lib/serializers";
 
+const AUTH_MODE = process.env.AUTH_MODE ?? "clerk";
+
 const router: IRouter = Router();
+
+// ---------------------------------------------------------------------------
+// GET /api/auth/me — works for both auth modes
+// ---------------------------------------------------------------------------
 
 router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   const user = req.portalUser!;
@@ -24,6 +29,86 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   }
   res.json(GetCurrentUserResponse.parse(serializeUser(user, orgName)));
 });
+
+// ---------------------------------------------------------------------------
+// Local auth mode: login + logout
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /api/auth/login
+ * Body: { email: string; password: string }
+ * Sets an HttpOnly session cookie on success.
+ */
+router.post("/auth/login", async (req, res): Promise<void> => {
+  if (AUTH_MODE !== "local") {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+
+  const { email, password } = req.body as { email?: unknown; password?: unknown };
+  if (!email || typeof email !== "string" || !password || typeof password !== "string") {
+    res.status(400).json({ message: "email and password are required" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, email.toLowerCase().trim()))
+    .limit(1);
+
+  if (!user || !user.passwordHash) {
+    res.status(401).json({ message: "Invalid email or password." });
+    return;
+  }
+
+  if (!user.active) {
+    res.status(403).json({ message: "Your account has been deactivated.", code: "deactivated" });
+    return;
+  }
+
+  // Verify password — lazy import so bcryptjs is not loaded in clerk mode
+  const bcrypt = await import("bcryptjs");
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ message: "Invalid email or password." });
+    return;
+  }
+
+  // Establish session
+  req.session.userId = user.id;
+  await db.update(usersTable).set({ lastLogin: new Date() }).where(eq(usersTable.id, user.id));
+
+  let orgName: string | null = null;
+  if (user.orgId != null) {
+    const [org] = await db
+      .select()
+      .from(organisationsTable)
+      .where(eq(organisationsTable.id, user.orgId));
+    orgName = org?.name ?? null;
+  }
+
+  res.json(GetCurrentUserResponse.parse(serializeUser(user, orgName)));
+});
+
+/**
+ * POST /api/auth/logout
+ * Destroys the session cookie.
+ */
+router.post("/auth/logout", (req, res): void => {
+  if (AUTH_MODE !== "local") {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  req.session.destroy(() => {
+    res.clearCookie("ekai_session");
+    res.json({ ok: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Clerk-only routes: invite preview + accept
+// ---------------------------------------------------------------------------
 
 router.get("/invites/preview", async (req, res): Promise<void> => {
   const token = typeof req.query.token === "string" ? req.query.token : "";
@@ -55,6 +140,12 @@ router.get("/invites/preview", async (req, res): Promise<void> => {
 });
 
 router.post("/invites/accept", async (req, res): Promise<void> => {
+  if (AUTH_MODE !== "clerk") {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+
+  const { getAuth, clerkClient } = await import("@clerk/express");
   const auth = getAuth(req);
   if (!auth.userId) {
     res.status(401).json({ message: "Sign in first, then accept the invite." });

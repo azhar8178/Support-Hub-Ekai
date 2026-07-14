@@ -1,20 +1,28 @@
 /**
- * Bootstrap admin endpoint — creates the very first admin invite without
+ * Bootstrap admin endpoint — creates the very first admin account without
  * requiring an existing authenticated session.
  *
  * Two-layer protection:
  *  1. A one-time in-memory token generated at server startup (logged to the
  *     console — visible only to someone with log/shell access to this server).
- *  2. Self-gating: once any admin user has completed sign-in via Clerk
- *     (their row has clerkUserId set), the endpoint permanently returns 404.
+ *  2. Self-gating: once any admin has completed initial setup (clerkUserId set
+ *     in clerk mode, or passwordHash set in local mode), the endpoint returns 404.
  *
  * The token is never written to disk or committed to source control.
  * It regenerates on every server restart.
  *
- * Usage (operator reads token from server logs, then):
+ * Clerk mode usage:
  *   curl -s -X POST https://<host>/api/bootstrap-admin \
  *     -H 'Content-Type: application/json' \
  *     -d '{"email":"you@yourcompany.com","bootstrapToken":"<token-from-logs>"}'
+ *   # Returns an inviteUrl — visit it to complete sign-up via Clerk.
+ *
+ * Local mode usage:
+ *   curl -s -X POST https://<host>/api/bootstrap-admin \
+ *     -H 'Content-Type: application/json' \
+ *     -d '{"email":"you@yourcompany.com","bootstrapToken":"<token-from-logs>"}'
+ *   # Returns initialPassword — use it to sign in immediately.
+ *   # Change it in Admin → Team after first login.
  *
  * Or via the CLI script (no token required — shell access is itself the auth):
  *   pnpm --filter @workspace/api-server run bootstrap-admin -- --email you@yourcompany.com
@@ -26,32 +34,45 @@ import { db, invitesTable, usersTable } from "@workspace/db";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
+const AUTH_MODE = process.env.AUTH_MODE ?? "clerk";
+
 // Generated once per server process — never persisted to disk or env.
 export const BOOTSTRAP_TOKEN = randomBytes(24).toString("base64url");
 
 const router: IRouter = Router();
 
 router.post("/bootstrap-admin", async (req, res): Promise<void> => {
-  // Layer 1 (self-gate): permanently disabled once an admin has signed in.
-  const [signedInAdmin] = await db
+  // -------------------------------------------------------------------------
+  // Layer 1 (self-gate): permanently disabled once an admin has completed setup.
+  //
+  //   Clerk mode: any admin whose clerkUserId is set (i.e. has signed in).
+  //   Local mode: any admin whose passwordHash is set (i.e. bootstrap ran before).
+  // -------------------------------------------------------------------------
+  const setupCondition =
+    AUTH_MODE === "local"
+      ? and(eq(usersTable.role, "admin"), isNotNull(usersTable.passwordHash))
+      : and(eq(usersTable.role, "admin"), isNotNull(usersTable.clerkUserId));
+
+  const [setupAdmin] = await db
     .select({ id: usersTable.id })
     .from(usersTable)
-    .where(and(eq(usersTable.role, "admin"), isNotNull(usersTable.clerkUserId)))
+    .where(setupCondition)
     .limit(1);
 
-  if (signedInAdmin) {
+  if (setupAdmin) {
     res.status(404).json({ message: "Not found" });
     return;
   }
 
+  // -------------------------------------------------------------------------
   // Layer 2 (bootstrap token): caller must supply the in-memory token.
+  // -------------------------------------------------------------------------
   const { email, bootstrapToken } = req.body as {
     email?: unknown;
     bootstrapToken?: unknown;
   };
 
   if (!bootstrapToken || bootstrapToken !== BOOTSTRAP_TOKEN) {
-    // Log the current token so the legitimate operator can find it in logs.
     logger.warn(
       { bootstrapToken: BOOTSTRAP_TOKEN },
       "bootstrap: invalid token supplied — use the token above to authorize",
@@ -69,8 +90,9 @@ router.post("/bootstrap-admin", async (req, res): Promise<void> => {
 
   const normalizedEmail = email.toLowerCase().trim();
 
-  // Upsert the user row so the invite FK is satisfied and the email is
-  // pre-registered as admin. Promote if the row already exists.
+  // -------------------------------------------------------------------------
+  // Upsert admin user
+  // -------------------------------------------------------------------------
   let userId: number;
   const [existing] = await db
     .select()
@@ -102,32 +124,64 @@ router.post("/bootstrap-admin", async (req, res): Promise<void> => {
     logger.info({ email: normalizedEmail, userId }, "bootstrap: created admin user");
   }
 
-  // Issue a fresh invite token.
-  const token = randomBytes(24).toString("base64url");
-  const expiresAt = new Date(Date.now() + 14 * 24 * 3_600_000);
+  // -------------------------------------------------------------------------
+  // Auth-mode-specific: set password (local) or issue invite (clerk)
+  // -------------------------------------------------------------------------
+  if (AUTH_MODE === "local") {
+    // Generate a secure random initial password, hash it, store it.
+    const initialPassword = randomBytes(12).toString("base64url");
+    const bcrypt = await import("bcryptjs");
+    const passwordHash = await bcrypt.hash(initialPassword, 12);
 
-  await db.insert(invitesTable).values({
-    email: normalizedEmail,
-    role: "admin",
-    token,
-    expiresAt,
-    createdById: userId,
-  });
+    await db
+      .update(usersTable)
+      .set({ passwordHash, active: true })
+      .where(eq(usersTable.id, userId));
 
-  const portalUrl = (process.env.PORTAL_URL ?? "").replace(/\/$/, "");
-  const invitePath = `/accept-invite?token=${token}`;
-  const inviteUrl = portalUrl ? `${portalUrl}${invitePath}` : invitePath;
+    const portalUrl = (process.env.PORTAL_URL ?? "").replace(/\/$/, "");
+    const loginUrl = portalUrl || "/";
 
-  logger.info({ email: normalizedEmail }, "bootstrap: admin invite created");
+    logger.info(
+      { email: normalizedEmail, initialPassword },
+      "bootstrap: admin created — SAVE THIS PASSWORD, it is shown only once",
+    );
 
-  res.json({
-    message:
-      "Admin invite created. Visit the invite URL to complete sign-up. " +
-      "This endpoint disables itself once you sign in.",
-    email: normalizedEmail,
-    inviteUrl,
-    expiresAt: expiresAt.toISOString(),
-  });
+    res.json({
+      message:
+        "Admin account created. Use the initial password below to sign in. " +
+        "This endpoint disables itself after you sign in and set a new password.",
+      email: normalizedEmail,
+      initialPassword,
+      loginUrl,
+    });
+  } else {
+    // Clerk mode: issue an invite token the admin must accept via the portal.
+    const token = randomBytes(24).toString("base64url");
+    const expiresAt = new Date(Date.now() + 14 * 24 * 3_600_000);
+
+    await db.insert(invitesTable).values({
+      email: normalizedEmail,
+      role: "admin",
+      token,
+      expiresAt,
+      createdById: userId,
+    });
+
+    const portalUrl = (process.env.PORTAL_URL ?? "").replace(/\/$/, "");
+    const invitePath = `/accept-invite?token=${token}`;
+    const inviteUrl = portalUrl ? `${portalUrl}${invitePath}` : invitePath;
+
+    logger.info({ email: normalizedEmail }, "bootstrap: admin invite created");
+
+    res.json({
+      message:
+        "Admin invite created. Visit the invite URL to complete sign-up via Clerk. " +
+        "This endpoint disables itself once you sign in.",
+      email: normalizedEmail,
+      inviteUrl,
+      expiresAt: expiresAt.toISOString(),
+    });
+  }
 });
 
 export default router;

@@ -15,6 +15,8 @@ export const usersTable = pgTable("users", {
   active: boolean("active").notNull().default(true),
   // Staff-only free-text notes about a customer contact (not visible to the customer).
   internalNotes: text("internal_notes"),
+  // Local auth mode only — bcrypt hash of the user's password. Null when using Clerk.
+  passwordHash: text("password_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   lastLogin: timestamp("last_login", { withTimezone: true }),
 });

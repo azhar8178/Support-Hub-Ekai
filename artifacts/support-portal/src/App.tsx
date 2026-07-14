@@ -1,17 +1,20 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient as defaultQueryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 
 // Pages
 import LandingPage from "@/pages/landing";
 import DashboardPage from "@/pages/dashboard";
 import AcceptInvitePage from "@/pages/auth/accept-invite";
+import LocalLoginPage from "@/pages/auth/local-login";
 import TicketsListPage from "@/pages/tickets/list";
 import TicketNewPage from "@/pages/tickets/new";
 import TicketDetailPage from "@/pages/tickets/detail";
@@ -28,15 +31,13 @@ import NotFoundPage from "@/pages/not-found";
 
 import Layout from "@/components/layout";
 import { useGetCurrentUser, setAuthTokenGetter } from "@workspace/api-client-react";
-import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { AuthActionProvider, useAuthActions } from "@/contexts/auth-context";
 
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-);
+// ---------------------------------------------------------------------------
+// Constants (VITE_AUTH_MODE is replaced at build time by Vite)
+// ---------------------------------------------------------------------------
 
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const AUTH_MODE = import.meta.env.VITE_AUTH_MODE ?? "clerk";
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function stripBase(path: string): string {
@@ -45,9 +46,167 @@ function stripBase(path: string): string {
     : path;
 }
 
-if (!clerkPubKey) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in .env file");
+// ---------------------------------------------------------------------------
+// Shared shell components — used by both auth modes
+// ---------------------------------------------------------------------------
+
+function Spinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EFB323]" />
+    </div>
+  );
 }
+
+function AccessDenied() {
+  const { signOut } = useAuthActions();
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-stone-50 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl p-8 text-center border border-stone-200 shadow-sm">
+        <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-6">
+          <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-bold text-[#0F1F3D] mb-2">Access Denied</h1>
+        <p className="text-stone-600 mb-8">
+          The Ekai Support Portal is by invitation only. Your account has not been granted access.
+        </p>
+        <Button variant="outline" className="w-full" onClick={() => signOut()}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign Out
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SessionProblem() {
+  const { signOut } = useAuthActions();
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-stone-50 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl p-8 text-center border border-stone-200 shadow-sm">
+        <h1 className="text-2xl font-bold text-[#0F1F3D] mb-2">Session problem</h1>
+        <p className="text-stone-600 mb-8">
+          We couldn't verify your session. Signing out and back in usually fixes this.
+        </p>
+        <Button variant="outline" className="w-full" onClick={() => signOut()}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign Out
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function AuthenticatedApp() {
+  const { data: user, error, isLoading } = useGetCurrentUser();
+
+  if (isLoading) return <Spinner />;
+  if (error && (error as any).status === 403) return <AccessDenied />;
+  if (error || !user) return <SessionProblem />;
+
+  return (
+    <Layout user={user}>
+      <Switch>
+        <Route path="/dashboard">
+          {user.role === "customer" ? <DashboardPage /> : <Redirect to="/agent" />}
+        </Route>
+        <Route path="/agent">
+          {user.role === "ekai_agent" || user.role === "admin" ? <AgentDashboardPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/admin/settings">
+          {user.role === "admin" ? <AdminSettingsPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/admin/files">
+          {(user.role === "admin" || user.role === "ekai_agent") ? <AdminFilesPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/admin">
+          {user.role === "admin" ? <AdminDashboardPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/tickets" component={TicketsListPage} />
+        <Route path="/tickets/new" component={TicketNewPage} />
+        <Route path="/tickets/:id" component={TicketDetailPage} />
+        <Route path="/kb" component={KbListPage} />
+        <Route path="/kb/new">
+          {user.role === "admin" ? <KbEditorPage /> : <Redirect to="/kb" />}
+        </Route>
+        <Route path="/kb/:id/edit">
+          {user.role === "admin" ? <KbEditorPage /> : <Redirect to="/kb" />}
+        </Route>
+        <Route path="/kb/:id" component={KbDetailPage} />
+        <Route path="/customers/:id">
+          {user.role === "ekai_agent" || user.role === "admin" ? <CustomerDetailPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/customers">
+          {user.role === "ekai_agent" || user.role === "admin" ? <CustomersListPage /> : <Redirect to="/dashboard" />}
+        </Route>
+        <Route path="/accept-invite" component={AcceptInvitePage} />
+        <Route component={NotFoundPage} />
+      </Switch>
+    </Layout>
+  );
+}
+
+// =============================================================================
+// LOCAL AUTH MODE
+// =============================================================================
+
+function LocalProviderWithRoutes() {
+  const queryClient = useQueryClient();
+  const { data: user, error, isLoading } = useGetCurrentUser();
+
+  const handleLogout = async () => {
+    try {
+      await fetch(`${basePath}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      queryClient.clear();
+      queryClient.invalidateQueries();
+    }
+  };
+
+  if (isLoading) return <Spinner />;
+
+  // 401 → not signed in → show login page
+  const notSignedIn = !user && error && (error as any).status === 401;
+  if (notSignedIn) {
+    return (
+      <LocalLoginPage
+        onSuccess={() => {
+          queryClient.invalidateQueries();
+        }}
+      />
+    );
+  }
+
+  return (
+    <AuthActionProvider signOut={handleLogout}>
+      <Switch>
+        {/* Root redirect when signed in */}
+        <Route path="/">
+          {user ? <Redirect to={user.role === "customer" ? "/dashboard" : "/agent"} /> : <LandingPage />}
+        </Route>
+        <Route path="/*">
+          <AuthenticatedApp />
+        </Route>
+      </Switch>
+    </AuthActionProvider>
+  );
+}
+
+// =============================================================================
+// CLERK AUTH MODE
+// =============================================================================
+
+const clerkPubKey =
+  AUTH_MODE === "clerk"
+    ? publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
+    : null;
+
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
 const clerkAppearance = {
   theme: shadcn,
@@ -127,12 +286,7 @@ function HomeRedirect() {
   );
 }
 
-/**
- * Attach the Clerk session token as an Authorization header on every API
- * request. Cookie-based auth can silently fail inside the embedded preview
- * iframe (third-party cookie restrictions), which previously caused an
- * endless 401 -> sign-in -> already-signed-in redirect loop.
- */
+/** Attach Clerk session token as Authorization header on every API request. */
 function ClerkApiTokenBridge({ children }: { children: ReactNode }) {
   const { getToken, isLoaded } = useAuth();
 
@@ -141,14 +295,7 @@ function ClerkApiTokenBridge({ children }: { children: ReactNode }) {
     return () => setAuthTokenGetter(null);
   }, [getToken]);
 
-  // Don't fire API calls until Clerk is ready to mint tokens.
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EFB323]" />
-      </div>
-    );
-  }
+  if (!isLoaded) return <Spinner />;
   return <>{children}</>;
 }
 
@@ -160,10 +307,7 @@ function ClerkQueryClientCacheInvalidator() {
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
       const userId = user?.id ?? null;
-      if (
-        prevUserIdRef.current !== undefined &&
-        prevUserIdRef.current !== userId
-      ) {
+      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
         queryClient.clear();
       }
       prevUserIdRef.current = userId;
@@ -174,123 +318,24 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
-function AccessDenied() {
+/** Provides the Clerk signOut function to components that use useAuthActions(). */
+function ClerkAuthActionsWrapper({ children }: { children: ReactNode }) {
   const { signOut } = useClerk();
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-stone-50 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl p-8 text-center border border-stone-200 shadow-sm">
-        <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-6">
-          <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </div>
-        <h1 className="text-2xl font-bold text-[#0F1F3D] mb-2">Access Denied</h1>
-        <p className="text-stone-600 mb-8">
-          The Ekai.ai Support Portal is by invitation only. Your account has not been granted access to any organization.
-        </p>
-        <Button 
-          variant="outline" 
-          className="w-full"
-          onClick={() => signOut({ redirectUrl: basePath || "/" })}
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign Out
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function AuthenticatedApp() {
-  const { data: user, error, isLoading } = useGetCurrentUser();
-  const { signOut } = useClerk();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EFB323]" />
-      </div>
-    );
-  }
-
-  // 403 ApiError means they are not invited
-  if (error && (error as any).status === 403) {
-    return <AccessDenied />;
-  }
-
-  if (error || !user) {
-    // Any other failure (e.g. 401 while Clerk thinks we're signed in) must NOT
-    // redirect to /sign-in: Clerk would bounce a signed-in user straight back,
-    // creating an infinite loop. Show an explicit recovery screen instead.
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-stone-50 px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl p-8 text-center border border-stone-200 shadow-sm">
-          <h1 className="text-2xl font-bold text-[#0F1F3D] mb-2">Session problem</h1>
-          <p className="text-stone-600 mb-8">
-            We couldn't verify your session with the server. Signing out and back in usually fixes this.
-          </p>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => signOut({ redirectUrl: basePath || "/" })}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Route Guards
-  return (
-    <Layout user={user}>
-      <Switch>
-        <Route path="/dashboard">
-          {user.role === "customer" ? <DashboardPage /> : <Redirect to="/agent" />}
-        </Route>
-        <Route path="/agent">
-          {user.role === "ekai_agent" || user.role === "admin" ? <AgentDashboardPage /> : <Redirect to="/dashboard" />}
-        </Route>
-        <Route path="/admin/settings">
-          {user.role === "admin" ? <AdminSettingsPage /> : <Redirect to="/dashboard" />}
-        </Route>
-        <Route path="/admin/files">
-          {(user.role === "admin" || user.role === "ekai_agent") ? <AdminFilesPage /> : <Redirect to="/dashboard" />}
-        </Route>
-        <Route path="/admin">
-          {user.role === "admin" ? <AdminDashboardPage /> : <Redirect to="/dashboard" />}
-        </Route>
-        <Route path="/tickets" component={TicketsListPage} />
-        <Route path="/tickets/new" component={TicketNewPage} />
-        <Route path="/tickets/:id" component={TicketDetailPage} />
-        <Route path="/kb" component={KbListPage} />
-        <Route path="/kb/new">
-          {user.role === "admin" ? <KbEditorPage /> : <Redirect to="/kb" />}
-        </Route>
-        <Route path="/kb/:id/edit">
-          {user.role === "admin" ? <KbEditorPage /> : <Redirect to="/kb" />}
-        </Route>
-        <Route path="/kb/:id" component={KbDetailPage} />
-        <Route path="/customers/:id">
-          {user.role === "ekai_agent" || user.role === "admin" ? <CustomerDetailPage /> : <Redirect to="/dashboard" />}
-        </Route>
-        <Route path="/customers">
-          {user.role === "ekai_agent" || user.role === "admin" ? <CustomersListPage /> : <Redirect to="/dashboard" />}
-        </Route>
-        
-        {/* Accept invite requires auth, handled by its own page logic but lives here for auth wrap */}
-        <Route path="/accept-invite" component={AcceptInvitePage} />
-        
-        {/* Default catch-all for authenticated */}
-        <Route component={NotFoundPage} />
-      </Switch>
-    </Layout>
+    <AuthActionProvider signOut={() => signOut({ redirectUrl: basePath || "/" })}>
+      {children}
+    </AuthActionProvider>
   );
 }
 
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
+
+  if (!clerkPubKey) {
+    throw new Error(
+      "Missing VITE_CLERK_PUBLISHABLE_KEY. Set it as a build-time env var when AUTH_MODE=clerk.",
+    );
+  }
 
   return (
     <ClerkProvider
@@ -316,44 +361,48 @@ function ClerkProviderWithRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
-      <QueryClientProvider client={queryClient}>
-        <ClerkQueryClientCacheInvalidator />
-        <ClerkApiTokenBridge>
-        <Switch>
-          <Route path="/" component={HomeRedirect} />
-          <Route path="/sign-in/*?" component={SignInPage} />
-          <Route path="/sign-up/*?" component={SignUpPage} />
-          {/* Accept invite can be hit without auth to store token, then redirect */}
-          <Route path="/accept-invite">
-            <Show when="signed-in">
-              <AuthenticatedApp />
-            </Show>
-            <Show when="signed-out">
-              <AcceptInvitePage />
-            </Show>
-          </Route>
-          
-          <Route path="/*">
-            <Show when="signed-in">
-              <AuthenticatedApp />
-            </Show>
-            <Show when="signed-out">
-              <Redirect to="/sign-in" />
-            </Show>
-          </Route>
-        </Switch>
-        </ClerkApiTokenBridge>
-      </QueryClientProvider>
+      <ClerkQueryClientCacheInvalidator />
+      <ClerkApiTokenBridge>
+        <ClerkAuthActionsWrapper>
+          <Switch>
+            <Route path="/" component={HomeRedirect} />
+            <Route path="/sign-in/*?" component={SignInPage} />
+            <Route path="/sign-up/*?" component={SignUpPage} />
+            <Route path="/accept-invite">
+              <Show when="signed-in">
+                <AuthenticatedApp />
+              </Show>
+              <Show when="signed-out">
+                <AcceptInvitePage />
+              </Show>
+            </Route>
+            <Route path="/*">
+              <Show when="signed-in">
+                <AuthenticatedApp />
+              </Show>
+              <Show when="signed-out">
+                <Redirect to="/sign-in" />
+              </Show>
+            </Route>
+          </Switch>
+        </ClerkAuthActionsWrapper>
+      </ClerkApiTokenBridge>
     </ClerkProvider>
   );
 }
 
+// =============================================================================
+// Root App
+// =============================================================================
+
 function App() {
   return (
     <TooltipProvider>
-      <WouterRouter base={basePath}>
-        <ClerkProviderWithRoutes />
-      </WouterRouter>
+      <QueryClientProvider client={defaultQueryClient}>
+        <WouterRouter base={basePath}>
+          {AUTH_MODE === "local" ? <LocalProviderWithRoutes /> : <ClerkProviderWithRoutes />}
+        </WouterRouter>
+      </QueryClientProvider>
       <Toaster />
     </TooltipProvider>
   );

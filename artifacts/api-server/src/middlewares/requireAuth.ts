@@ -1,5 +1,4 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import { clerkClient, getAuth } from "@clerk/express";
 import { db, usersTable, type User, type UserRole } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
@@ -11,10 +10,19 @@ declare global {
   }
 }
 
+const AUTH_MODE = process.env.AUTH_MODE ?? "clerk";
+
+// ---------------------------------------------------------------------------
+// Clerk auth (default)
+// ---------------------------------------------------------------------------
+
 // Cache clerkUserId -> primary email to avoid a Clerk API call per request.
 const emailCache = new Map<string, string>();
 
 export async function resolvePortalUser(req: Request): Promise<User | null> {
+  if (AUTH_MODE === "local") return null; // not used in local mode
+
+  const { getAuth, clerkClient } = await import("@clerk/express");
   const auth = getAuth(req);
   if (!auth.userId) return null;
 
@@ -52,12 +60,12 @@ export async function resolvePortalUser(req: Request): Promise<User | null> {
   return updated ?? byEmail;
 }
 
-/** Requires a Clerk session AND an invited, active portal user. */
-export const requireAuth: RequestHandler = async (
+const clerkRequireAuth: RequestHandler = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
+  const { getAuth } = await import("@clerk/express");
   const auth = getAuth(req);
   if (!auth.userId) {
     res.status(401).json({ message: "Not signed in" });
@@ -65,7 +73,9 @@ export const requireAuth: RequestHandler = async (
   }
   const user = await resolvePortalUser(req);
   if (!user) {
-    res.status(403).json({ message: "Access to this portal is by invitation only.", code: "not_invited" });
+    res
+      .status(403)
+      .json({ message: "Access to this portal is by invitation only.", code: "not_invited" });
     return;
   }
   if (!user.active) {
@@ -74,6 +84,24 @@ export const requireAuth: RequestHandler = async (
   }
   req.portalUser = user;
   next();
+};
+
+// ---------------------------------------------------------------------------
+// Unified requireAuth — delegates to the right implementation at runtime
+// ---------------------------------------------------------------------------
+
+/** Requires an authenticated session AND an active portal user. */
+export const requireAuth: RequestHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  if (AUTH_MODE === "local") {
+    const { requireLocalAuth } = await import("./localAuth.js");
+    await requireLocalAuth(req, res, next);
+    return;
+  }
+  await clerkRequireAuth(req, res, next);
 };
 
 /** Requires one of the given roles (mount after requireAuth). */
