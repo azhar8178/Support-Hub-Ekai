@@ -163,8 +163,7 @@ export default function KbListPage() {
               {articles?.map(article => {
                 const categoryInfo = CATEGORY_MAP[article.category] ?? CATEGORY_MAP.getting_started;
                 return (
-                  <Link key={article.id} href={`/kb/${article.id}`}>
-                    <a className="block bg-white p-6 rounded-xl border border-stone-200 shadow-sm hover:shadow-md hover:border-stone-300 transition-all group">
+                  <Link key={article.id} href={`/kb/${article.id}`} className="block bg-white p-6 rounded-xl border border-stone-200 shadow-sm hover:shadow-md hover:border-stone-300 transition-all group">
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-3 mb-2">
@@ -197,7 +196,6 @@ export default function KbListPage() {
                           </span>
                         </div>
                       </div>
-                    </a>
                   </Link>
                 );
               })}
