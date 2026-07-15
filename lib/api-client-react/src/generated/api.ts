@@ -76,6 +76,7 @@ import type {
   SeverityUpdate,
   SiteSettings,
   SiteSettingsUpdate,
+  SupportBundle,
   TaxonomyOption,
   TaxonomyOptionInput,
   TaxonomyOptionUpdate,
@@ -1091,6 +1092,165 @@ export const useAddTicketAttachment = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getAddTicketAttachmentMutationOptions(options));
     }
+
+export const getListTicketBundlesUrl = (id: number,) => {
+
+
+
+
+  return `/api/tickets/${id}/bundles`
+}
+
+/**
+ * @summary List support bundles for a ticket
+ */
+export const listTicketBundles = async (id: number, options?: RequestInit): Promise<SupportBundle[]> => {
+
+  return customFetch<SupportBundle[]>(getListTicketBundlesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTicketBundlesQueryKey = (id: number,) => {
+    return [
+    `/api/tickets/${id}/bundles`
+    ] as const;
+    }
+
+
+export const getListTicketBundlesQueryOptions = <TData = Awaited<ReturnType<typeof listTicketBundles>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTicketBundles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTicketBundlesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTicketBundles>>> = ({ signal }) => listTicketBundles(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTicketBundles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListTicketBundlesQueryResult = NonNullable<Awaited<ReturnType<typeof listTicketBundles>>>
+export type ListTicketBundlesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List support bundles for a ticket
+ */
+
+export function useListTicketBundles<TData = Awaited<ReturnType<typeof listTicketBundles>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTicketBundles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListTicketBundlesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadTicketBundleUrl = (id: number,
+    bundleId: number,) => {
+
+
+
+
+  return `/api/tickets/${id}/bundles/${bundleId}/download`
+}
+
+/**
+ * @summary Download a support bundle ZIP (agent/admin only)
+ */
+export const downloadTicketBundle = async (id: number,
+    bundleId: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadTicketBundleUrl(id,bundleId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadTicketBundleQueryKey = (id: number,
+    bundleId: number,) => {
+    return [
+    `/api/tickets/${id}/bundles/${bundleId}/download`
+    ] as const;
+    }
+
+
+export const getDownloadTicketBundleQueryOptions = <TData = Awaited<ReturnType<typeof downloadTicketBundle>>, TError = ErrorType<unknown>>(id: number,
+    bundleId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadTicketBundle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadTicketBundleQueryKey(id,bundleId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadTicketBundle>>> = ({ signal }) => downloadTicketBundle(id,bundleId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined && bundleId !== null && bundleId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadTicketBundle>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadTicketBundleQueryResult = NonNullable<Awaited<ReturnType<typeof downloadTicketBundle>>>
+export type DownloadTicketBundleQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Download a support bundle ZIP (agent/admin only)
+ */
+
+export function useDownloadTicketBundle<TData = Awaited<ReturnType<typeof downloadTicketBundle>>, TError = ErrorType<unknown>>(
+ id: number,
+    bundleId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadTicketBundle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadTicketBundleQueryOptions(id,bundleId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetAttachmentContentUrl = (id: number,) => {
 

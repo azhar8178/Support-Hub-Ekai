@@ -142,7 +142,9 @@ export const ListTicketsResponseItem = zod.object({
   "resolutionPctElapsed": zod.number().nullable(),
   "responseBreached": zod.boolean(),
   "resolutionBreached": zod.boolean()
-}).describe('Computed SLA state for a ticket')
+}).describe('Computed SLA state for a ticket'),
+  "bundleCount": zod.number().describe('Number of support bundles attached to this ticket'),
+  "latestBundleStatus": zod.string().nullable().describe('overallStatus from the most recently uploaded bundle, or null if none')
 })
 export const ListTicketsResponse = zod.array(ListTicketsResponseItem)
 
@@ -194,7 +196,9 @@ export const CreateTicketResponse = zod.object({
   "resolutionPctElapsed": zod.number().nullable(),
   "responseBreached": zod.boolean(),
   "resolutionBreached": zod.boolean()
-}).describe('Computed SLA state for a ticket')
+}).describe('Computed SLA state for a ticket'),
+  "bundleCount": zod.number().describe('Number of support bundles attached to this ticket'),
+  "latestBundleStatus": zod.string().nullable().describe('overallStatus from the most recently uploaded bundle, or null if none')
 })
 
 
@@ -239,7 +243,9 @@ export const BulkUpdateTicketsResponseItem = zod.object({
   "resolutionPctElapsed": zod.number().nullable(),
   "responseBreached": zod.boolean(),
   "resolutionBreached": zod.boolean()
-}).describe('Computed SLA state for a ticket')
+}).describe('Computed SLA state for a ticket'),
+  "bundleCount": zod.number().describe('Number of support bundles attached to this ticket'),
+  "latestBundleStatus": zod.string().nullable().describe('overallStatus from the most recently uploaded bundle, or null if none')
 })
 export const BulkUpdateTicketsResponse = zod.array(BulkUpdateTicketsResponseItem)
 
@@ -281,7 +287,9 @@ export const GetTicketResponse = zod.object({
   "resolutionPctElapsed": zod.number().nullable(),
   "responseBreached": zod.boolean(),
   "resolutionBreached": zod.boolean()
-}).describe('Computed SLA state for a ticket')
+}).describe('Computed SLA state for a ticket'),
+  "bundleCount": zod.number().describe('Number of support bundles attached to this ticket'),
+  "latestBundleStatus": zod.string().nullable().describe('overallStatus from the most recently uploaded bundle, or null if none')
 }),
   "messages": zod.array(zod.object({
   "id": zod.number(),
@@ -381,7 +389,9 @@ export const ChangeTicketStatusResponse = zod.object({
   "resolutionPctElapsed": zod.number().nullable(),
   "responseBreached": zod.boolean(),
   "resolutionBreached": zod.boolean()
-}).describe('Computed SLA state for a ticket')
+}).describe('Computed SLA state for a ticket'),
+  "bundleCount": zod.number().describe('Number of support bundles attached to this ticket'),
+  "latestBundleStatus": zod.string().nullable().describe('overallStatus from the most recently uploaded bundle, or null if none')
 })
 
 
@@ -425,7 +435,9 @@ export const AssignTicketResponse = zod.object({
   "resolutionPctElapsed": zod.number().nullable(),
   "responseBreached": zod.boolean(),
   "resolutionBreached": zod.boolean()
-}).describe('Computed SLA state for a ticket')
+}).describe('Computed SLA state for a ticket'),
+  "bundleCount": zod.number().describe('Number of support bundles attached to this ticket'),
+  "latestBundleStatus": zod.string().nullable().describe('overallStatus from the most recently uploaded bundle, or null if none')
 })
 
 
@@ -456,6 +468,39 @@ export const AddTicketAttachmentResponse = zod.object({
   "sizeBytes": zod.number(),
   "createdAt": zod.string()
 })
+
+
+/**
+ * @summary List support bundles for a ticket
+ */
+export const ListTicketBundlesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListTicketBundlesResponseItem = zod.object({
+  "id": zod.number(),
+  "ticketId": zod.number(),
+  "filename": zod.string(),
+  "fileSizeBytes": zod.number(),
+  "overallStatus": zod.string().nullish().describe('Health status extracted from health-snapshot.json'),
+  "issueCount": zod.number().describe('Number of preflight [FAIL] items'),
+  "uploadedAt": zod.string(),
+  "parsedAt": zod.string().nullable(),
+  "parseError": zod.string().nullable(),
+  "parsedSummary": zod.string().nullable().describe('JSON string of full parse output; only populated for agents\/admins')
+})
+export const ListTicketBundlesResponse = zod.array(ListTicketBundlesResponseItem)
+
+
+/**
+ * @summary Download a support bundle ZIP (agent/admin only)
+ */
+export const DownloadTicketBundleParams = zod.object({
+  "id": zod.coerce.number(),
+  "bundleId": zod.coerce.number()
+})
+
+export const DownloadTicketBundleResponse = zod.unknown()
 
 
 /**
@@ -509,7 +554,9 @@ export const GetDashboardSummaryResponse = zod.object({
   "resolutionPctElapsed": zod.number().nullable(),
   "responseBreached": zod.boolean(),
   "resolutionBreached": zod.boolean()
-}).describe('Computed SLA state for a ticket')
+}).describe('Computed SLA state for a ticket'),
+  "bundleCount": zod.number().describe('Number of support bundles attached to this ticket'),
+  "latestBundleStatus": zod.string().nullable().describe('overallStatus from the most recently uploaded bundle, or null if none')
 }))
 })
 
@@ -876,7 +923,9 @@ export const GetCustomerResponse = zod.object({
   "resolutionPctElapsed": zod.number().nullable(),
   "responseBreached": zod.boolean(),
   "resolutionBreached": zod.boolean()
-}).describe('Computed SLA state for a ticket')
+}).describe('Computed SLA state for a ticket'),
+  "bundleCount": zod.number().describe('Number of support bundles attached to this ticket'),
+  "latestBundleStatus": zod.string().nullable().describe('overallStatus from the most recently uploaded bundle, or null if none')
 }))
 })
 
@@ -938,7 +987,9 @@ export const UpdateCustomerResponse = zod.object({
   "resolutionPctElapsed": zod.number().nullable(),
   "responseBreached": zod.boolean(),
   "resolutionBreached": zod.boolean()
-}).describe('Computed SLA state for a ticket')
+}).describe('Computed SLA state for a ticket'),
+  "bundleCount": zod.number().describe('Number of support bundles attached to this ticket'),
+  "latestBundleStatus": zod.string().nullable().describe('overallStatus from the most recently uploaded bundle, or null if none')
 }))
 })
 

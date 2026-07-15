@@ -314,6 +314,13 @@ export interface Ticket {
   /** @nullable */
   resolvedAt: string | null;
   sla: SlaInfo;
+  /** Number of support bundles attached to this ticket */
+  bundleCount: number;
+  /**
+     * overallStatus from the most recently uploaded bundle, or null if none
+     * @nullable
+     */
+  latestBundleStatus: string | null;
 }
 
 export interface CustomerDetail {
@@ -523,6 +530,35 @@ export interface TicketAttachmentContent {
   contentType: string;
   /** Base64-encoded file content */
   data: string;
+}
+
+export interface SupportBundle {
+  id: number;
+  ticketId: number;
+  filename: string;
+  fileSizeBytes: number;
+  /**
+     * Health status extracted from health-snapshot.json
+     * @nullable
+     */
+  overallStatus?: string | null;
+  /** Number of preflight [FAIL] items */
+  issueCount: number;
+  uploadedAt: string;
+  /** @nullable */
+  parsedAt: string | null;
+  /** @nullable */
+  parseError: string | null;
+  /**
+     * JSON string of full parse output; only populated for agents/admins
+     * @nullable
+     */
+  parsedSummary: string | null;
+}
+
+export interface BundleUploadResult {
+  bundleId: number;
+  message: string;
 }
 
 export interface StatusHistoryEntry {

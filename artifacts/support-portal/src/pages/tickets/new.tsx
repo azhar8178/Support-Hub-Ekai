@@ -15,7 +15,7 @@ import {
 import { queryClient } from "@/lib/queryClient";
 import { useDebounce } from "@/hooks/use-debounce";
 
-import { ArrowLeft, Paperclip, X, Loader2, BookOpen, ExternalLink } from "lucide-react";
+import { ArrowLeft, Paperclip, X, Loader2, BookOpen, ExternalLink, Package, ChevronDown, ChevronUp, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +25,6 @@ import { Link } from "wouter";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -38,9 +37,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_BUNDLE_SIZE = 50 * 1024 * 1024; // 50MB
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(100, "Title is too long"),
@@ -52,10 +52,20 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function TicketNewPage() {
   const [, setLocation] = useLocation();
   const [attachments, setAttachments] = useState<{file: File, base64: string}[]>([]);
+  const [bundleFile, setBundleFile] = useState<File | null>(null);
+  const [bundleHintOpen, setBundleHintOpen] = useState(false);
+  const [bundleDragOver, setBundleDragOver] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const bundleInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -92,8 +102,7 @@ export default function TicketNewPage() {
   const seenArticleIds = useRef<Set<number>>(new Set());
   const clickedArticleIds = useRef<Set<number>>(new Set());
 
-  // Content-gap tracking: log the latest settled search (and how many
-  // suggestions it returned) so admins can spot topics with no helpful article.
+  // Content-gap tracking
   const recordSearch = useRecordKbSearch();
   const lastLoggedSearch = useRef<string>("");
   useEffect(() => {
@@ -142,19 +151,37 @@ export default function TicketNewPage() {
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64String = event.target?.result as string;
-        // strip the data:*/*;base64, prefix
         const base64Data = base64String.split(',')[1];
         setAttachments(prev => [...prev, { file, base64: base64Data }]);
       };
       reader.readAsDataURL(file);
     }
-    
-    // reset input
     e.target.value = '';
   };
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Bundle drag-and-drop
+  const handleBundleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setBundleDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    validateAndSetBundle(file);
+  };
+
+  const validateAndSetBundle = (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      toast.error("Only ZIP files are accepted as support bundles");
+      return;
+    }
+    if (file.size > MAX_BUNDLE_SIZE) {
+      toast.error("Bundle exceeds the 50 MB limit");
+      return;
+    }
+    setBundleFile(file);
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -164,8 +191,6 @@ export default function TicketNewPage() {
       const ticket = await createTicket.mutateAsync({
         data: {
           ...values,
-          // Link the draft when suggestions appeared OR a search was logged, so
-          // zero-suggestion drafts that still filed a ticket count as settled.
           kbDraftId:
             seenArticleIds.current.size > 0 || lastLoggedSearch.current !== ""
               ? draftId
@@ -183,6 +208,24 @@ export default function TicketNewPage() {
             data: attachment.base64,
           }
         });
+      }
+
+      // Upload bundle if provided — do NOT block ticket creation if this fails
+      if (bundleFile) {
+        try {
+          const formData = new FormData();
+          formData.append("bundle", bundleFile);
+          const res = await fetch(
+            `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/tickets/${ticket.id}/bundles`,
+            { method: "POST", body: formData },
+          );
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            toast.warning(`Ticket created, but bundle upload failed: ${body.message ?? "Unknown error"}`);
+          }
+        } catch {
+          toast.warning("Ticket created, but bundle upload failed (network error). You can re-upload from the ticket page.");
+        }
       }
 
       toast.success("Ticket raised successfully");
@@ -351,6 +394,7 @@ export default function TicketNewPage() {
                 )}
               />
 
+              {/* Attachments */}
               <div className="space-y-4">
                 <div>
                   <Label className="text-[#0F1F3D] block mb-2">Attachments</Label>
@@ -390,6 +434,83 @@ export default function TicketNewPage() {
                         </button>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Support Bundle */}
+              <div className="space-y-3 border border-stone-200 rounded-lg p-4 bg-stone-50/40">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-amber-600 shrink-0" />
+                  <Label className="text-[#0F1F3D] font-medium">Support Bundle <span className="text-stone-400 font-normal">(optional)</span></Label>
+                </div>
+                <p className="text-xs text-stone-500 leading-relaxed">
+                  Attach a diagnostic bundle ZIP to help the team triage your issue faster.
+                  Run <code className="bg-stone-100 px-1 py-0.5 rounded text-[11px] font-mono">support-bundle.sh</code> on your server to generate it.
+                </p>
+
+                {/* Hint */}
+                <button
+                  type="button"
+                  onClick={() => setBundleHintOpen(v => !v)}
+                  className="flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 transition-colors"
+                >
+                  {bundleHintOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  How do I generate a bundle?
+                </button>
+                {bundleHintOpen && (
+                  <div className="bg-white border border-stone-200 rounded-md p-3 text-xs text-stone-600 font-mono leading-relaxed">
+                    <p className="font-sans font-medium text-[#0F1F3D] mb-2 not-italic">On your self-managed server:</p>
+                    <p>curl -sSL https://support.ekai.dev/bundle.sh | bash</p>
+                    <p className="font-sans text-stone-400 mt-1 not-italic">This creates <span className="font-mono">ekai-bundle-&lt;date&gt;.zip</span> in the current directory.</p>
+                  </div>
+                )}
+
+                {/* Drop zone or selected file */}
+                {bundleFile ? (
+                  <div className="flex items-center gap-3 p-3 bg-white border border-amber-200 rounded-md">
+                    <Package className="h-5 w-5 text-amber-600 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-[#0F1F3D] truncate">{bundleFile.name}</p>
+                      <p className="text-xs text-stone-400">{formatBytes(bundleFile.size)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBundleFile(null)}
+                      className="text-stone-400 hover:text-red-500 transition-colors shrink-0"
+                      aria-label="Remove bundle"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                      bundleDragOver
+                        ? "border-amber-400 bg-amber-50"
+                        : "border-stone-200 hover:border-amber-300 hover:bg-amber-50/30"
+                    }`}
+                    onDragOver={(e) => { e.preventDefault(); setBundleDragOver(true); }}
+                    onDragLeave={() => setBundleDragOver(false)}
+                    onDrop={handleBundleDrop}
+                    onClick={() => bundleInputRef.current?.click()}
+                  >
+                    <Upload className="h-6 w-6 text-stone-300 mx-auto mb-2" />
+                    <p className="text-sm text-stone-500">
+                      <span className="font-medium text-amber-700">Click to browse</span> or drag &amp; drop
+                    </p>
+                    <p className="text-xs text-stone-400 mt-1">.zip files only · max 50 MB</p>
+                    <input
+                      ref={bundleInputRef}
+                      type="file"
+                      accept=".zip,application/zip"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) validateAndSetBundle(f);
+                        e.target.value = "";
+                      }}
+                    />
                   </div>
                 )}
               </div>

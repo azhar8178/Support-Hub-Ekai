@@ -1,0 +1,363 @@
+I need to extend the existing support ticket system to support
+diagnostic bundle uploads from self-deploying customers.
+
+Context: Some Ekai customers deploy and manage Ekai themselves
+in their own cloud environments with no continuous telemetry.
+When they raise a support ticket, they generate a local
+diagnostic ZIP using a support-bundle.sh script and attach it.
+The portal needs to accept, store, parse, and surface this
+bundle to Ekai support agents on the ticket detail page.
+
+
+PART 1 — DATABASE SCHEMA
+
+Add to the existing Prisma schema:
+
+model SupportBundle {
+id              String    @id @default(cuid())
+ticketId        String
+ticket          Ticket    @relation(fields: [ticketId], references: [id])
+uploadedById    String
+uploadedBy      User      @relation(fields: [uploadedById], references: [id])
+filename        String
+fileSizeBytes   Int
+storageKey      String    // internal storage path/key
+parsedSummary   String?   // JSON string of parsed bundle contents
+overallStatus   String?   // extracted overall_status from health-snapshot.json
+issueCount      Int       @default(0) // preflight FAIL count
+uploadedAt      DateTime  @default(now())
+parsedAt        DateTime?
+parseError      String?
+}
+
+Also add to Ticket model:
+bundles   SupportBundle[]
+
+
+PART 2 — FILE UPLOAD API
+
+Create: POST /api/tickets/[id]/bundle
+
+This endpoint accepts a multipart form upload of the support
+bundle ZIP file.
+
+Validation:
+
+
+User must be authenticated (NextAuth session)
+User must be the ticket owner (CUSTOMER role) OR an
+EKAI_AGENT or ADMIN
+File must be a ZIP (check Content-Type and .zip extension)
+Max file size: 50MB
+Ticket must exist and not be CLOSED
+
+
+On upload:
+
+
+Save the file to local storage at:
+/uploads/bundles/{ticketId}/{timestamp}-{filename}
+(create directory if it does not exist)
+Create SupportBundle record with:
+
+ticketId, uploadedById, filename, fileSizeBytes
+storageKey = the saved file path
+parsedSummary = null (parsing happens async)
+
+
+
+Add an internal ticket message (isInternal: true):
+"Support bundle uploaded: {filename} ({size}MB).
+Parsing in progress..."
+Trigger bundle parsing (see Part 3) — can be synchronous
+if fast, async if preferred
+Return: { bundleId, message: "Bundle uploaded successfully" }
+
+
+
+PART 3 — BUNDLE PARSER
+
+Create a utility function parseSupportBundle(bundlePath, bundleId):
+
+The function unzips the bundle to a temp directory and reads
+the following files if present. All parsing is best-effort —
+missing files are noted, not errors.
+
+Files to parse:
+
+health-snapshot.json
+
+
+Extract: overall_status, collected_at, services array
+Store in parsedSummary
+
+
+version-manifest.json
+
+
+Extract: ekai_version, fleet_agent_version, runtime,
+host_os, bundle_tool_version
+
+
+preflight-check.txt
+
+
+Count lines containing "[FAIL]"
+Store as issueCount on the SupportBundle record
+Extract all FAIL lines as an array
+
+
+connectivity-check.txt
+
+
+Extract: portal reachability result, any FAILED lines
+
+
+env-summary.txt
+
+
+Extract: FLEET_CLOUD, FLEET_REGION, FLEET_RUNTIME,
+FLEET_VERSION values (already redacted by the script)
+
+
+infra-state.json
+
+
+Extract: container/pod count, any non-running states
+
+
+app-logs/ directory
+
+
+Count total log lines across all files
+Scan for ERROR and FATAL lines (last 20 of each)
+Do NOT store full log contents in the database —
+keep only the error lines and a line count
+
+
+Parsed output structure (stored as JSON in parsedSummary):
+{
+"parsed_at": "ISO8601",
+"health": {
+"overall_status": "healthy|degraded|down|unknown",
+"collected_at": "ISO8601",
+"services": [{ "name": "", "status": "", "latency_ms": 0 }]
+},
+"versions": {
+"ekai_version": "",
+"agent_version": "",
+"runtime": "",
+"host_os": ""
+},
+"preflight": {
+"issue_count": 0,
+"failures": ["line1", "line2"]
+},
+"connectivity": {
+"portal_reachable": true,
+"failed_checks": []
+},
+"environment": {
+"cloud": "",
+"region": "",
+"runtime": ""
+},
+"infra": {
+"container_count": 0,
+"unhealthy_containers": []
+},
+"logs": {
+"total_lines": 0,
+"error_lines": [],
+"fatal_lines": []
+},
+"parse_warnings": []
+}
+
+After parsing:
+
+
+Update SupportBundle: parsedSummary, overallStatus,
+issueCount, parsedAt
+Update the internal ticket message to show parse results
+If overallStatus = "down" AND ticket severity is not P1,
+add an internal note:
+"⚠ Bundle health snapshot shows environment DOWN.
+Consider escalating to P1."
+
+
+
+PART 4 — TICKET RAISE FORM UPDATE
+
+On the new ticket form (/tickets/new), add a bundle upload
+section BELOW the description field:
+
+Label: "Attach support bundle (optional)"
+Subtext: "If your Ekai deployment is self-managed, run
+./support-bundle.sh and attach the generated ZIP here.
+This helps us resolve your issue significantly faster."
+
+UI requirements:
+
+
+Drag-and-drop zone OR click to browse
+Accept .zip files only, max 50MB
+Show filename and size after selection
+Show a "How do I generate a bundle?" expandable hint:
+"Run ./support-bundle.sh in your Ekai deployment
+directory. The script is included in your deployment
+package. See the Support Bundle Guide in the
+Knowledge Base for instructions."
+Bundle is uploaded AFTER the ticket is created:
+
+Create ticket first (existing flow)
+If bundle file selected, POST to
+/api/tickets/{newTicketId}/bundle
+Show upload progress indicator
+On success: show "Bundle attached and being analysed"
+
+
+
+If upload fails: show warning but do NOT block ticket
+creation — the ticket must still be created
+
+
+
+PART 5 — TICKET DETAIL PAGE UPDATE (CUSTOMER VIEW)
+
+On /tickets/[id], if the ticket has one or more bundles,
+show a "Support Bundles" section below the conversation
+thread.
+
+For each bundle show:
+
+
+Filename and upload time
+File size
+Parsing status: "Analysing..." | "Analysed" | "Parse error"
+If parsed and overallStatus is set:
+Status badge: HEALTHY / DEGRADED / DOWN (colour coded)
+"Upload another bundle" button (in case issue persists)
+
+
+
+PART 6 — TICKET DETAIL PAGE UPDATE (AGENT VIEW)
+
+On /tickets/[id] for EKAI_AGENT and ADMIN users, show an
+expanded "Support Bundle Analysis" panel with the full
+parsed summary.
+
+Panel sections:
+
+
+ENVIRONMENT HEALTH
+
+Large status badge: overall_status from health snapshot
+Services table: name, status, latency
+Snapshot timestamp
+
+
+
+VERSIONS
+
+Ekai version, agent version, runtime, OS — in a
+clean grid
+
+
+
+PRE-FLIGHT ISSUES
+
+Issue count badge (red if > 0, green if 0)
+List of all FAIL lines from preflight-check.txt
+If 0 issues: "All pre-flight checks passed"
+
+
+
+CONNECTIVITY
+
+Portal reachable: Yes / No
+Any failed connectivity checks listed
+
+
+
+LOG ERRORS
+
+Count of ERROR/FATAL lines found
+Last 20 error lines in a scrollable code block
+"View full logs" note: "Download the bundle ZIP to
+view complete logs"
+
+
+
+DOWNLOAD BUNDLE
+
+"Download ZIP" button → GET /api/tickets/[id]/bundle/[bundleId]/download
+Note: "Review bundle contents before sharing externally.
+Bundles may contain internal infrastructure details."
+
+
+
+
+
+
+PART 7 — BUNDLE DOWNLOAD API
+
+Create: GET /api/tickets/[id]/bundle/[bundleId]/download
+
+
+Requires EKAI_AGENT or ADMIN session
+Validates bundleId belongs to ticketId
+Streams the ZIP file with Content-Disposition: attachment
+Logs download in AuditLog:
+action: "BUNDLE_DOWNLOADED"
+entityType: "SupportBundle"
+entityId: bundleId
+
+
+
+PART 8 — AGENT TICKET LIST UPDATE
+
+On the /agent ticket queue, for tickets that have bundles:
+
+
+Show a small paperclip icon or "Bundle" badge next to
+the ticket title
+In the bundle badge, show the overallStatus from the
+most recent bundle:
+DOWN = red badge "Bundle: DOWN"
+DEGRADED = amber badge "Bundle: DEGRADED"
+HEALTHY = grey badge "Bundle: Healthy"
+parsing = grey badge "Bundle: Parsing"
+
+
+
+IMPORTANT IMPLEMENTATION NOTES
+
+
+File storage: save bundles to /uploads/bundles/ on the
+local filesystem for now. Structure:
+/uploads/bundles/{ticketId}/{bundleId}-{filename}
+This is sufficient for Replit. Note in a comment that
+production should use S3/Azure Blob/GCP Storage.
+Unzipping: use the 'unzipper' npm package for parsing.
+Install it: npm install unzipper
+The bundle parser must never crash the request. Wrap
+all file reads in try/catch. If a file is missing or
+malformed, add a warning to parse_warnings and continue.
+Do not store raw log file contents in the database —
+only store extracted error lines (max 20) and line counts.
+Full logs are available by downloading the ZIP.
+The upload endpoint must work for both:
+
+Customers uploading during ticket creation (their own ticket)
+Ekai agents uploading on behalf of a customer
+(e.g. customer sent bundle via email)
+
+
+
+Bundle upload on /tickets/new is optional and must never
+block ticket creation. If the upload fails, log the error
+and show a warning — the ticket is already created.
+Add seed data: create 1 sample SupportBundle attached to
+an existing seed ticket, with a realistic parsedSummary
+JSON showing 2 preflight failures and overall_status: degraded.

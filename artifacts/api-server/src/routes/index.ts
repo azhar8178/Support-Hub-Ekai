@@ -16,6 +16,7 @@ import deploymentsRouter from "./deployments";
 import bootstrapRouter from "./bootstrap";
 import fleetRouter from "./fleet";
 import environmentsRouter from "./environments";
+import bundlesRouter from "./bundles";
 
 const router: IRouter = Router();
 
@@ -23,6 +24,7 @@ router.use(bootstrapRouter);
 router.use(healthRouter);
 router.use(authRouter);
 router.use(ticketsRouter);
+router.use(bundlesRouter);
 router.use(dashboardRouter);
 router.use(notificationsRouter);
 router.use(pushTokensRouter);

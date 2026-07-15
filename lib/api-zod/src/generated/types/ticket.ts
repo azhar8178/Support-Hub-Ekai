@@ -31,4 +31,11 @@ export interface Ticket {
   /** @nullable */
   resolvedAt: string | null;
   sla: SlaInfo;
+  /** Number of support bundles attached to this ticket */
+  bundleCount: number;
+  /**
+     * overallStatus from the most recently uploaded bundle, or null if none
+     * @nullable
+     */
+  latestBundleStatus: string | null;
 }

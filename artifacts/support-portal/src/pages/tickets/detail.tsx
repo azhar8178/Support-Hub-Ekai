@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { 
   useGetTicket, 
@@ -9,12 +9,14 @@ import {
   useAssignTicket,
   useGetCurrentUser,
   useListAgents,
+  useListTicketBundles,
   TicketStatus
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 
 import { 
-  ArrowLeft, Paperclip, Send, Download, Loader2, User as UserIcon, Lock, Globe 
+  ArrowLeft, Paperclip, Send, Download, Loader2, User as UserIcon, Lock, Globe,
+  Package, CheckCircle2, AlertTriangle, XCircle, HelpCircle, ChevronDown, ChevronUp, Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +27,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Link } from "wouter";
 import {
@@ -42,7 +45,437 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_BUNDLE_SIZE = 50 * 1024 * 1024;
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// ---------------------------------------------------------------------------
+// Bundle health status helpers
+// ---------------------------------------------------------------------------
+type BundleStatus = "healthy" | "degraded" | "down" | "unknown" | "parsing" | "error";
+
+function resolveBundleStatus(b: { overallStatus?: string | null; parsedAt?: string | null; parseError?: string | null }): BundleStatus {
+  if (b.parseError) return "error";
+  if (!b.parsedAt) return "parsing";
+  return (b.overallStatus ?? "unknown") as BundleStatus;
+}
+
+function BundleStatusBadge({ status }: { status: BundleStatus }) {
+  const map: Record<BundleStatus, { label: string; className: string; icon: React.ReactNode }> = {
+    healthy:  { label: "Healthy",  className: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: <CheckCircle2 className="h-3 w-3" /> },
+    degraded: { label: "Degraded", className: "bg-amber-100 text-amber-700 border-amber-200",   icon: <AlertTriangle className="h-3 w-3" /> },
+    down:     { label: "Down",     className: "bg-red-100 text-red-700 border-red-200",           icon: <XCircle className="h-3 w-3" /> },
+    unknown:  { label: "Unknown",  className: "bg-stone-100 text-stone-600 border-stone-200",     icon: <HelpCircle className="h-3 w-3" /> },
+    parsing:  { label: "Parsing…", className: "bg-blue-100 text-blue-700 border-blue-200",        icon: <Loader2 className="h-3 w-3 animate-spin" /> },
+    error:    { label: "Parse Error", className: "bg-red-100 text-red-700 border-red-200",        icon: <XCircle className="h-3 w-3" /> },
+  };
+  const { label, className, icon } = map[status] ?? map.unknown;
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border ${className}`}>
+      {icon}{label}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Parsed summary types (mirrors bundleParser.ts)
+// ---------------------------------------------------------------------------
+interface ServiceEntry { name: string; status: string; latency_ms?: number }
+interface ParsedSummary {
+  health: { overall_status: string; collected_at: string | null; services: ServiceEntry[] };
+  versions: { ekai_version: string; agent_version: string; runtime: string; host_os: string };
+  preflight: { issue_count: number; failures: string[] };
+  connectivity: { portal_reachable: boolean; failed_checks: string[] };
+  environment: { cloud: string; region: string; runtime: string; version: string };
+  infra: { container_count: number; unhealthy_containers: string[] };
+  logs: { total_lines: number; error_lines: string[]; fatal_lines: string[] };
+  parse_warnings: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Agent bundle analysis panel
+// ---------------------------------------------------------------------------
+function AgentBundlePanel({
+  bundle,
+  ticketId,
+  basePath,
+}: {
+  bundle: {
+    id: number;
+    filename: string;
+    fileSizeBytes: number;
+    parsedSummary?: string | null;
+    overallStatus?: string | null;
+    issueCount: number;
+    parsedAt?: string | null;
+    parseError?: string | null;
+    uploadedAt: string;
+  };
+  ticketId: number;
+  basePath: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const status = resolveBundleStatus(bundle);
+
+  let parsed: ParsedSummary | null = null;
+  if (bundle.parsedSummary) {
+    try { parsed = JSON.parse(bundle.parsedSummary); } catch { /* ignore */ }
+  }
+
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+      const res = await fetch(
+        `${basePath}/api/tickets/${ticketId}/bundles/${bundle.id}/download`,
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = bundle.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Download failed");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <div className="border border-stone-200 rounded-lg bg-white overflow-hidden">
+      {/* Header row */}
+      <div className="flex items-center gap-3 p-3 bg-stone-50/60">
+        <Package className="h-4 w-4 text-amber-600 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-[#0F1F3D] truncate">{bundle.filename}</p>
+          <p className="text-xs text-stone-400">
+            {formatBytes(bundle.fileSizeBytes)} · uploaded {formatDateTime(bundle.uploadedAt)}
+          </p>
+        </div>
+        <BundleStatusBadge status={status} />
+        {parsed && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-stone-500 shrink-0"
+            onClick={() => setExpanded(v => !v)}
+          >
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 px-2 shrink-0 text-stone-600"
+          onClick={handleDownload}
+          disabled={isDownloading}
+        >
+          {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+
+      {bundle.parseError && (
+        <div className="px-3 py-2 bg-red-50 border-t border-red-100 text-xs text-red-700">
+          <strong>Parse error:</strong> {bundle.parseError}
+        </div>
+      )}
+
+      {/* Expanded analysis */}
+      {expanded && parsed && (
+        <div className="border-t border-stone-100 p-4 space-y-5 text-sm">
+
+          {/* Environment Health */}
+          <section>
+            <h5 className="font-semibold text-[#0F1F3D] mb-2">Environment Health</h5>
+            {parsed.health.services.length > 0 ? (
+              <div className="overflow-x-auto rounded border border-stone-100">
+                <table className="w-full text-xs">
+                  <thead className="bg-stone-50">
+                    <tr>
+                      <th className="text-left px-3 py-2 text-stone-500 font-medium">Service</th>
+                      <th className="text-left px-3 py-2 text-stone-500 font-medium">Status</th>
+                      <th className="text-right px-3 py-2 text-stone-500 font-medium">Latency</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {parsed.health.services.map((svc, i) => (
+                      <tr key={i} className={svc.status !== "ok" && svc.status !== "healthy" ? "bg-red-50/40" : ""}>
+                        <td className="px-3 py-2 font-medium text-[#0F1F3D]">{svc.name}</td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-flex items-center gap-1 ${
+                            svc.status === "ok" || svc.status === "healthy"
+                              ? "text-emerald-600"
+                              : "text-red-600 font-medium"
+                          }`}>
+                            {svc.status === "ok" || svc.status === "healthy"
+                              ? <CheckCircle2 className="h-3 w-3" />
+                              : <XCircle className="h-3 w-3" />}
+                            {svc.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right text-stone-500">
+                          {svc.latency_ms != null ? `${svc.latency_ms} ms` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-stone-400 text-xs">No service data in this bundle.</p>
+            )}
+          </section>
+
+          {/* Versions */}
+          <section>
+            <h5 className="font-semibold text-[#0F1F3D] mb-2">Versions</h5>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+              {[
+                ["Ekai", parsed.versions.ekai_version],
+                ["Fleet Agent", parsed.versions.agent_version],
+                ["Runtime", parsed.versions.runtime],
+                ["Host OS", parsed.versions.host_os],
+              ].map(([k, v]) => (
+                <div key={k} className="flex gap-2">
+                  <span className="text-stone-500 shrink-0">{k}</span>
+                  <span className="font-mono text-[#0F1F3D] truncate">{v}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Pre-flight */}
+          {parsed.preflight.failures.length > 0 && (
+            <section>
+              <h5 className="font-semibold text-[#0F1F3D] mb-2">
+                Pre-flight Issues
+                <span className="ml-2 text-xs font-normal text-red-600">({parsed.preflight.failures.length})</span>
+              </h5>
+              <ul className="space-y-1">
+                {parsed.preflight.failures.map((f, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-red-700">
+                    <XCircle className="h-3 w-3 mt-0.5 shrink-0" />{f}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Connectivity */}
+          {parsed.connectivity.failed_checks.length > 0 && (
+            <section>
+              <h5 className="font-semibold text-[#0F1F3D] mb-2">Connectivity Failures</h5>
+              <ul className="space-y-1">
+                {parsed.connectivity.failed_checks.map((f, i) => (
+                  <li key={i} className="text-xs text-red-700 flex items-start gap-2">
+                    <XCircle className="h-3 w-3 mt-0.5 shrink-0" />{f}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Log Errors */}
+          {(parsed.logs.error_lines.length > 0 || parsed.logs.fatal_lines.length > 0) && (
+            <section>
+              <h5 className="font-semibold text-[#0F1F3D] mb-2">
+                Log Errors
+                <span className="ml-2 text-xs font-normal text-stone-500">
+                  (last {parsed.logs.fatal_lines.length + parsed.logs.error_lines.length} of {parsed.logs.total_lines.toLocaleString()} lines)
+                </span>
+              </h5>
+              <div className="bg-stone-900 rounded-md p-3 max-h-48 overflow-auto">
+                <pre className="text-[11px] text-stone-200 font-mono leading-relaxed whitespace-pre-wrap break-all">
+                  {[...parsed.logs.fatal_lines, ...parsed.logs.error_lines].join("\n")}
+                </pre>
+              </div>
+            </section>
+          )}
+
+          {/* Parse warnings */}
+          {parsed.parse_warnings.length > 0 && (
+            <p className="text-xs text-stone-400 italic">
+              Parse warnings: {parsed.parse_warnings.join(" · ")}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Customer bundle row
+// ---------------------------------------------------------------------------
+function CustomerBundleRow({ bundle }: {
+  bundle: {
+    id: number;
+    filename: string;
+    fileSizeBytes: number;
+    overallStatus?: string | null;
+    issueCount: number;
+    uploadedAt: string;
+    parsedAt?: string | null;
+    parseError?: string | null;
+  };
+}) {
+  const status = resolveBundleStatus(bundle);
+  return (
+    <div className="flex items-center gap-3 py-2 border-b border-stone-100 last:border-0">
+      <Package className="h-4 w-4 text-stone-400 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-[#0F1F3D] truncate">{bundle.filename}</p>
+        <p className="text-xs text-stone-400">{formatBytes(bundle.fileSizeBytes)} · {formatDateTime(bundle.uploadedAt)}</p>
+      </div>
+      <BundleStatusBadge status={status} />
+      {bundle.issueCount > 0 && (
+        <span className="text-xs text-red-600 font-medium shrink-0">{bundle.issueCount} issue{bundle.issueCount !== 1 ? "s" : ""}</span>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Support Bundles section (inline in the ticket thread column)
+// ---------------------------------------------------------------------------
+function SupportBundlesSection({
+  ticketId,
+  isAgentOrAdmin,
+  isClosed,
+  basePath,
+}: {
+  ticketId: number;
+  isAgentOrAdmin: boolean;
+  isClosed: boolean;
+  basePath: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: bundles, refetch } = useListTicketBundles(ticketId, {
+    query: {
+      queryKey: ["bundles", ticketId],
+      refetchInterval: (data) =>
+        Array.isArray(data) && data.some((b) => !b.parsedAt && !b.parseError) ? 5000 : false,
+    },
+  });
+
+  const handleUpload = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      toast.error("Only ZIP files are accepted"); return;
+    }
+    if (file.size > MAX_BUNDLE_SIZE) {
+      toast.error("Bundle exceeds 50 MB limit"); return;
+    }
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append("bundle", file);
+      const res = await fetch(
+        `${basePath}/api/tickets/${ticketId}/bundles`,
+        { method: "POST", body: formData },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message ?? `Upload failed (${res.status})`);
+      }
+      toast.success("Bundle uploaded — parsing in progress");
+      refetch();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Card className="shadow-sm border-stone-200">
+      <CardHeader className="pb-3 border-b border-stone-100 bg-stone-50/50 flex-row items-center justify-between space-y-0">
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-amber-600" />
+          <h3 className="font-semibold text-[#0F1F3D]">Support Bundles</h3>
+          {bundles && bundles.length > 0 && (
+            <Badge variant="secondary" className="text-xs">{bundles.length}</Badge>
+          )}
+        </div>
+        {!isClosed && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-amber-700 border-amber-200 hover:bg-amber-50"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Upload className="h-3.5 w-3.5" />
+            }
+            Upload Bundle
+          </Button>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".zip,application/zip"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleUpload(f);
+            e.target.value = "";
+          }}
+        />
+      </CardHeader>
+      <CardContent className="pt-4">
+        {(!bundles || bundles.length === 0) ? (
+          <div
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+              dragOver ? "border-amber-400 bg-amber-50" : "border-stone-200"
+            } ${isClosed ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-amber-300 hover:bg-amber-50/30"}`}
+            onDragOver={(e) => { if (!isClosed) { e.preventDefault(); setDragOver(true); } }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              if (isClosed) return;
+              e.preventDefault(); setDragOver(false);
+              const f = e.dataTransfer.files[0]; if (f) handleUpload(f);
+            }}
+            onClick={() => { if (!isClosed) fileInputRef.current?.click(); }}
+          >
+            <Package className="h-7 w-7 text-stone-300 mx-auto mb-2" />
+            <p className="text-sm text-stone-500">No bundles yet.</p>
+            {!isClosed && (
+              <p className="text-xs text-stone-400 mt-1">
+                Run <code className="font-mono bg-stone-100 px-1 py-0.5 rounded text-[11px]">support-bundle.sh</code> and drag &amp; drop the ZIP here.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {isAgentOrAdmin
+              ? bundles.map((b) => (
+                  <AgentBundlePanel key={b.id} bundle={b} ticketId={ticketId} basePath={basePath} />
+                ))
+              : bundles.map((b) => (
+                  <CustomerBundleRow key={b.id} bundle={b} />
+                ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
 export default function TicketDetailPage() {
   const { id } = useParams();
   const ticketId = Number(id);
@@ -51,6 +484,7 @@ export default function TicketDetailPage() {
   const [isInternal, setIsInternal] = useState(false);
   const [attachments, setAttachments] = useState<{file: File, base64: string}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const { data: detail, isLoading, error } = useGetTicket(ticketId, {
     query: {
@@ -194,7 +628,7 @@ export default function TicketDetailPage() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      } catch (err: any) {
+      } catch {
         toast.error("Download failed");
       } finally {
         setIsDownloading(false);
@@ -236,8 +670,6 @@ export default function TicketDetailPage() {
   }
 
   const { ticket, messages, attachments: allAttachments, statusHistory } = detail;
-  
-  // Attachments not tied to a specific message are ticket-level (from creation)
   const ticketAttachments = allAttachments.filter(a => !a.messageId);
 
   return (
@@ -255,6 +687,11 @@ export default function TicketDetailPage() {
               <h1 className="text-lg font-bold text-[#0F1F3D] tracking-tight shrink-0">#{ticket.id}</h1>
               <SeverityBadge severity={ticket.severity} />
               <StatusBadge status={ticket.status} />
+              {ticket.bundleCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
+                  <Package className="h-3 w-3" />{ticket.bundleCount}
+                </span>
+              )}
             </div>
             <p className="text-sm text-stone-500 truncate mt-0.5">{ticket.title}</p>
           </div>
@@ -347,7 +784,7 @@ export default function TicketDetailPage() {
                           isAgent ? 'bg-amber-100 text-amber-700 border-amber-200' : 
                           'bg-stone-100 text-stone-700 border-stone-200'
                         }`}>
-                          {msg.authorName.charAt(0).toUpperCase()}
+                          {(msg.authorName ?? "S").charAt(0).toUpperCase()}
                         </div>
                       </div>
                       
@@ -394,7 +831,6 @@ export default function TicketDetailPage() {
             {/* Reply Box */}
             {!isClosed ? (
               <div className={`rounded-xl border shadow-sm mt-8 ${isInternal ? 'border-amber-200 bg-amber-50/30' : 'border-stone-200 bg-white'}`}>
-                {/* Toolbar top */}
                 <div className={`px-4 py-2.5 border-b flex items-center justify-between rounded-t-xl ${isInternal ? 'border-amber-200 bg-amber-50' : 'border-stone-100 bg-stone-50'}`}>
                   <div className="flex items-center gap-2">
                     {isInternal ? <Lock className="h-4 w-4 text-amber-600" /> : <Globe className="h-4 w-4 text-stone-400" />}
@@ -415,7 +851,6 @@ export default function TicketDetailPage() {
                   )}
                 </div>
 
-                {/* Text area */}
                 <div className="p-4">
                   <Textarea 
                     value={replyContent}
@@ -425,7 +860,6 @@ export default function TicketDetailPage() {
                   />
                 </div>
 
-                {/* Attached files */}
                 {attachments.length > 0 && (
                   <div className="px-4 pb-3 flex flex-wrap gap-2">
                     {attachments.map((att, idx) => (
@@ -445,7 +879,6 @@ export default function TicketDetailPage() {
                   </div>
                 )}
 
-                {/* Footer actions */}
                 <div className={`px-4 py-3 border-t flex items-center justify-between rounded-b-xl ${isInternal ? 'border-amber-100' : 'border-stone-100'}`}>
                   <div className="flex items-center gap-2">
                     <input 
@@ -485,6 +918,14 @@ export default function TicketDetailPage() {
                 This ticket is closed. If you need further assistance, please raise a new ticket.
               </div>
             )}
+
+            {/* Support Bundles */}
+            <SupportBundlesSection
+              ticketId={ticketId}
+              isAgentOrAdmin={isAgentOrAdmin}
+              isClosed={!!isClosed}
+              basePath={basePath}
+            />
             
           </div>
 
@@ -536,7 +977,6 @@ export default function TicketDetailPage() {
               </CardHeader>
               <CardContent className="pt-4">
                 <ol className="relative border-l border-stone-200 ml-2 space-y-4">
-                  {/* Created entry — always at top */}
                   <li className="ml-4">
                     <div className="absolute -left-1.5 w-3 h-3 rounded-full bg-amber-400 border-2 border-white ring-1 ring-amber-200" />
                     <p className="text-xs font-semibold text-[#0F1F3D]">{ticket.raisedByName}</p>

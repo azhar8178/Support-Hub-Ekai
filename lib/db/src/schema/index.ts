@@ -13,3 +13,4 @@ export * from "./deployments";
 export * from "./customerEnvironments";
 export * from "./healthSnapshots";
 export * from "./healthAlerts";
+export * from "./supportBundles";

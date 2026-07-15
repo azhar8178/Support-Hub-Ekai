@@ -1,5 +1,7 @@
 # Memory Index
 
+- [Support bundle feature](support-bundle-feature.md) — multipart upload via multer; OpenAPI multipart generates broken File/Blob types in api-zod so POST removed from spec; portal uploads directly via fetch+FormData.
+
 - [Attachment storage in App Storage](attachment-storage.md) — attachment bytes in object storage, DB keeps metadata + storage_key; authz stays in routes; drizzle push can't rename columns non-interactively.
 - [Mobile/web design parity](mobile-web-parity.md) — mobile mirrors portal tokens; sync from support-portal CSS (current brand in portal-theming.md), plus generated-hook gotchas.
 - [Support portal theming](portal-theming.md) — re-brand needs token swap PLUS a sweep of 100+ hardcoded hexes/utility classes; brand=gold #EFB323 primary + navy #0F1F3D text; white-on-gold fails contrast.

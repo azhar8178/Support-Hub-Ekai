@@ -1,6 +1,7 @@
 import {
   db,
   organisationsTable,
+  supportBundlesTable,
   ticketsTable,
   usersTable,
   type Organisation,
@@ -8,7 +9,7 @@ import {
   type User,
 } from "@workspace/db";
 import { alias } from "drizzle-orm/pg-core";
-import { eq, type SQL } from "drizzle-orm";
+import { eq, inArray, type SQL } from "drizzle-orm";
 import { computeSlaInfo, type SlaInfoDto } from "./sla";
 
 export interface TicketDto {
@@ -30,6 +31,8 @@ export interface TicketDto {
   firstResponseAt: string | null;
   resolvedAt: string | null;
   sla: SlaInfoDto;
+  bundleCount: number;
+  latestBundleStatus: string | null;
 }
 
 export const assigneeAlias = alias(usersTable, "assignee");
@@ -55,7 +58,11 @@ export function ticketQuery() {
     .leftJoin(assigneeAlias, eq(ticketsTable.assignedToId, assigneeAlias.id));
 }
 
-export function serializeTicketRow(row: TicketRow, now: Date = new Date()): TicketDto {
+export function serializeTicketRow(
+  row: TicketRow,
+  now: Date = new Date(),
+  bundleInfo?: { bundleCount: number; latestBundleStatus: string | null },
+): TicketDto {
   const t = row.ticket;
   return {
     id: t.id,
@@ -76,22 +83,57 @@ export function serializeTicketRow(row: TicketRow, now: Date = new Date()): Tick
     firstResponseAt: t.firstResponseAt?.toISOString() ?? null,
     resolvedAt: t.resolvedAt?.toISOString() ?? null,
     sla: computeSlaInfo(t, now),
+    bundleCount: bundleInfo?.bundleCount ?? 0,
+    latestBundleStatus: bundleInfo?.latestBundleStatus ?? null,
   };
+}
+
+/** Fetch bundle summary info (count + latest status) for a set of ticket IDs. */
+async function loadBundleInfoMap(
+  ticketIds: number[],
+): Promise<Map<number, { bundleCount: number; latestBundleStatus: string | null }>> {
+  const map = new Map<number, { bundleCount: number; latestBundleStatus: string | null }>();
+  if (ticketIds.length === 0) return map;
+
+  const bundles = await db
+    .select({
+      ticketId: supportBundlesTable.ticketId,
+      overallStatus: supportBundlesTable.overallStatus,
+      uploadedAt: supportBundlesTable.uploadedAt,
+    })
+    .from(supportBundlesTable)
+    .where(inArray(supportBundlesTable.ticketId, ticketIds));
+
+  // Sort DESC so the first occurrence per ticket is the most recent
+  bundles.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
+
+  for (const b of bundles) {
+    const existing = map.get(b.ticketId);
+    if (!existing) {
+      map.set(b.ticketId, { bundleCount: 1, latestBundleStatus: b.overallStatus });
+    } else {
+      existing.bundleCount++;
+    }
+  }
+  return map;
 }
 
 export async function loadTicketDto(id: number): Promise<TicketDto | null> {
   const rows = await ticketQuery().where(eq(ticketsTable.id, id));
   const row = rows[0];
   if (!row) return null;
-  return serializeTicketRow(row);
+  const bundleMap = await loadBundleInfoMap([row.ticket.id]);
+  return serializeTicketRow(row, new Date(), bundleMap.get(row.ticket.id));
 }
 
 export async function loadTicketsWhere(where: SQL | undefined): Promise<TicketDto[]> {
   const query = where ? ticketQuery().where(where) : ticketQuery();
   const rows = await query;
   const now = new Date();
+  const ticketIds = rows.map((r) => r.ticket.id);
+  const bundleMap = await loadBundleInfoMap(ticketIds);
   return rows
-    .map((r) => serializeTicketRow(r, now))
+    .map((r) => serializeTicketRow(r, now, bundleMap.get(r.ticket.id)))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 

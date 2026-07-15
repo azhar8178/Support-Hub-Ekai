@@ -10,7 +10,7 @@ import {
   TicketStatus 
 } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
-import { Search, Filter, AlertTriangle, Clock, Activity, Users, LayoutDashboard, CheckSquare } from "lucide-react";
+import { Search, AlertTriangle, Clock, Activity, Users, LayoutDashboard, CheckSquare, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -367,7 +367,21 @@ export default function AgentDashboardPage() {
                         <TableCell className="font-medium text-stone-500 text-xs">#{ticket.id}</TableCell>
                         <TableCell>
                           <Link href={`/tickets/${ticket.id}`} className="block">
-                            <div className="font-medium text-[#0F1F3D] group-hover:text-amber-600 transition-colors line-clamp-1">{ticket.title}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-[#0F1F3D] group-hover:text-amber-600 transition-colors line-clamp-1">{ticket.title}</span>
+                              {ticket.bundleCount > 0 && (
+                                <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded border shrink-0 ${
+                                  ticket.latestBundleStatus === "down"
+                                    ? "bg-red-50 text-red-600 border-red-200"
+                                    : ticket.latestBundleStatus === "degraded"
+                                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                                      : "bg-stone-100 text-stone-500 border-stone-200"
+                                }`}>
+                                  <Package className="h-2.5 w-2.5" />
+                                  {ticket.bundleCount}
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-stone-500 mt-0.5">{ticket.category} • {ticket.environment}</div>
                           </Link>
                         </TableCell>
