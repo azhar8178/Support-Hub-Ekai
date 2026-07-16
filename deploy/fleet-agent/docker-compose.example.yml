@@ -1,0 +1,29 @@
+# =============================================================================
+# Ekai Fleet Agent — docker-compose example
+# =============================================================================
+# Add the fleet-agent service to the customer's existing docker-compose file.
+# Set FLEET_API_KEY to the key generated in Admin → Environments.
+# =============================================================================
+services:
+  fleet-agent:
+    image: your-registry/ekai-fleet-agent:latest
+    restart: "no"            # managed by the cron service below
+    environment:
+      FLEET_HUB_URL: "https://dev.ekai.ai"
+      FLEET_API_KEY: "${FLEET_API_KEY}"   # inject via .env file
+      EKAI_HEALTH_URL: "http://ekai-api:8080/api/healthz"
+
+  # Minimal cron sidecar — triggers fleet-agent every 5 minutes
+  fleet-agent-cron:
+    image: alpine:3.20
+    depends_on:
+      - fleet-agent
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: >
+      sh -c "apk add --no-cache docker-cli &&
+             while true; do
+               docker compose run --rm fleet-agent;
+               sleep 300;
+             done"
+    restart: unless-stopped

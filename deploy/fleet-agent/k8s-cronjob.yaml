@@ -1,0 +1,56 @@
+# =============================================================================
+# Ekai Fleet Agent — Kubernetes CronJob
+# =============================================================================
+# Deploy this alongside each customer's Ekai installation.
+# The only value you need to set per-customer is FLEET_API_KEY.
+#
+# Usage:
+#   1. Generate an API key in the Ekai support portal:
+#        Admin → Environments → [environment] → copy the API key
+#   2. Create a Kubernetes secret with the key:
+#        kubectl create secret generic ekai-fleet-secret \
+#          --from-literal=api-key=ek_fleet_<...> \
+#          -n <ekai-namespace>
+#   3. Apply this manifest (adjust EKAI_HEALTH_URL if your service name differs):
+#        kubectl apply -f k8s-cronjob.yaml -n <ekai-namespace>
+# =============================================================================
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ekai-fleet-agent
+  # Deploy in the same namespace as the Ekai installation
+  # namespace: ekai
+spec:
+  schedule: "*/5 * * * *"      # every 5 minutes
+  concurrencyPolicy: Forbid    # skip if previous run is still going
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: fleet-agent
+              image: your-registry/ekai-fleet-agent:latest
+              imagePullPolicy: Always
+              env:
+                # ── Fixed for all deployments ────────────────────────────────
+                - name: FLEET_HUB_URL
+                  value: "https://dev.ekai.ai"
+                # ── Internal Ekai API URL (adjust service name / port) ───────
+                - name: EKAI_HEALTH_URL
+                  value: "http://ekai-api:8080/api/healthz"
+                # ── Per-customer: injected from a Kubernetes secret ──────────
+                - name: FLEET_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: ekai-fleet-secret
+                      key: api-key
+              resources:
+                requests:
+                  cpu: "10m"
+                  memory: "16Mi"
+                limits:
+                  cpu: "50m"
+                  memory: "32Mi"
