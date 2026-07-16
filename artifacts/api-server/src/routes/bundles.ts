@@ -166,6 +166,12 @@ router.post(
       .set({ storageKey })
       .where(eq(supportBundlesTable.id, bundleId));
 
+    // Bump ticket updatedAt so the admin list re-sorts and the unread dot fires.
+    await db
+      .update(ticketsTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(ticketsTable.id, ticket.id));
+
     const sizeMb = (fileSizeBytes / (1024 * 1024)).toFixed(1);
 
     // If the uploader is a customer, post a visible thread message so the
