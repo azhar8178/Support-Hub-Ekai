@@ -11,7 +11,9 @@ import {
   useRegisterCustomerEnvironment,
   useDeleteCustomerEnvironment,
   useListOrgs,
+  useCreateOrg,
   getListAdminEnvironmentsQueryKey,
+  getListOrgsQueryKey,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -131,6 +133,61 @@ interface RegisterFormData {
   environment: string;
 }
 
+/** Small dialog to create a new organisation inline from the Register form. */
+function NewOrgDialog({
+  onCreated,
+  onClose,
+}: {
+  onCreated: (id: string) => void;
+  onClose: () => void;
+}) {
+  const createOrg = useCreateOrg();
+  const [name, setName] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) { toast.error("Organisation name is required"); return; }
+    try {
+      const org = await createOrg.mutateAsync({ data: { name: name.trim() } });
+      await queryClient.invalidateQueries({ queryKey: getListOrgsQueryKey() });
+      onCreated(String(org.id));
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to create organisation");
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>New Organisation</DialogTitle>
+          <DialogDescription>Create a new customer organisation.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <Label>Name *</Label>
+            <Input
+              autoFocus
+              placeholder="Acme Corp"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={createOrg.isPending}>
+              Cancel
+            </Button>
+            <Button type="submit" className="flex-1 bg-[#EFB323] hover:bg-amber-500 text-[#0F1F3D]" disabled={createOrg.isPending}>
+              {createOrg.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+              Create
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function RegisterDialog({ onClose }: { onClose: () => void }) {
   const { data: orgs } = useListOrgs();
   const create = useRegisterCustomerEnvironment();
@@ -143,9 +200,15 @@ function RegisterDialog({ onClose }: { onClose: () => void }) {
     runtime: "docker",
     environment: "production",
   });
+  const [showNewOrg, setShowNewOrg] = useState(false);
 
   const set = (key: keyof RegisterFormData) => (val: string) =>
     setForm((f) => ({ ...f, [key]: val }));
+
+  const handleOrgChange = (val: string) => {
+    if (val === "__new__") { setShowNewOrg(true); return; }
+    set("orgId")(val);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,6 +237,13 @@ function RegisterDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
+    <>
+    {showNewOrg && (
+      <NewOrgDialog
+        onCreated={(id) => { set("orgId")(id); setShowNewOrg(false); }}
+        onClose={() => setShowNewOrg(false)}
+      />
+    )}
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
@@ -186,12 +256,18 @@ function RegisterDialog({ onClose }: { onClose: () => void }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
             <Label>Organisation *</Label>
-            <Select value={form.orgId} onValueChange={set("orgId")}>
+            {/* modal={false} prevents SelectContent from conflicting with the
+                parent Dialog's focus trap, which caused the dropdown to close
+                immediately on open. */}
+            <Select value={form.orgId} onValueChange={handleOrgChange}>
               <SelectTrigger><SelectValue placeholder="Select organisation" /></SelectTrigger>
-              <SelectContent>
+              <SelectContent modal={false}>
                 {orgs?.map((o) => (
                   <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>
                 ))}
+                <SelectItem value="__new__" className="text-[#EFB323] font-medium border-t mt-1 pt-1">
+                  <span className="flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" />Add new organisation…</span>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -256,6 +332,7 @@ function RegisterDialog({ onClose }: { onClose: () => void }) {
         </form>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 
