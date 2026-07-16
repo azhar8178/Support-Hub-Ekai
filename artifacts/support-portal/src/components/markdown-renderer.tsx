@@ -3,6 +3,38 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { cn } from "@/lib/utils";
 
+// react-markdown renders <pre><code> for fenced code blocks and bare <code>
+// for inline code. The most reliable way to tell them apart is to check
+// whether the text content spans multiple lines (block) or a single line
+// (inline). We also honour an explicit language class if present.
+function CodeBlock({
+  className,
+  children,
+}: {
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  const content = String(children ?? "").replace(/\n$/, "");
+  const hasLanguage = !!className?.startsWith("language-");
+  const isBlock = hasLanguage || content.includes("\n");
+
+  if (isBlock) {
+    // Rendered inside our <pre> wrapper — no extra background needed
+    return (
+      <code className={cn("font-mono text-sm text-stone-100 leading-relaxed", className)}>
+        {children}
+      </code>
+    );
+  }
+
+  // Inline code
+  return (
+    <code className="font-mono text-sm bg-stone-100 text-[#B45309] px-1.5 py-0.5 rounded border border-stone-200 break-words">
+      {children}
+    </code>
+  );
+}
+
 const components: Components = {
   // ── Headings ─────────────────────────────────────────────────────────────
   h1: ({ children }) => (
@@ -31,28 +63,11 @@ const components: Components = {
     <p className="text-stone-700 leading-7 mb-4 last:mb-0">{children}</p>
   ),
 
-  // ── Code ─────────────────────────────────────────────────────────────────
-  // Block code  ─  the `node` prop tells us if we're inside a <pre>
-  code: ({ className, children, ...props }) => {
-    const isBlock = !!(props as any).node?.position; // heuristic: inline vs block
-    // react-markdown wraps block code in <pre><code> — detect by className
-    const hasLang = !!className?.startsWith("language-");
-    if (hasLang || (props as any)["data-block"]) {
-      return (
-        <code className={cn("font-mono text-sm text-stone-100", className)}>
-          {children}
-        </code>
-      );
-    }
-    // Inline code
-    return (
-      <code className="font-mono text-sm bg-stone-100 text-[#B45309] px-1.5 py-0.5 rounded border border-stone-200">
-        {children}
-      </code>
-    );
-  },
+  // ── Code (inline + block) ────────────────────────────────────────────────
+  code: CodeBlock as Components["code"],
+
   pre: ({ children }) => (
-    <pre className="bg-[#0F1F3D] text-stone-100 rounded-xl p-5 my-5 overflow-x-auto text-sm leading-6 font-mono shadow-sm">
+    <pre className="bg-[#0F1F3D] text-stone-100 rounded-xl px-5 py-4 my-5 overflow-x-auto text-sm leading-relaxed font-mono shadow-sm">
       {children}
     </pre>
   ),
@@ -80,9 +95,7 @@ const components: Components = {
       {children}
     </ol>
   ),
-  li: ({ children }) => (
-    <li className="leading-7">{children}</li>
-  ),
+  li: ({ children }) => <li className="leading-7">{children}</li>,
 
   // ── Blockquote ────────────────────────────────────────────────────────────
   blockquote: ({ children }) => (
@@ -91,24 +104,30 @@ const components: Components = {
     </blockquote>
   ),
 
-  // ── Tables ────────────────────────────────────────────────────────────────
+  // ── Tables ───────────────────────────────────────────────────────────────
+  // remark-gfm is required for table parsing; these components style the
+  // HTML elements that react-markdown emits for | table | syntax.
   table: ({ children }) => (
-    <div className="my-5 overflow-x-auto rounded-xl border border-stone-200 shadow-sm">
+    <div className="my-6 overflow-x-auto rounded-xl border border-stone-200 shadow-sm">
       <table className="w-full text-sm border-collapse">{children}</table>
     </div>
   ),
   thead: ({ children }) => (
-    <thead className="bg-stone-50 border-b border-stone-200">{children}</thead>
+    <thead className="bg-stone-50 border-b-2 border-stone-200">{children}</thead>
   ),
-  tbody: ({ children }) => <tbody className="divide-y divide-stone-100">{children}</tbody>,
-  tr: ({ children }) => <tr className="hover:bg-stone-50 transition-colors">{children}</tr>,
+  tbody: ({ children }) => (
+    <tbody className="divide-y divide-stone-100">{children}</tbody>
+  ),
+  tr: ({ children }) => (
+    <tr className="hover:bg-amber-50/40 transition-colors">{children}</tr>
+  ),
   th: ({ children }) => (
-    <th className="px-4 py-3 text-left font-semibold text-[#0F1F3D] whitespace-nowrap">
+    <th className="px-4 py-3 text-left font-semibold text-[#0F1F3D] whitespace-nowrap text-sm">
       {children}
     </th>
   ),
   td: ({ children }) => (
-    <td className="px-4 py-3 text-stone-700 align-top">{children}</td>
+    <td className="px-4 py-3 text-stone-700 align-top text-sm">{children}</td>
   ),
 
   // ── Horizontal rule ───────────────────────────────────────────────────────
