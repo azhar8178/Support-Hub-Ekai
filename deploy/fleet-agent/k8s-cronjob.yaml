@@ -37,7 +37,7 @@ spec:
               env:
                 # ── Fixed for all deployments ────────────────────────────────
                 - name: FLEET_HUB_URL
-                  value: "https://dev.ekai.ai"
+                  value: "https://support.ekai.ai"
                 # ── Internal Ekai API URL (adjust service name / port) ───────
                 - name: EKAI_HEALTH_URL
                   value: "http://ekai-api:8080/api/healthz"
