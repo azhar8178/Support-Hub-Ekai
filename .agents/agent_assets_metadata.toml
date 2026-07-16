@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "alC9xhszC_37vwMImlJzK"
+uri = "file://attached_assets/customer-environment-setup.md"
+type = "text"
+title = "customer-environment-setup.md"
