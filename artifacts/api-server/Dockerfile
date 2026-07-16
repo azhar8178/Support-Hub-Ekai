@@ -111,6 +111,10 @@ COPY --from=builder /workspace/artifacts/api-server/dist ./artifacts/api-server/
 
 # Non-root user for security
 RUN addgroup --system ekai && adduser --system --ingroup ekai ekai
+
+# Create writable directories the server needs and hand them to the non-root user
+RUN mkdir -p /app/uploads/bundles/_tmp && chown -R ekai:ekai /app/uploads
+
 USER ekai
 
 # Health check — requires the PORT env var to be set

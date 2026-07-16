@@ -1,0 +1,38 @@
+ ✔ Network support-hub-ekai_internal       Created                                                                                                                     0.1s
+ ✔ Network support-hub-ekai_external       Created                                                                                                                     0.1s
+ ✔ Container support-hub-ekai-postgres-1   Healthy                                                                                                                     6.8s
+ ✔ Container support-hub-ekai-migrator-1   Exited                                                                                                                     10.4s
+ ✘ Container support-hub-ekai-api-server-1 Error dependency api-server failed to start                                                                                10.8s
+ ✔ Container support-hub-ekai-portal-1     Created                                                                                                                     0.1s
+dependency failed to start: container support-hub-ekai-api-server-1 is unhealthy
+ubuntu@ip-172-31-29-207:~/Support-Hub-Ekai$ docker compose logs api-server 2>&1 | head -30
+api-server-1  | node:fs:1350
+api-server-1  |   const result = binding.mkdir(
+api-server-1  |                          ^
+api-server-1  | 
+api-server-1  | Error: EACCES: permission denied, mkdir '/app/uploads/bundles/_tmp'
+api-server-1  |     at Object.mkdirSync (node:fs:1350:26)
+api-server-1  |     at <anonymous> (/app/artifacts/api-server/src/routes/bundles.ts:33:4)
+api-server-1  |     at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+api-server-1  |     at async node:internal/modules/esm/loader:643:26
+api-server-1  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+api-server-1  |   errno: -13,
+api-server-1  |   code: 'EACCES',
+api-server-1  |   syscall: 'mkdir',
+api-server-1  |   path: '/app/uploads/bundles/_tmp'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
+api-server-1  | node:fs:1350
+api-server-1  |   const result = binding.mkdir(
+api-server-1  |                          ^
+api-server-1  | 
+api-server-1  | Error: EACCES: permission denied, mkdir '/app/uploads/bundles/_tmp'
+api-server-1  |     at Object.mkdirSync (node:fs:1350:26)
+api-server-1  |     at <anonymous> (/app/artifacts/api-server/src/routes/bundles.ts:33:4)
+api-server-1  |     at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+api-server-1  |     at async node:internal/modules/esm/loader:643:26
+api-server-1  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+api-server-1  |   errno: -13,
+api-server-1  |   code: 'EACCES',
+api-server-1  |   syscall: 'mkdir',
