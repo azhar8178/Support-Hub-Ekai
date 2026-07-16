@@ -1,0 +1,75 @@
+ubuntu@ip-172-31-29-207:~/Support-Hub-Ekai$ grep -v PASSWORD ~/Support-Hub-Ekai/.env | grep -v SECRET | grep -v KEY
+# =============================================================================
+# Ekai — environment variable reference
+# Copy this file to .env and fill in the values before running Docker Compose.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# PostgreSQL (used by Docker Compose to create the database)
+# The api-server receives a full DATABASE_URL constructed from these values.
+# -----------------------------------------------------------------------------
+POSTGRES_DB=ekai
+POSTGRES_USER=ekai
+# -----------------------------------------------------------------------------
+# Auth mode
+#
+# "local"  — built-in email + password auth. No external accounts needed.
+# "clerk"  — Clerk-based auth (https://clerk.com). Requires CLERK_* keys below.
+# -----------------------------------------------------------------------------
+AUTH_MODE=local
+
+# -----------------------------------------------------------------------------
+# Local auth session secret  (required when AUTH_MODE=local)
+# Generate a strong random value with:
+#   openssl rand -hex 32
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Clerk authentication  (only required when AUTH_MODE=clerk)
+# Create an application at https://dashboard.clerk.com, then copy the keys.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Portal URL
+# The publicly reachable URL of the support portal, used by the API server for
+# links in notification emails and as a trusted CORS origin.
+# -----------------------------------------------------------------------------
+PORTAL_URL=https://support.ekai.ai
+FLEET_HUB_URL=https://dev.ekai.ai
+# -----------------------------------------------------------------------------
+# Email — AWS SES  (optional)
+# Leave all three blank to disable outbound email notifications entirely.
+# The IAM user needs ses:SendRawEmail permission.
+# -----------------------------------------------------------------------------
+#AWS_REGION=us-east-1
+#EMAIL_FROM=support@ekai.ai
+
+SMTP_HOST=email-smtp.us-west-2.amazonaws.com
+SMTP_PORT=587
+SMTP_USER=AKIAX5ZI6TWJFQOZRDF6
+SMTP_PASS=B----
+EMAIL_FROM=support@ekai.ai
+
+# -----------------------------------------------------------------------------
+# Object storage — Google Cloud Storage  (optional)
+# Leave blank to store file attachments as base64 in PostgreSQL (≤5 MB cap).
+# Set these to move attachments to GCS for larger files and better performance.
+#   DEFAULT_OBJECT_STORAGE_BUCKET_ID — GCS bucket name
+#   PRIVATE_OBJECT_DIR               — prefix/directory inside the bucket
+# The container must have GOOGLE_APPLICATION_CREDENTIALS or Workload Identity.
+# -----------------------------------------------------------------------------
+DEFAULT_OBJECT_STORAGE_BUCKET_ID=
+PRIVATE_OBJECT_DIR=attachments
+
+# -----------------------------------------------------------------------------
+# Logging
+# Valid levels: fatal | error | warn | info | debug | trace
+# -----------------------------------------------------------------------------
+LOG_LEVEL=info
+
+# -----------------------------------------------------------------------------
+# Docker Compose port mappings  (host ports)
+# Change these if the defaults conflict with other services on your host.
+# -----------------------------------------------------------------------------
+API_PORT=8080
+PORTAL_PORT=3000

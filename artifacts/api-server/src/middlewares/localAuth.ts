@@ -66,9 +66,18 @@ export async function createSessionMiddleware(): Promise<RequestHandler> {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      // In production, cookies must be sent over HTTPS only.
-      // When behind a reverse proxy (nginx/Caddy) set trust proxy too.
-      secure: process.env.NODE_ENV === "production",
+      // Enable secure (HTTPS-only) cookies when:
+      //   - Running in production mode, AND
+      //   - PORTAL_URL is configured with https:// (meaning HTTPS is actually
+      //     available). This prevents the cookie being silently dropped in
+      //     self-hosted setups that use plain HTTP (e.g. accessed directly on
+      //     a non-standard port without a TLS-terminating proxy in front).
+      // If PORTAL_URL is not set, default to secure in production (safe default).
+      secure:
+        process.env.NODE_ENV === "production" &&
+        (process.env.PORTAL_URL
+          ? process.env.PORTAL_URL.startsWith("https://")
+          : true),
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     },

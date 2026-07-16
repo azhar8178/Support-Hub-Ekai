@@ -330,15 +330,22 @@ sudo apt-get update && sudo apt-get install -y caddy
 
 ```caddyfile
 support.yourcompany.com {
+    # Replace 80 with the value of PORTAL_PORT in your .env (default 80).
+    # Example: if PORTAL_PORT=3000 in .env, use localhost:3000 here.
     reverse_proxy localhost:80
 }
 ```
 
 ```bash
 sudo systemctl enable --now caddy
+sudo systemctl reload caddy
 ```
 
 Caddy will obtain a TLS certificate automatically and renew it. Your portal is now available at `https://support.yourcompany.com`.
+
+> **Important — port must match `PORTAL_PORT`:** The `reverse_proxy` target must match the `PORTAL_PORT` value in your `.env` file. If you set `PORTAL_PORT=3000`, Caddy must proxy to `localhost:3000`. A mismatch causes every API call to fail silently.
+
+> **HTTPS is required for session cookies in production:** The portal container runs with `NODE_ENV=production`, which marks session cookies as `Secure` when `PORTAL_URL` starts with `https://`. If you access the portal directly over plain HTTP (bypassing Caddy), the browser silently drops the cookie and every page shows an auth error. Always access through Caddy's HTTPS endpoint.
 
 Alternatively, use **nginx** — see the [Self-hosted (bare metal / VM)](#self-hosted-bare-metal--vm) section for an example nginx config.
 
