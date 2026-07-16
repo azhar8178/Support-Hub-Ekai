@@ -294,7 +294,7 @@ export const GetTicketResponse = zod.object({
   "messages": zod.array(zod.object({
   "id": zod.number(),
   "ticketId": zod.number(),
-  "authorId": zod.number(),
+  "authorId": zod.number().nullable(),
   "authorName": zod.string(),
   "authorRole": zod.enum(['customer', 'ekai_agent', 'admin']),
   "content": zod.string(),

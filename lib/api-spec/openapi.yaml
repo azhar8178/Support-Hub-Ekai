@@ -1840,7 +1840,7 @@ components:
       properties:
         id: { type: integer }
         ticketId: { type: integer }
-        authorId: { type: integer }
+        authorId: { type: ["integer", "null"] }
         authorName: { type: string }
         authorRole: { type: string, enum: [customer, ekai_agent, admin] }
         content: { type: string }
