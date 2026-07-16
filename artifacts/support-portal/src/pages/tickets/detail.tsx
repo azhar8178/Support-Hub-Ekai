@@ -370,8 +370,10 @@ function SupportBundlesSection({
   });
 
   const handleUpload = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith(".zip")) {
-      toast.error("Only ZIP files are accepted"); return;
+    const lower = file.name.toLowerCase();
+    const validExt = lower.endsWith(".zip") || lower.endsWith(".tar") || lower.endsWith(".tar.gz") || lower.endsWith(".tgz");
+    if (!validExt) {
+      toast.error("Only ZIP or TAR bundles are accepted (.zip, .tar, .tar.gz, .tgz)"); return;
     }
     if (file.size > MAX_BUNDLE_SIZE) {
       toast.error("Bundle exceeds 50 MB limit"); return;
@@ -425,7 +427,7 @@ function SupportBundlesSection({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".zip,application/zip"
+          accept=".zip,.tar,.tar.gz,.tgz,application/zip,application/x-tar,application/gzip"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];

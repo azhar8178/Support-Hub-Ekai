@@ -37,16 +37,33 @@ const storage = multer.diskStorage({
   filename: (_req, _file, cb) => cb(null, `bundle-${Date.now()}-${Math.random().toString(36).slice(2)}`),
 });
 
+const ALLOWED_BUNDLE_MIMETYPES = new Set([
+  "application/zip",
+  "application/x-zip-compressed",
+  "application/x-tar",
+  "application/gzip",
+  "application/x-gzip",
+]);
+
+function isBundleFilename(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (
+    lower.endsWith(".zip") ||
+    lower.endsWith(".tar") ||
+    lower.endsWith(".tar.gz") ||
+    lower.endsWith(".tgz")
+  );
+}
+
 const upload = multer({
   storage,
   limits: { fileSize: MAX_BUNDLE_BYTES },
   fileFilter: (_req, file, cb) => {
     const ok =
-      file.mimetype === "application/zip" ||
-      file.mimetype === "application/x-zip-compressed" ||
-      file.originalname.toLowerCase().endsWith(".zip");
+      ALLOWED_BUNDLE_MIMETYPES.has(file.mimetype) ||
+      isBundleFilename(file.originalname);
     if (!ok) {
-      return cb(new Error("Only ZIP files are accepted"));
+      return cb(new Error("Only ZIP or TAR bundles are accepted (.zip, .tar, .tar.gz, .tgz)"));
     }
     cb(null, true);
   },
@@ -255,8 +272,15 @@ router.get(
       return;
     }
 
+    const lower = bundle.filename.toLowerCase();
+    const contentType =
+      lower.endsWith(".tar.gz") || lower.endsWith(".tgz")
+        ? "application/gzip"
+        : lower.endsWith(".tar")
+          ? "application/x-tar"
+          : "application/zip";
     res.setHeader("Content-Disposition", `attachment; filename="${bundle.filename}"`);
-    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Length", String(bundle.fileSizeBytes));
     res.sendFile(filePath, { root: "/" });
   },

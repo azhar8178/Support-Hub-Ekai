@@ -11,8 +11,12 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { pipeline } from "stream/promises";
 import unzipper from "unzipper";
+
+const execFileAsync = promisify(execFile);
 import { db, supportBundlesTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
@@ -55,10 +59,21 @@ export interface BundleParsedSummary {
   parse_warnings: string[];
 }
 
-/** Extract a ZIP to a temp directory, returning the temp path. Caller must clean up. */
+/** Extract a ZIP to a temp directory. Caller must clean up. */
 async function extractZip(zipPath: string, destDir: string): Promise<void> {
   const directory = await unzipper.Open.file(zipPath);
   await directory.extract({ path: destDir });
+}
+
+/** Extract a TAR or TAR.GZ to a temp directory. Caller must clean up. */
+async function extractTar(tarPath: string, destDir: string): Promise<void> {
+  // tar auto-detects gzip compression; works for .tar, .tar.gz, .tgz
+  await execFileAsync("tar", ["-xf", tarPath, "-C", destDir]);
+}
+
+function isTarFilename(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return lower.endsWith(".tar") || lower.endsWith(".tar.gz") || lower.endsWith(".tgz");
 }
 
 function tryParseJson(content: string, warnLabel: string, warnings: string[]): unknown {
@@ -250,8 +265,12 @@ export async function parseSupportBundle(
   try {
     fs.mkdirSync(tempDir, { recursive: true });
 
-    // Extract the ZIP
-    await extractZip(bundlePath, tempDir);
+    // Extract — dispatch on file type
+    if (isTarFilename(bundlePath)) {
+      await extractTar(bundlePath, tempDir);
+    } else {
+      await extractZip(bundlePath, tempDir);
+    }
 
     // The bundle may extract into a subdirectory named after the bundle
     let workDir = tempDir;
