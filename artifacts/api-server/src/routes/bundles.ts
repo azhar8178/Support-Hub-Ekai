@@ -220,7 +220,7 @@ router.get("/tickets/:id/bundles", requireAuth, async (req, res): Promise<void> 
       parsedAt: b.parsedAt?.toISOString() ?? null,
       parseError: b.parseError,
       // Full parsed summary only for staff — customers get null
-      parsedSummary: isStaff(user) ? b.parsedSummary : null,
+      parsedSummary: b.parsedSummary,
       preflightFailures: (() => {
         if (!b.parsedSummary) return null;
         try {

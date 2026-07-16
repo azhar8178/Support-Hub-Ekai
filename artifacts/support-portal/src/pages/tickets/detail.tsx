@@ -461,7 +461,7 @@ function SupportBundlesSection({
               ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
               : <Upload className="h-3.5 w-3.5" />
             }
-            Upload Bundle
+            {isAgentOrAdmin ? "Upload Bundle" : "Send Support Bundle to Ekai Support"}
           </Button>
         )}
         <input
@@ -501,13 +501,9 @@ function SupportBundlesSection({
           </div>
         ) : (
           <div className="space-y-3">
-            {isAgentOrAdmin
-              ? bundles.map((b) => (
-                  <AgentBundlePanel key={b.id} bundle={b} ticketId={ticketId} basePath={basePath} />
-                ))
-              : bundles.map((b) => (
-                  <CustomerBundleRow key={b.id} bundle={b} />
-                ))}
+            {bundles.map((b) => (
+              <AgentBundlePanel key={b.id} bundle={b} ticketId={ticketId} basePath={basePath} />
+            ))}
           </div>
         )}
       </CardContent>
@@ -877,7 +873,7 @@ export default function TicketDetailPage() {
                   <div className="flex items-center gap-2">
                     {isInternal ? <Lock className="h-4 w-4 text-amber-600" /> : <Globe className="h-4 w-4 text-stone-400" />}
                     <span className={`text-sm font-medium ${isInternal ? 'text-amber-800' : 'text-stone-600'}`}>
-                      {isInternal ? "Internal Note — hidden from customer" : "Reply to Customer"}
+                      {isInternal ? "Internal Note — hidden from customer" : isAgentOrAdmin ? "Reply to Customer" : "Reply to Ekai Support"}
                     </span>
                   </div>
                   {isAgentOrAdmin && (
@@ -897,7 +893,7 @@ export default function TicketDetailPage() {
                   <Textarea 
                     value={replyContent}
                     onChange={e => setReplyContent(e.target.value)}
-                    placeholder={isInternal ? "Add an internal note for the team..." : "Type your reply..."}
+                    placeholder={isInternal ? "Add an internal note for the team..." : isAgentOrAdmin ? "Type your reply..." : "Type your message to Ekai Support..."}
                     className="min-h-[120px] border-0 focus-visible:ring-0 px-0 resize-y bg-transparent"
                   />
                 </div>
@@ -951,7 +947,7 @@ export default function TicketDetailPage() {
                     className={`gap-2 ${isInternal ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D]'}`}
                   >
                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    {isInternal ? 'Save Note' : 'Send Reply'}
+                    {isInternal ? 'Save Note' : isAgentOrAdmin ? 'Send Reply' : 'Send to Ekai Support'}
                   </Button>
                 </div>
               </div>
