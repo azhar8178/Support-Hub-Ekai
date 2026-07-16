@@ -68,6 +68,7 @@ import type {
   PreviewInviteParams,
   PushTokenInput,
   PushTokenRemoval,
+  RegenerateKeyResult,
   RegisterEnvironmentInput,
   RegisterEnvironmentResult,
   ReportSummary,
@@ -92,7 +93,8 @@ import type {
   TicketInput,
   TicketMessage,
   TicketMessageInput,
-  TicketStatusChange
+  TicketStatusChange,
+  UpdateEnvironmentInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -5639,6 +5641,78 @@ export const useRegisterCustomerEnvironment = <TError = ErrorType<unknown>,
       return useMutation(getRegisterCustomerEnvironmentMutationOptions(options));
     }
 
+export const getUpdateCustomerEnvironmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/fleet/environments/${id}`
+}
+
+/**
+ * @summary Update settings for a registered customer environment
+ */
+export const updateCustomerEnvironment = async (id: number,
+    updateEnvironmentInput: UpdateEnvironmentInput, options?: RequestInit): Promise<CustomerEnvironment> => {
+
+  return customFetch<CustomerEnvironment>(getUpdateCustomerEnvironmentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateEnvironmentInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateCustomerEnvironmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomerEnvironment>>, TError,{id: number;data: BodyType<UpdateEnvironmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCustomerEnvironment>>, TError,{id: number;data: BodyType<UpdateEnvironmentInput>}, TContext> => {
+
+const mutationKey = ['updateCustomerEnvironment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerEnvironment>>, {id: number;data: BodyType<UpdateEnvironmentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCustomerEnvironment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCustomerEnvironmentMutationResult = NonNullable<Awaited<ReturnType<typeof updateCustomerEnvironment>>>
+    export type UpdateCustomerEnvironmentMutationBody = BodyType<UpdateEnvironmentInput>
+    export type UpdateCustomerEnvironmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update settings for a registered customer environment
+ */
+export const useUpdateCustomerEnvironment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomerEnvironment>>, TError,{id: number;data: BodyType<UpdateEnvironmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCustomerEnvironment>>,
+        TError,
+        {id: number;data: BodyType<UpdateEnvironmentInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCustomerEnvironmentMutationOptions(options));
+    }
+
 export const getDeleteCustomerEnvironmentUrl = (id: number,) => {
 
 
@@ -5708,6 +5782,77 @@ export const useDeleteCustomerEnvironment = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteCustomerEnvironmentMutationOptions(options));
+    }
+
+export const getRegenerateEnvironmentKeyUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/fleet/environments/${id}/regenerate-key`
+}
+
+/**
+ * @summary Regenerate the API key for a customer environment
+ */
+export const regenerateEnvironmentKey = async (id: number, options?: RequestInit): Promise<RegenerateKeyResult> => {
+
+  return customFetch<RegenerateKeyResult>(getRegenerateEnvironmentKeyUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRegenerateEnvironmentKeyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof regenerateEnvironmentKey>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof regenerateEnvironmentKey>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['regenerateEnvironmentKey'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof regenerateEnvironmentKey>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  regenerateEnvironmentKey(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegenerateEnvironmentKeyMutationResult = NonNullable<Awaited<ReturnType<typeof regenerateEnvironmentKey>>>
+
+    export type RegenerateEnvironmentKeyMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Regenerate the API key for a customer environment
+ */
+export const useRegenerateEnvironmentKey = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof regenerateEnvironmentKey>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof regenerateEnvironmentKey>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRegenerateEnvironmentKeyMutationOptions(options));
     }
 
 export const getListAdminEnvironmentSnapshotsUrl = (id: number,) => {

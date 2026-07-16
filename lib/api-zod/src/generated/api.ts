@@ -1808,6 +1808,45 @@ export const RegisterCustomerEnvironmentResponse = zod.object({
 
 
 /**
+ * @summary Update settings for a registered customer environment
+ */
+export const UpdateCustomerEnvironmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateCustomerEnvironmentBody = zod.object({
+  "orgId": zod.number().optional(),
+  "name": zod.string().min(1).optional(),
+  "cloud": zod.string().optional(),
+  "region": zod.string().optional(),
+  "runtime": zod.string().optional(),
+  "environment": zod.string().optional(),
+  "heartbeatMode": zod.string().optional().describe('push | poll')
+})
+
+export const UpdateCustomerEnvironmentResponse = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "orgName": zod.string().nullable(),
+  "name": zod.string(),
+  "cloud": zod.string(),
+  "region": zod.string(),
+  "runtime": zod.string(),
+  "apiKeyPrefix": zod.string().describe('First 12 chars of the ek_fleet_ key (display only)'),
+  "heartbeatMode": zod.string().describe('push | poll'),
+  "environment": zod.string(),
+  "status": zod.string().describe('HEALTHY | DEGRADED | DOWN | OFFLINE | UNKNOWN'),
+  "lastSeen": zod.string().nullable(),
+  "agentVersion": zod.string().nullable(),
+  "active": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Soft-delete a customer environment
  */
 export const DeleteCustomerEnvironmentParams = zod.object({
@@ -1817,6 +1856,19 @@ export const DeleteCustomerEnvironmentParams = zod.object({
 export const DeleteCustomerEnvironmentResponse = zod.object({
   "message": zod.string(),
   "code": zod.string().nullish()
+})
+
+
+/**
+ * @summary Regenerate the API key for a customer environment
+ */
+export const RegenerateEnvironmentKeyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RegenerateEnvironmentKeyResponse = zod.object({
+  "apiKey": zod.string().describe('New plaintext API key — shown only once'),
+  "apiKeyPrefix": zod.string()
 })
 
 

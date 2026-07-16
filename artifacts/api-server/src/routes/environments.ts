@@ -166,6 +166,91 @@ router.post(
 );
 
 // ---------------------------------------------------------------------------
+// ADMIN: Update environment settings
+// ---------------------------------------------------------------------------
+router.patch(
+  "/admin/fleet/environments/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ message: "Invalid id" }); return; }
+
+    const { orgId, name, cloud, region, runtime, environment, heartbeatMode } = req.body as {
+      orgId?: number;
+      name?: string;
+      cloud?: string;
+      region?: string;
+      runtime?: string;
+      environment?: string;
+      heartbeatMode?: string;
+    };
+
+    const updates: Partial<typeof customerEnvironmentsTable.$inferInsert> = {};
+    if (orgId !== undefined) {
+      const [org] = await db.select({ id: organisationsTable.id }).from(organisationsTable).where(eq(organisationsTable.id, orgId)).limit(1);
+      if (!org) { res.status(400).json({ message: "Organisation not found" }); return; }
+      updates.orgId = orgId;
+    }
+    if (name !== undefined) updates.name = name.trim();
+    if (cloud !== undefined) updates.cloud = cloud.trim();
+    if (region !== undefined) updates.region = region.trim();
+    if (runtime !== undefined) updates.runtime = runtime.trim();
+    if (environment !== undefined) updates.environment = environment.trim();
+    if (heartbeatMode === "poll" || heartbeatMode === "push") updates.heartbeatMode = heartbeatMode;
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ message: "No fields to update" });
+      return;
+    }
+
+    const [row] = await db
+      .update(customerEnvironmentsTable)
+      .set(updates)
+      .where(and(eq(customerEnvironmentsTable.id, id), eq(customerEnvironmentsTable.active, true)))
+      .returning();
+
+    if (!row) { res.status(404).json({ message: "Environment not found" }); return; }
+
+    const [orgRow] = await db
+      .select({ name: organisationsTable.name })
+      .from(organisationsTable)
+      .where(eq(organisationsTable.id, row.orgId))
+      .limit(1);
+
+    res.json(serializeEnv({ ...row, orgName: orgRow?.name }));
+  },
+);
+
+// ---------------------------------------------------------------------------
+// ADMIN: Regenerate API key
+// ---------------------------------------------------------------------------
+router.post(
+  "/admin/fleet/environments/:id/regenerate-key",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ message: "Invalid id" }); return; }
+
+    const randomPart = randomBytes(16).toString("hex");
+    const plainKey = `ek_fleet_${randomPart}`;
+    const apiKeyPrefix = plainKey.substring(0, 12);
+    const apiKeyHash = await bcrypt.hash(plainKey, 12);
+
+    const [row] = await db
+      .update(customerEnvironmentsTable)
+      .set({ apiKeyHash, apiKeyPrefix })
+      .where(and(eq(customerEnvironmentsTable.id, id), eq(customerEnvironmentsTable.active, true)))
+      .returning();
+
+    if (!row) { res.status(404).json({ message: "Environment not found" }); return; }
+
+    res.json({ apiKey: plainKey, apiKeyPrefix });
+  },
+);
+
+// ---------------------------------------------------------------------------
 // ADMIN: Soft-delete environment
 // ---------------------------------------------------------------------------
 router.delete(

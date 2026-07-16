@@ -1082,6 +1082,24 @@ export interface RegisterEnvironmentInput {
   heartbeatMode?: string;
 }
 
+export interface UpdateEnvironmentInput {
+  orgId?: number;
+  /** @minLength 1 */
+  name?: string;
+  cloud?: string;
+  region?: string;
+  runtime?: string;
+  environment?: string;
+  /** push | poll */
+  heartbeatMode?: string;
+}
+
+export interface RegenerateKeyResult {
+  /** New plaintext API key — shown only once */
+  apiKey: string;
+  apiKeyPrefix: string;
+}
+
 export interface RegisterEnvironmentResult {
   environment: CustomerEnvironment;
   /** Plaintext API key — shown only once */

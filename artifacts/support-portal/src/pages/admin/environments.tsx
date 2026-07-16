@@ -10,11 +10,14 @@ import {
   useListAdminEnvironments,
   useRegisterCustomerEnvironment,
   useDeleteCustomerEnvironment,
+  useUpdateCustomerEnvironment,
+  useRegenerateEnvironmentKey,
   useListOrgs,
   useCreateOrg,
   getListAdminEnvironmentsQueryKey,
   getListOrgsQueryKey,
 } from "@workspace/api-client-react";
+import type { CustomerEnvironment } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Copy, Check, Loader2, Server, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Copy, Check, Loader2, Server, Trash2, AlertTriangle, Pencil, RefreshCw } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -185,6 +188,238 @@ function NewOrgDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Edit Dialog
+// ---------------------------------------------------------------------------
+
+function EditDialog({
+  env,
+  onClose,
+  onApiKey,
+}: {
+  env: CustomerEnvironment;
+  onClose: () => void;
+  onApiKey: (key: string) => void;
+}) {
+  const { data: orgs } = useListOrgs();
+  const update = useUpdateCustomerEnvironment();
+  const regenKey = useRegenerateEnvironmentKey();
+
+  const [form, setForm] = useState({
+    orgId: String(env.orgId),
+    name: env.name,
+    cloud: env.cloud,
+    region: env.region,
+    runtime: env.runtime,
+    environment: env.environment,
+    heartbeatMode: env.heartbeatMode,
+  });
+  const [showNewOrg, setShowNewOrg] = useState(false);
+  const [confirmRegen, setConfirmRegen] = useState(false);
+
+  const set = (key: keyof typeof form) => (val: string) =>
+    setForm((f) => ({ ...f, [key]: val }));
+
+  const handleOrgChange = (val: string) => {
+    if (val === "__new__") { setShowNewOrg(true); return; }
+    set("orgId")(val);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.region.trim()) {
+      toast.error("Name and region are required");
+      return;
+    }
+    try {
+      await update.mutateAsync({
+        id: env.id,
+        data: {
+          orgId: Number(form.orgId),
+          name: form.name.trim(),
+          cloud: form.cloud,
+          region: form.region.trim(),
+          runtime: form.runtime,
+          environment: form.environment,
+          heartbeatMode: form.heartbeatMode,
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: getListAdminEnvironmentsQueryKey() });
+      toast.success("Environment updated");
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to update environment");
+    }
+  };
+
+  const handleRegen = async () => {
+    try {
+      const result = await regenKey.mutateAsync({ id: env.id });
+      queryClient.invalidateQueries({ queryKey: getListAdminEnvironmentsQueryKey() });
+      setConfirmRegen(false);
+      onClose();
+      onApiKey(result.apiKey);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to regenerate key");
+    }
+  };
+
+  return (
+    <>
+      {showNewOrg && (
+        <NewOrgDialog
+          onCreated={(id) => { set("orgId")(id); setShowNewOrg(false); }}
+          onClose={() => setShowNewOrg(false)}
+        />
+      )}
+
+      {/* Regenerate key confirmation */}
+      <AlertDialog open={confirmRegen} onOpenChange={(o) => !o && setConfirmRegen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Regenerate API Key?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The current key for <strong>{env.name}</strong> will be invalidated immediately.
+              Any agent using it will stop sending telemetry until reconfigured with the new key.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={regenKey.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRegen}
+              disabled={regenKey.isPending}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              {regenKey.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Regenerate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open onOpenChange={(o) => !o && onClose()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Environment</DialogTitle>
+            <DialogDescription>
+              Update settings for <strong>{env.name}</strong>. API key prefix: <code className="font-mono text-xs bg-stone-100 px-1 rounded">{env.apiKeyPrefix}…</code>
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1">
+              <Label>Organisation</Label>
+              <Select value={form.orgId} onValueChange={handleOrgChange}>
+                <SelectTrigger><SelectValue placeholder="Select organisation" /></SelectTrigger>
+                <SelectContent modal={false}>
+                  {orgs?.map((o) => (
+                    <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>
+                  ))}
+                  <SelectItem value="__new__" className="text-[#EFB323] font-medium border-t mt-1 pt-1">
+                    <span className="flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" />Add new organisation…</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Environment name *</Label>
+              <Input value={form.name} onChange={(e) => set("name")(e.target.value)} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Cloud</Label>
+                <Select value={form.cloud} onValueChange={set("cloud")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent modal={false}>
+                    {["aws","azure","gcp","snowflake","other"].map((c) => (
+                      <SelectItem key={c} value={c}>{c.toUpperCase()}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Region *</Label>
+                <Input value={form.region} onChange={(e) => set("region")(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Runtime</Label>
+                <Select value={form.runtime} onValueChange={set("runtime")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent modal={false}>
+                    {["ecs","eks","aks","gke","docker","k8s","vm","spcs","other"].map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Environment type</Label>
+                <Select value={form.environment} onValueChange={set("environment")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent modal={false}>
+                    {["production","staging","dev"].map((e) => (
+                      <SelectItem key={e} value={e}>{e}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Heartbeat mode</Label>
+              <Select value={form.heartbeatMode} onValueChange={set("heartbeatMode")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent modal={false}>
+                  <SelectItem value="push">Client Push</SelectItem>
+                  <SelectItem value="poll">Hub Poll</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Regenerate key — separated visually */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-amber-900">API Key</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Current prefix: <code className="font-mono">{env.apiKeyPrefix}…</code>
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-amber-400 text-amber-800 hover:bg-amber-100 shrink-0"
+                onClick={() => setConfirmRegen(true)}
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                Regenerate
+              </Button>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={onClose} className="flex-1" disabled={update.isPending}>
+                Cancel
+              </Button>
+              <Button type="submit" className="flex-1 bg-[#EFB323] hover:bg-amber-500 text-[#0F1F3D]" disabled={update.isPending}>
+                {update.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Save changes
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -345,6 +580,7 @@ export default function AdminEnvironmentsPage() {
   const deleteEnv = useDeleteCustomerEnvironment();
 
   const [showRegister, setShowRegister] = useState(false);
+  const [editTarget, setEditTarget] = useState<CustomerEnvironment | null>(null);
   const [revealKey, setRevealKey] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
@@ -431,14 +667,24 @@ export default function AdminEnvironmentsPage() {
                     <td className="px-4 py-3 text-stone-600">{relativeTime(env.lastSeen)}</td>
                     <td className="px-4 py-3 font-mono text-xs text-stone-500">{env.apiKeyPrefix}…</td>
                     <td className="px-4 py-3">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => setDeleteTarget({ id: env.id, name: env.name })}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-stone-500 hover:text-[#0F1F3D] hover:bg-stone-100"
+                          onClick={() => setEditTarget(env)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => setDeleteTarget({ id: env.id, name: env.name })}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -450,6 +696,13 @@ export default function AdminEnvironmentsPage() {
 
       {/* Modals */}
       {showRegister && <RegisterDialog onClose={() => setShowRegister(false)} />}
+      {editTarget && (
+        <EditDialog
+          env={editTarget}
+          onClose={() => setEditTarget(null)}
+          onApiKey={(key) => { setEditTarget(null); setRevealKey(key); }}
+        />
+      )}
       {revealKey && <ApiKeyReveal apiKey={revealKey} onClose={() => setRevealKey(null)} />}
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
