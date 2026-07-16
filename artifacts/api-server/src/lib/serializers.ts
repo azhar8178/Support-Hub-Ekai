@@ -159,6 +159,8 @@ export function serializeUser(user: User, orgName: string | null): {
     active: user.active,
     createdAt: user.createdAt.toISOString(),
     lastLogin: user.lastLogin?.toISOString() ?? null,
-    setupWizardDismissed: user.setupWizardDismissed,
+    // Guard against schema drift: if the column doesn't exist in the deployed
+    // DB yet, drizzle returns undefined; default to false so Zod never rejects.
+    setupWizardDismissed: user.setupWizardDismissed ?? false,
   };
 }
