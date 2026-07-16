@@ -13,6 +13,7 @@ import {
   TicketStatus
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
+import { markTicketSeen } from "@/lib/ticket-seen";
 
 import { 
   ArrowLeft, Paperclip, Send, Download, Loader2, User as UserIcon, Lock, Globe,
@@ -591,6 +592,11 @@ export default function TicketDetailPage() {
       refetchInterval: 30000,
     }
   });
+
+  // Mark ticket as seen whenever its data arrives so the list unread dot clears.
+  useEffect(() => {
+    if (ticketId) markTicketSeen(ticketId);
+  }, [ticketId, detail?.ticket.updatedAt]);
 
   const { data: agents } = useListAgents({
     query: {

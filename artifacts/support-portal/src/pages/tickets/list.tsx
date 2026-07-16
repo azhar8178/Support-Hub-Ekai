@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useListTickets, getListTicketsQueryKey, useGetTicketConfig, TicketStatus } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
 import { Search, Filter, PlusCircle } from "lucide-react";
+import { markTicketSeen, isTicketUnread } from "@/lib/ticket-seen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -41,6 +42,7 @@ export default function TicketsListPage() {
   const { data: tickets, isLoading } = useListTickets(ticketParams, {
     query: {
       queryKey: getListTicketsQueryKey(ticketParams),
+      refetchInterval: 30000,
     },
   });
 
@@ -135,15 +137,22 @@ export default function TicketsListPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                tickets?.map((ticket) => (
+                tickets?.map((ticket) => {
+                  const unread = isTicketUnread(ticket.id, ticket.updatedAt);
+                  return (
                   <TableRow 
                     key={ticket.id} 
-                    className="cursor-pointer hover:bg-stone-50 transition-colors"
-                    onClick={() => setLocation(`/tickets/${ticket.id}`)}
+                    className={`cursor-pointer transition-colors ${unread ? 'bg-blue-50/40 hover:bg-blue-50/60' : 'hover:bg-stone-50'}`}
+                    onClick={() => { markTicketSeen(ticket.id); setLocation(`/tickets/${ticket.id}`); }}
                   >
-                    <TableCell className="font-medium text-stone-500">#{ticket.id}</TableCell>
+                    <TableCell className="font-medium text-stone-500">
+                      <div className="flex items-center gap-2">
+                        {unread && <span className="inline-block w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" title="New activity" />}
+                        #{ticket.id}
+                      </div>
+                    </TableCell>
                     <TableCell>
-                      <div className="font-medium text-[#0F1F3D]">{ticket.title}</div>
+                      <div className={`font-medium ${unread ? 'text-[#0F1F3D]' : 'text-[#0F1F3D]'}`}>{ticket.title}</div>
                       <div className="text-xs text-stone-500">{lookupLabel(ticketConfig?.categories, ticket.category)}</div>
                     </TableCell>
                     <TableCell><SeverityBadge severity={ticket.severity} label={lookupLabel(ticketConfig?.severities, ticket.severity)} /></TableCell>
@@ -158,7 +167,8 @@ export default function TicketsListPage() {
                       {formatDateTime(ticket.updatedAt)}
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
