@@ -20,11 +20,13 @@ const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 const LOGO_STORAGE_KEY = "branding/logo";
 
 function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
-  const emailConfigured = !!(
-    process.env["SMTP_HOST"] &&
-    process.env["SMTP_USER"] &&
-    process.env["SMTP_PASS"]
-  );
+  // SMTP is configured when host + user + pass are present — DB values take
+  // precedence over env vars (matching the logic in systemConfig.getSmtpConfig).
+  const smtpHost = row?.smtpHost?.trim() || process.env["SMTP_HOST"]?.trim() || null;
+  const smtpUser = row?.smtpUser?.trim() || process.env["SMTP_USER"]?.trim() || null;
+  const smtpPassSet = !!(row?.smtpPass?.trim() || process.env["SMTP_PASS"]?.trim());
+  const emailConfigured = !!(smtpHost && smtpUser && smtpPassSet);
+
   const storageConfigured = !!(
     (row?.privateObjectDir ?? process.env["PRIVATE_OBJECT_DIR"])
   );
@@ -39,6 +41,10 @@ function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
       slackWebhookUrl: null,
       emailFrom: null,
       awsRegion: null,
+      smtpHost: smtpHost ?? null,
+      smtpPort: process.env["SMTP_PORT"] ?? null,
+      smtpUser: smtpUser ?? null,
+      smtpPassSet,
       emailConfigured,
       privateObjectDir: null,
       storageConfigured,
@@ -56,6 +62,10 @@ function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
     slackWebhookUrl: row.slackWebhookUrl ?? null,
     emailFrom: row.emailFrom ?? null,
     awsRegion: row.awsRegion ?? null,
+    smtpHost: row.smtpHost?.trim() || process.env["SMTP_HOST"]?.trim() || null,
+    smtpPort: row.smtpPort?.trim() || process.env["SMTP_PORT"]?.trim() || null,
+    smtpUser: row.smtpUser?.trim() || process.env["SMTP_USER"]?.trim() || null,
+    smtpPassSet,
     emailConfigured,
     privateObjectDir: row.privateObjectDir ?? null,
     storageConfigured,
@@ -97,6 +107,11 @@ router.patch(
     if (parsed.data.slackWebhookUrl !== undefined) fields.slackWebhookUrl = parsed.data.slackWebhookUrl ?? null;
     if (parsed.data.emailFrom !== undefined) fields.emailFrom = parsed.data.emailFrom ?? null;
     if (parsed.data.awsRegion !== undefined) fields.awsRegion = parsed.data.awsRegion ?? null;
+    if (parsed.data.smtpHost !== undefined) fields.smtpHost = parsed.data.smtpHost ?? null;
+    if (parsed.data.smtpPort !== undefined) fields.smtpPort = parsed.data.smtpPort ?? null;
+    if (parsed.data.smtpUser !== undefined) fields.smtpUser = parsed.data.smtpUser ?? null;
+    // smtpPass: only written when explicitly provided; null clears it; undefined = leave unchanged
+    if (parsed.data.smtpPass !== undefined) fields.smtpPass = parsed.data.smtpPass ?? null;
     if (parsed.data.privateObjectDir !== undefined) fields.privateObjectDir = parsed.data.privateObjectDir ?? null;
     if (parsed.data.portalUrl !== undefined) fields.portalUrl = parsed.data.portalUrl ?? null;
     if (parsed.data.logLevel !== undefined) fields.logLevel = parsed.data.logLevel ?? null;

@@ -17,30 +17,26 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 import { logger } from "./logger";
-import { getEmailFrom, getPortalUrl } from "./systemConfig";
+import { getEmailFrom, getPortalUrl, getSmtpConfig } from "./systemConfig";
 
 // --------------------------------------------------------------------------
-// Transporter (lazy singleton — recreated if config changes)
+// Transporter (lazy singleton — recreated when config changes)
 // --------------------------------------------------------------------------
 
 let _transporter: Transporter | null = null;
 let _transporterKey: string | null = null;
 
-function getTransporter(): Transporter | null {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT ?? "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+async function getTransporter(): Promise<Transporter | null> {
+  const smtp = await getSmtpConfig();
+  if (!smtp) return null;
 
-  if (!host || !user || !pass) return null;
-
-  const key = `${host}:${port}:${user}`;
+  const key = `${smtp.host}:${smtp.port}:${smtp.user}`;
   if (!_transporter || _transporterKey !== key) {
     _transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465, // true = TLS wrapper; false = STARTTLS
-      auth: { user, pass },
+      host: smtp.host,
+      port: smtp.port,
+      secure: smtp.port === 465, // true = TLS wrapper; false = STARTTLS
+      auth: { user: smtp.user, pass: smtp.pass },
     });
     _transporterKey = key;
   }
@@ -65,7 +61,7 @@ export interface EmailMessage {
 }
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
-  const transporter = getTransporter();
+  const transporter = await getTransporter();
   const from = await fromAddress();
 
   if (!transporter || !from) {

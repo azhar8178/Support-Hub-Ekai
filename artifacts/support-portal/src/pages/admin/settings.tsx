@@ -72,6 +72,10 @@ export default function AdminSettingsPage() {
   // System tab state
   const [emailFrom, setEmailFrom] = useState("");
   const [awsRegion, setAwsRegion] = useState("");
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("587");
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
   const [privateObjectDir, setPrivateObjectDir] = useState("");
   const [testEmailState, setTestEmailState] = useState<{ ok: boolean; message: string } | null>(null);
   const [testEmailPending, setTestEmailPending] = useState(false);
@@ -90,6 +94,10 @@ export default function AdminSettingsPage() {
       setWhatsappSaved(!!(settings.whatsappNumber));
       setEmailFrom(settings.emailFrom ?? "");
       setAwsRegion(settings.awsRegion ?? "");
+      setSmtpHost(settings.smtpHost ?? "");
+      setSmtpPort(settings.smtpPort ?? "587");
+      setSmtpUser(settings.smtpUser ?? "");
+      setSmtpPass(""); // never pre-fill — API returns smtpPassSet (boolean) only
       setTestEmailState(null);
       setPrivateObjectDir(settings.privateObjectDir ?? "");
       setPortalUrl(settings.portalUrl ?? "");
@@ -336,34 +344,106 @@ export default function AdminSettingsPage() {
                 Non-sensitive configuration managed at runtime. Sensitive credentials (AWS keys) must be set as environment secrets and are shown here as status only.
               </p>
 
-              {/* Email · AWS SES SMTP */}
+              {/* Email · SMTP */}
               <Card className="shadow-sm border-stone-200">
                 <CardHeader className="pb-4 border-b border-stone-100 bg-stone-50/50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-[#EFB323]" />
-                      <h2 className="text-base font-semibold text-[#0F1F3D]">Email · AWS SES SMTP</h2>
+                      <h2 className="text-base font-semibold text-[#0F1F3D]">Email · SMTP</h2>
                     </div>
-                    <StatusBadge ok={!!(settings?.emailConfigured)} label="Credentials set" />
+                    <StatusBadge ok={!!(settings?.emailConfigured)} label="Configured" />
                   </div>
                 </CardHeader>
-                <CardContent className="pt-5 space-y-4">
-                  <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-                    <strong>SMTP_HOST</strong>, <strong>SMTP_USER</strong>, and <strong>SMTP_PASS</strong> must be set as environment variables — they cannot be stored here. Get your SMTP credentials from <strong>Amazon SES → SMTP settings</strong>.
+                <CardContent className="pt-5 space-y-5">
+                  <p className="text-xs text-stone-500">
+                    Configure outbound email for invitations, ticket notifications, and alerts. Use any SMTP provider — AWS SES, Postmark, SendGrid, etc.
+                    Settings saved here take precedence over environment variables.
+                  </p>
+
+                  {/* Row 1: host + port */}
+                  <div className="grid grid-cols-[1fr_120px] gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium text-[#0F1F3D]">SMTP host</Label>
+                      <Input
+                        value={smtpHost}
+                        onChange={(e) => setSmtpHost(e.target.value)}
+                        placeholder="email-smtp.us-west-2.amazonaws.com"
+                        className="bg-white font-mono text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium text-[#0F1F3D]">Port</Label>
+                      <Input
+                        value={smtpPort}
+                        onChange={(e) => setSmtpPort(e.target.value)}
+                        placeholder="587"
+                        className="bg-white font-mono text-sm"
+                      />
+                      <p className="text-xs text-stone-400">587 = STARTTLS, 465 = TLS</p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-[#0F1F3D]">Sender address (EMAIL_FROM)</Label>
-                    <Input value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)} placeholder="support@ekai.ai" className="bg-white" />
-                    <p className="text-xs text-stone-500">Must be a verified SES identity. Overrides the EMAIL_FROM environment variable.</p>
+
+                  {/* Row 2: user + password */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium text-[#0F1F3D]">Username</Label>
+                      <Input
+                        value={smtpUser}
+                        onChange={(e) => setSmtpUser(e.target.value)}
+                        placeholder="AKIAXXXXXXXXXXX"
+                        className="bg-white font-mono text-sm"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium text-[#0F1F3D]">Password</Label>
+                        {settings?.smtpPassSet && !smtpPass && (
+                          <Badge className="gap-1 bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 text-[10px] py-0">
+                            <CheckCircle2 className="h-2.5 w-2.5" /> saved
+                          </Badge>
+                        )}
+                      </div>
+                      <Input
+                        type="password"
+                        value={smtpPass}
+                        onChange={(e) => setSmtpPass(e.target.value)}
+                        placeholder={settings?.smtpPassSet ? "••••••••  (leave blank to keep)" : "Enter password"}
+                        className="bg-white font-mono text-sm"
+                        autoComplete="new-password"
+                      />
+                    </div>
                   </div>
+
+                  {/* Row 3: sender address */}
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-[#0F1F3D]">From address</Label>
+                    <Input
+                      value={emailFrom}
+                      onChange={(e) => setEmailFrom(e.target.value)}
+                      placeholder="support@ekai.ai"
+                      className="bg-white"
+                    />
+                    <p className="text-xs text-stone-500">Must be a verified sender in your SMTP provider.</p>
+                  </div>
+
+                  {/* Actions */}
                   <div className="flex items-center gap-3 flex-wrap">
                     <Button
-                      onClick={() => handleSaveSystem({ emailFrom: emailFrom || null })}
+                      onClick={() => handleSaveSystem({
+                        smtpHost: smtpHost || null,
+                        smtpPort: smtpPort || null,
+                        smtpUser: smtpUser || null,
+                        // send smtpPass only when the user typed something; leave undefined to keep existing
+                        ...(smtpPass ? { smtpPass } : {}),
+                        emailFrom: emailFrom || null,
+                      })}
                       disabled={updateSettings.isPending}
                       className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
                     >
                       {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Save
+                      Save email settings
                     </Button>
                     <Button
                       variant="outline"
@@ -382,7 +462,7 @@ export default function AdminSettingsPage() {
                         }
                       }}
                       className="gap-1.5"
-                      title={!settings?.emailConfigured ? "Set SMTP credentials first" : undefined}
+                      title={!settings?.emailConfigured ? "Save credentials first" : undefined}
                     >
                       {testEmailPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                       Send test email

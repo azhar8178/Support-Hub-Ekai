@@ -22,7 +22,15 @@ export interface SiteSettings {
   emailFrom: string | null;
   /** @nullable */
   awsRegion: string | null;
-  /** True when AWS SES credentials are present in env vars */
+  /** @nullable */
+  smtpHost: string | null;
+  /** @nullable */
+  smtpPort: string | null;
+  /** @nullable */
+  smtpUser: string | null;
+  /** True when an SMTP password is saved (value is never returned) */
+  smtpPassSet: boolean;
+  /** True when SMTP credentials are present (DB or env vars) */
   emailConfigured: boolean;
   /** @nullable */
   privateObjectDir: string | null;

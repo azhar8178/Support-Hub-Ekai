@@ -2219,13 +2219,17 @@ components:
         slackWebhookUrl: { type: ["string", "null"] }
         emailFrom: { type: ["string", "null"] }
         awsRegion: { type: ["string", "null"] }
-        emailConfigured: { type: boolean, description: "True when AWS SES credentials are present in env vars" }
+        smtpHost: { type: ["string", "null"] }
+        smtpPort: { type: ["string", "null"] }
+        smtpUser: { type: ["string", "null"] }
+        smtpPassSet: { type: boolean, description: "True when an SMTP password is saved (value is never returned)" }
+        emailConfigured: { type: boolean, description: "True when SMTP credentials are present (DB or env vars)" }
         privateObjectDir: { type: ["string", "null"] }
         storageConfigured: { type: boolean, description: "True when object storage is reachable" }
         portalUrl: { type: ["string", "null"] }
         logLevel: { type: ["string", "null"] }
         updatedAt: { type: string }
-      required: [id, companyName, tagline, logoUrl, whatsappNumber, slackWebhookUrl, emailFrom, awsRegion, emailConfigured, privateObjectDir, storageConfigured, portalUrl, logLevel, updatedAt]
+      required: [id, companyName, tagline, logoUrl, whatsappNumber, slackWebhookUrl, emailFrom, awsRegion, smtpHost, smtpPort, smtpUser, smtpPassSet, emailConfigured, privateObjectDir, storageConfigured, portalUrl, logLevel, updatedAt]
     SiteSettingsUpdate:
       type: object
       properties:
@@ -2235,6 +2239,10 @@ components:
         slackWebhookUrl: { type: ["string", "null"] }
         emailFrom: { type: ["string", "null"] }
         awsRegion: { type: ["string", "null"] }
+        smtpHost: { type: ["string", "null"] }
+        smtpPort: { type: ["string", "null"] }
+        smtpUser: { type: ["string", "null"] }
+        smtpPass: { type: ["string", "null"], description: "Set to update the password; omit to leave unchanged; null to clear" }
         privateObjectDir: { type: ["string", "null"] }
         portalUrl: { type: ["string", "null"] }
         logLevel: { type: ["string", "null"] }

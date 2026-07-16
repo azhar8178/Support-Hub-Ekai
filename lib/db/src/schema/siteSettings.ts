@@ -17,6 +17,12 @@ export const siteSettingsTable = pgTable("site_settings", {
   // Runtime-configurable system settings (non-sensitive; secrets stay in env vars)
   emailFrom: text("email_from"),
   awsRegion: text("aws_region"),
+  // SMTP credentials — stored in DB so admins can configure email from the portal.
+  // smtpPass is treated as sensitive: the GET response returns smtpPassSet (boolean) only.
+  smtpHost: text("smtp_host"),
+  smtpPort: text("smtp_port"),
+  smtpUser: text("smtp_user"),
+  smtpPass: text("smtp_pass"),
   privateObjectDir: text("private_object_dir"),
   portalUrl: text("portal_url"),
   logLevel: text("log_level"),

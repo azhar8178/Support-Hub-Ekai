@@ -68,6 +68,25 @@ export async function getEmailFrom(): Promise<string | null> {
   return getConfigValue(cfg?.emailFrom, process.env.EMAIL_FROM);
 }
 
+/**
+ * Returns effective SMTP credentials — DB values take precedence over env vars.
+ * Returns null when any required field (host / user / pass) is missing.
+ */
+export async function getSmtpConfig(): Promise<{
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+} | null> {
+  const cfg = await getCachedConfig();
+  const host = (cfg?.smtpHost?.trim() || process.env.SMTP_HOST?.trim() || "");
+  const portStr = (cfg?.smtpPort?.trim() || process.env.SMTP_PORT?.trim() || "587");
+  const user = (cfg?.smtpUser?.trim() || process.env.SMTP_USER?.trim() || "");
+  const pass = (cfg?.smtpPass?.trim() || process.env.SMTP_PASS?.trim() || "");
+  if (!host || !user || !pass) return null;
+  return { host, port: parseInt(portStr, 10) || 587, user, pass };
+}
+
 export async function getPrivateObjectDir(): Promise<string | null> {
   const cfg = await getCachedConfig();
   return getConfigValue(cfg?.privateObjectDir, process.env.PRIVATE_OBJECT_DIR);

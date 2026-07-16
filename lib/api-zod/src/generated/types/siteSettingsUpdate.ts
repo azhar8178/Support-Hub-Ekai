@@ -20,6 +20,17 @@ export interface SiteSettingsUpdate {
   /** @nullable */
   awsRegion?: string | null;
   /** @nullable */
+  smtpHost?: string | null;
+  /** @nullable */
+  smtpPort?: string | null;
+  /** @nullable */
+  smtpUser?: string | null;
+  /**
+     * Set to update the password; omit to leave unchanged; null to clear
+     * @nullable
+     */
+  smtpPass?: string | null;
+  /** @nullable */
   privateObjectDir?: string | null;
   /** @nullable */
   portalUrl?: string | null;

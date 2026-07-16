@@ -982,7 +982,15 @@ export interface SiteSettings {
   emailFrom: string | null;
   /** @nullable */
   awsRegion: string | null;
-  /** True when AWS SES credentials are present in env vars */
+  /** @nullable */
+  smtpHost: string | null;
+  /** @nullable */
+  smtpPort: string | null;
+  /** @nullable */
+  smtpUser: string | null;
+  /** True when an SMTP password is saved (value is never returned) */
+  smtpPassSet: boolean;
+  /** True when SMTP credentials are present (DB or env vars) */
   emailConfigured: boolean;
   /** @nullable */
   privateObjectDir: string | null;
@@ -1008,6 +1016,17 @@ export interface SiteSettingsUpdate {
   emailFrom?: string | null;
   /** @nullable */
   awsRegion?: string | null;
+  /** @nullable */
+  smtpHost?: string | null;
+  /** @nullable */
+  smtpPort?: string | null;
+  /** @nullable */
+  smtpUser?: string | null;
+  /**
+     * Set to update the password; omit to leave unchanged; null to clear
+     * @nullable
+     */
+  smtpPass?: string | null;
   /** @nullable */
   privateObjectDir?: string | null;
   /** @nullable */
