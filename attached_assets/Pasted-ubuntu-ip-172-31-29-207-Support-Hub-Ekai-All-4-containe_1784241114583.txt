@@ -1,0 +1,47 @@
+ubuntu@ip-172-31-29-207:~/Support-Hub-Ekai$ # All 4 containers should be healthy
+docker compose ps
+
+# Caddy should be active and show support.ekai.ai
+sudo systemctl status caddy
+
+# Quick end-to-end check
+curl -s https://support.ekai.ai/api/healthz | jq .
+NAME                            IMAGE                         COMMAND                  SERVICE      CREATED         STATUS                     PORTS
+support-hub-ekai-api-server-1   support-hub-ekai-api-server   "dumb-init -- node -…"   api-server   3 minutes ago   Up 3 minutes (healthy)     0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+support-hub-ekai-portal-1       support-hub-ekai-portal       "/docker-entrypoint.…"   portal       3 minutes ago   Up 3 minutes (unhealthy)   0.0.0.0:3000->80/tcp, [::]:3000->80/tcp
+support-hub-ekai-postgres-1     postgres:16-alpine            "docker-entrypoint.s…"   postgres     13 hours ago    Up 13 hours (healthy)      5432/tcp
+● caddy.service - Caddy
+     Loaded: loaded (/usr/lib/systemd/system/caddy.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-07-16 09:21:14 UTC; 13h ago
+ Invocation: ab45387eab2542d9b496e0e80c49a987
+       Docs: https://caddyserver.com/docs/
+   Main PID: 29095 (caddy)
+      Tasks: 10 (limit: 3736)
+     Memory: 15.1M (peak: 20.8M)
+        CPU: 9.980s
+     CGroup: /system.slice/caddy.service
+             └─29095 /usr/bin/caddy run --environ --config /etc/caddy/Caddyfile
+
+Jul 16 10:13:22 ip-172-31-29-207 caddy[29095]: {"level":"error","ts":1784196802.935256,"logger":"http.log.error","msg":"read tcp 127.0.0.1:42668->127.0.0.1:8080: read: co>
+Jul 16 12:15:13 ip-172-31-29-207 caddy[29095]: {"level":"warn","ts":1784204113.130071,"logger":"http.handlers.reverse_proxy","msg":"aborting with incomplete response","up>
+Jul 16 12:15:13 ip-172-31-29-207 caddy[29095]: {"level":"warn","ts":1784204113.1300614,"logger":"http.handlers.reverse_proxy","msg":"aborting with incomplete response","u>
+Jul 16 14:21:14 ip-172-31-29-207 caddy[29095]: {"level":"info","ts":1784211674.558789,"logger":"http.acme_client","msg":"got renewal info","names":["support.ekai.ai"],"wi>
+Jul 16 14:21:14 ip-172-31-29-207 caddy[29095]: {"level":"info","ts":1784211674.56262,"logger":"tls.cache.maintenance","msg":"updated and stored ACME renewal information",>
+Jul 16 20:53:10 ip-172-31-29-207 caddy[29095]: {"level":"warn","ts":1784235190.999224,"logger":"http.handlers.reverse_proxy","msg":"aborting with incomplete response","up>
+Jul 16 21:02:34 ip-172-31-29-207 caddy[29095]: {"level":"error","ts":1784235754.4667168,"logger":"http.log.error","msg":"dial tcp 127.0.0.1:3000: connect: connection refu>
+Jul 16 21:11:14 ip-172-31-29-207 caddy[29095]: {"level":"info","ts":1784236274.5673246,"logger":"http.acme_client","msg":"got renewal info","names":["support.ekai.ai"],"w>
+Jul 16 21:11:14 ip-172-31-29-207 caddy[29095]: {"level":"info","ts":1784236274.5716586,"logger":"tls.cache.maintenance","msg":"updated and stored ACME renewal information>
+Jul 16 21:19:32 ip-172-31-29-207 caddy[29095]: {"level":"error","ts":1784236772.3484802,"logger":"http.log.error","msg":"dial tcp 127.0.0.1:3000: connect: connection refu>
+{
+  "status": "healthy",
+  "timestamp": "2026-07-16T22:31:46.120Z",
+  "db": {
+    "status": "healthy",
+    "latencyMs": 1
+  },
+  "pushQueueDepth": 0,
+  "slaBreachCount": 2,
+  "openTicketCount": 4,
+  "emailConfigured": true,
+  "storageConfigured": false
+}

@@ -71,6 +71,6 @@ COPY --from=builder /workspace/artifacts/support-portal/dist/public /usr/share/n
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget -qO- http://localhost/healthz || exit 1
+    CMD curl -sf http://localhost/healthz || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
