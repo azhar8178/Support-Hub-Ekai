@@ -1050,6 +1050,11 @@ export const UpdateUserResponse = zod.object({
 })
 
 
+export const AdminResetPasswordBody = zod.object({
+  "password": zod.string().min(8)
+})
+
+
 /**
  * @summary List invites (admin only)
  */

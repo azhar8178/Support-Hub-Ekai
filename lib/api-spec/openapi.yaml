@@ -754,6 +754,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PortalUser"
+  /admin/users/{id}/reset-password:
+    post:
+      operationId: adminResetUserPassword
+      tags: [admin]
+      summary: Force-reset a user's password (admin only; local auth mode only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminResetPasswordInput"
+      responses:
+        "204":
+          description: Password updated
+        "400":
+          description: Validation error or not in local auth mode
+        "404":
+          description: User not found
   /admin/invites:
     get:
       operationId: listInvites

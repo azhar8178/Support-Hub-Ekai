@@ -18,6 +18,7 @@ import {
   type TicketEnvironmentRow,
   type UserRole,
 } from "@workspace/db";
+const AUTH_MODE = process.env.AUTH_MODE ?? "clerk";
 import { and, asc, desc, eq, isNotNull, notInArray, sql } from "drizzle-orm";
 import {
   CreateCategoryBody,
@@ -115,6 +116,36 @@ router.patch(
       orgName = org?.name ?? null;
     }
     res.json(UpdateUserResponse.parse(serializeUser(updated, orgName)));
+  },
+);
+
+router.post(
+  "/admin/users/:id/reset-password",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    if (AUTH_MODE !== "local") {
+      res.status(400).json({ message: "Password reset is only available in local auth mode." });
+      return;
+    }
+    const id = parseId(req);
+    const { password } = req.body as { password?: string };
+    if (!password || typeof password !== "string" || password.length < 8) {
+      res.status(400).json({ message: "Password must be at least 8 characters." });
+      return;
+    }
+    const bcrypt = await import("bcryptjs");
+    const passwordHash = await bcrypt.hash(password, 12);
+    const [updated] = await db
+      .update(usersTable)
+      .set({ passwordHash })
+      .where(eq(usersTable.id, id))
+      .returning({ id: usersTable.id });
+    if (!updated) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+    res.status(204).end();
   },
 );
 

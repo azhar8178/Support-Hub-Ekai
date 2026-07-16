@@ -2,6 +2,7 @@ import { useState } from "react";
 import { 
   useListUsers, 
   useUpdateUser,
+  useAdminResetUserPassword,
   useListInvites,
   useCreateInvite,
   useRevokeInvite,
@@ -40,7 +41,7 @@ import { queryClient } from "@/lib/queryClient";
 import { 
   Users, Building, Mail, SlidersHorizontal, BarChart3, Plus, Search, 
   Check, X, Loader2, Copy, AlertTriangle, TrendingUp, Clock, BookOpen,
-  Pencil, RotateCcw, Archive, Send, ShieldAlert, ShieldCheck, RefreshCw
+  Pencil, RotateCcw, Archive, Send, ShieldAlert, ShieldCheck, RefreshCw, KeyRound
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,12 +201,84 @@ export default function AdminDashboardPage() {
   );
 }
 
+// --- RESET PASSWORD DIALOG ---
+function ResetPasswordDialog({ userId, userName, onClose }: { userId: number; userName: string; onClose: () => void }) {
+  const resetPassword = useAdminResetUserPassword();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [show, setShow] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
+    if (password !== confirm) { toast.error("Passwords do not match"); return; }
+    try {
+      await resetPassword.mutateAsync({ id: userId, data: { password } });
+      toast.success(`Password reset for ${userName}`);
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to reset password");
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-amber-500" />Reset password</DialogTitle>
+          <DialogDescription>Set a new password for <strong>{userName}</strong>. They will use it on their next login.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+          <div className="space-y-1">
+            <Label htmlFor="rp-new">New password</Label>
+            <div className="relative">
+              <Input
+                id="rp-new"
+                type={show ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Min. 8 characters"
+                autoComplete="new-password"
+              />
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 hover:text-stone-700" onClick={() => setShow(s => !s)}>
+                {show ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="rp-confirm">Confirm password</Label>
+            <Input
+              id="rp-confirm"
+              type={show ? "text" : "password"}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Repeat password"
+              autoComplete="new-password"
+            />
+          </div>
+          {password && confirm && password !== confirm && (
+            <p className="text-xs text-red-500">Passwords do not match</p>
+          )}
+          <div className="flex gap-2 pt-1">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={resetPassword.isPending}>Cancel</Button>
+            <Button type="submit" className="flex-1 bg-[#EFB323] hover:bg-amber-500 text-[#0F1F3D]" disabled={resetPassword.isPending}>
+              {resetPassword.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <KeyRound className="h-4 w-4 mr-2" />}
+              Reset password
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // --- USERS TAB ---
 function UsersTab() {
   const { data: users, isLoading } = useListUsers();
   const { data: orgs } = useListOrgs();
   const updateUser = useUpdateUser();
   const [search, setSearch] = useState("");
+  const [resetTarget, setResetTarget] = useState<{ id: number; name: string } | null>(null);
 
   const filteredUsers = users?.filter(u => 
     u.email.toLowerCase().includes(search.toLowerCase()) || 
@@ -243,6 +316,7 @@ function UsersTab() {
   };
 
   return (
+    <>
     <Card className="border-stone-200 shadow-sm">
       <CardHeader className="pb-4 border-b border-stone-100 flex flex-row items-center justify-between">
         <div>
@@ -268,13 +342,14 @@ function UsersTab() {
               <TableHead>Organization</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last Login</TableHead>
+              <TableHead className="text-right pr-6">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-amber-500" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-amber-500" /></TableCell></TableRow>
             ) : filteredUsers.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center text-stone-500">No users found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="h-24 text-center text-stone-500">No users found</TableCell></TableRow>
             ) : (
               filteredUsers.map(user => (
                 <TableRow key={user.id}>
@@ -322,6 +397,18 @@ function UsersTab() {
                   <TableCell className="text-xs text-stone-500">
                     {user.lastLogin ? formatDateTime(user.lastLogin) : "Never"}
                   </TableCell>
+                  <TableCell className="text-right pr-6">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-stone-500 hover:text-[#0F1F3D] hover:bg-stone-100"
+                      onClick={() => setResetTarget({ id: user.id, name: user.name })}
+                      title="Reset password"
+                    >
+                      <KeyRound className="h-3.5 w-3.5 mr-1" />
+                      Reset pwd
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -329,6 +416,15 @@ function UsersTab() {
         </Table>
       </CardContent>
     </Card>
+
+    {resetTarget && (
+      <ResetPasswordDialog
+        userId={resetTarget.id}
+        userName={resetTarget.name}
+        onClose={() => setResetTarget(null)}
+      />
+    )}
+    </>
   );
 }
 
