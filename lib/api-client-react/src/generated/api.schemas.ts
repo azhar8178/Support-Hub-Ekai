@@ -1000,6 +1000,14 @@ export interface SiteSettings {
   portalUrl: string | null;
   /** @nullable */
   logLevel: string | null;
+  /** When false, no fleet health alerts or auto-tickets are created */
+  fleetAlertsEnabled: boolean;
+  /** When false, no email/push notifications are sent for ticket events */
+  ticketNotificationsEnabled: boolean;
+  /** When false, no outbound emails are sent for any alert */
+  emailAlertsEnabled: boolean;
+  /** When false, no Slack messages are sent */
+  slackAlertsEnabled: boolean;
   updatedAt: string;
 }
 
@@ -1033,6 +1041,10 @@ export interface SiteSettingsUpdate {
   portalUrl?: string | null;
   /** @nullable */
   logLevel?: string | null;
+  fleetAlertsEnabled?: boolean;
+  ticketNotificationsEnabled?: boolean;
+  emailAlertsEnabled?: boolean;
+  slackAlertsEnabled?: boolean;
 }
 
 export interface LogoInput {
@@ -1086,6 +1098,8 @@ export interface CustomerEnvironment {
   /** @nullable */
   agentVersion: string | null;
   active: boolean;
+  /** When false, no alerts are fired for this environment */
+  alertsEnabled: boolean;
   createdAt: string;
 }
 
@@ -1111,6 +1125,8 @@ export interface UpdateEnvironmentInput {
   environment?: string;
   /** push | poll */
   heartbeatMode?: string;
+  /** When false, no alerts are fired for this environment */
+  alertsEnabled?: boolean;
 }
 
 export interface RegenerateKeyResult {

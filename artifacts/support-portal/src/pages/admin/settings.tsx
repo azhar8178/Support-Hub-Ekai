@@ -20,7 +20,6 @@ import {
   Tag,
   BarChart3,
   ChevronRight,
-  Radio,
   Mail,
   Database,
   Globe,
@@ -38,7 +37,6 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Link } from "wouter";
-import FleetTab from "./fleet";
 
 // ── Status pill ────────────────────────────────────────────────────────────
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
@@ -249,10 +247,6 @@ export default function AdminSettingsPage() {
               <TabsTrigger value="alerts" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D] gap-1.5">
                 <Bell className="h-3.5 w-3.5" />
                 Alerts
-              </TabsTrigger>
-              <TabsTrigger value="fleet" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D] gap-1.5">
-                <Radio className="h-3.5 w-3.5" />
-                Fleet
               </TabsTrigger>
             </TabsList>
 
@@ -708,10 +702,6 @@ export default function AdminSettingsPage() {
               </div>
             </TabsContent>
 
-            {/* ── FLEET TAB ── */}
-            <TabsContent value="fleet">
-              <FleetTab />
-            </TabsContent>
           </Tabs>
         </div>
       </div>

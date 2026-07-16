@@ -5,9 +5,10 @@
  * Register customer environments, generate & reveal API keys, soft-delete.
  */
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   useListAdminEnvironments,
+  useListAdminEnvironmentSnapshots,
   useRegisterCustomerEnvironment,
   useDeleteCustomerEnvironment,
   useUpdateCustomerEnvironment,
@@ -17,7 +18,7 @@ import {
   getListAdminEnvironmentsQueryKey,
   getListOrgsQueryKey,
 } from "@workspace/api-client-react";
-import type { CustomerEnvironment } from "@workspace/api-client-react";
+import type { CustomerEnvironment, HealthSnapshot, ServiceHealth } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,8 +49,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Copy, Check, Loader2, Server, Trash2, AlertTriangle, Pencil, RefreshCw, BellOff } from "lucide-react";
+import { Plus, Copy, Check, Loader2, Server, Trash2, AlertTriangle, Pencil, RefreshCw, BellOff, ChevronDown, ChevronUp, Activity } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Tooltip,
+  YAxis,
+} from "recharts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,6 +85,220 @@ function relativeTime(iso: string | null) {
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
   return `${Math.floor(diff / 86_400_000)}d ago`;
+}
+
+// ---------------------------------------------------------------------------
+// Health detail helpers
+// ---------------------------------------------------------------------------
+
+interface SparklineProps {
+  data: Array<{ time: string; value: number | null }>;
+  color: string;
+  label: string;
+  unit?: string;
+  formatValue?: (v: number) => string;
+  warnThreshold?: number;
+}
+
+function Sparkline({ data, color, label, unit = "", formatValue, warnThreshold }: SparklineProps) {
+  const hasData = data.some((d) => d.value != null);
+  if (!hasData) return null;
+
+  const latest = [...data].reverse().find((d) => d.value != null);
+  const latestVal = latest?.value ?? null;
+  const overThreshold = warnThreshold != null && latestVal != null && latestVal >= warnThreshold;
+  const lineColor = overThreshold ? "#ef4444" : color;
+
+  return (
+    <div className="bg-stone-50 rounded-md p-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-xs text-stone-500">{label}</p>
+        {latestVal != null && (
+          <p className={`text-xs font-semibold ${overThreshold ? "text-red-600" : "text-[#0F1F3D]"}`}>
+            {formatValue ? formatValue(latestVal) : `${latestVal}${unit}`}
+          </p>
+        )}
+      </div>
+      <div className="h-12">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+            <YAxis domain={["auto", "auto"]} hide />
+            <Tooltip
+              contentStyle={{ fontSize: 11, padding: "2px 6px", borderRadius: 4 }}
+              labelFormatter={(_, payload) => {
+                if (payload && payload[0]) {
+                  const entry = payload[0].payload as { time: string };
+                  return entry.time;
+                }
+                return "";
+              }}
+              formatter={(value: number) => [
+                formatValue ? formatValue(value) : `${value}${unit}`,
+                label,
+              ]}
+            />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke={lineColor}
+              strokeWidth={1.5}
+              dot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function dbServiceFromSnapshot(s: HealthSnapshot): ServiceHealth | null {
+  if (!s.services) return null;
+  return s.services.find((svc) => svc.name === "db" || svc.type === "database") ?? null;
+}
+
+function platformMetrics(s: HealthSnapshot): Record<string, unknown> {
+  try {
+    return typeof s.platformJson === "string" ? JSON.parse(s.platformJson) : (s.platformJson as Record<string, unknown> ?? {});
+  } catch {
+    return {};
+  }
+}
+
+function EnvironmentDetail({ envId }: { envId: number }) {
+  const { data: snapshots, isLoading } = useListAdminEnvironmentSnapshots(envId);
+
+  if (isLoading) {
+    return (
+      <div className="py-6 flex justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-stone-300" />
+      </div>
+    );
+  }
+
+  if (!snapshots || snapshots.length === 0) {
+    return (
+      <div className="py-6 text-center text-sm text-stone-400">
+        No telemetry received yet. Deploy the fleet agent with <code className="bg-stone-100 px-1 rounded text-xs">FLEET_HUB_URL</code> and <code className="bg-stone-100 px-1 rounded text-xs">FLEET_API_KEY</code> set.
+      </div>
+    );
+  }
+
+  // Oldest → newest for charts
+  const chronological = [...snapshots].reverse();
+  const latest = snapshots[0];
+  const latestDb = dbServiceFromSnapshot(latest);
+  const latestPlatform = platformMetrics(latest);
+
+  // Build sparkline series
+  const dbLatencySeries = chronological.map((s) => ({
+    time: new Date(s.timestamp).toLocaleTimeString(),
+    value: dbServiceFromSnapshot(s)?.latency_ms ?? null,
+  }));
+
+  const openTicketSeries = chronological.map((s) => {
+    const p = platformMetrics(s);
+    const v = p["openTicketCount"];
+    return { time: new Date(s.timestamp).toLocaleTimeString(), value: v != null ? Number(v) : null };
+  });
+
+  const slaBreachSeries = chronological.map((s) => {
+    const p = platformMetrics(s);
+    const v = p["slaBreachCount"];
+    return { time: new Date(s.timestamp).toLocaleTimeString(), value: v != null ? Number(v) : null };
+  });
+
+  const hasSparklines =
+    chronological.length > 1 &&
+    (dbLatencySeries.some((d) => d.value != null) ||
+      openTicketSeries.some((d) => d.value != null) ||
+      slaBreachSeries.some((d) => d.value != null));
+
+  return (
+    <div className="space-y-4">
+      {/* Current health snapshot tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {latestDb && (
+          <div className="bg-stone-50 rounded-md p-3 text-center">
+            <p className="text-xs text-stone-500 mb-1">Database</p>
+            <p className={`text-sm font-semibold ${latestDb.status === "healthy" ? "text-emerald-600" : "text-red-600"}`}>
+              {latestDb.status}
+            </p>
+            {latestDb.latency_ms != null && (
+              <p className="text-xs text-stone-400 mt-0.5">{latestDb.latency_ms} ms</p>
+            )}
+          </div>
+        )}
+        {latestPlatform["openTicketCount"] != null && (
+          <div className="bg-stone-50 rounded-md p-3 text-center">
+            <p className="text-xs text-stone-500 mb-1">Open Tickets</p>
+            <p className="text-sm font-semibold text-[#0F1F3D]">{String(latestPlatform["openTicketCount"])}</p>
+          </div>
+        )}
+        {latestPlatform["slaBreachCount"] != null && (
+          <div className="bg-stone-50 rounded-md p-3 text-center">
+            <p className="text-xs text-stone-500 mb-1">SLA Breaches</p>
+            <p className={`text-sm font-semibold ${Number(latestPlatform["slaBreachCount"]) > 0 ? "text-red-600" : "text-emerald-600"}`}>
+              {String(latestPlatform["slaBreachCount"])}
+            </p>
+          </div>
+        )}
+        {latestPlatform["pushQueueDepth"] != null && (
+          <div className="bg-stone-50 rounded-md p-3 text-center">
+            <p className="text-xs text-stone-500 mb-1">Push Queue</p>
+            <p className="text-sm font-semibold text-[#0F1F3D]">{String(latestPlatform["pushQueueDepth"])}</p>
+          </div>
+        )}
+      </div>
+
+      {/* 24 h trend sparklines */}
+      {hasSparklines && (
+        <div>
+          <p className="text-xs font-medium text-stone-500 mb-2 flex items-center gap-1">
+            <Activity className="h-3 w-3" />
+            24 h trends
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Sparkline data={dbLatencySeries} color="#6366f1" label="DB Latency" formatValue={(v) => `${v} ms`} warnThreshold={500} />
+            <Sparkline data={openTicketSeries} color="#0ea5e9" label="Open Tickets" unit="" />
+            <Sparkline data={slaBreachSeries} color="#10b981" label="SLA Breaches" unit="" warnThreshold={1} />
+          </div>
+        </div>
+      )}
+
+      {/* Heartbeat history bar */}
+      {snapshots.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-stone-500 mb-2 flex items-center gap-1">
+            <Activity className="h-3 w-3" />
+            Last 24 h — {snapshots.length} heartbeats
+          </p>
+          <div className="flex gap-0.5 h-6 items-end">
+            {snapshots
+              .slice(0, 60)
+              .reverse()
+              .map((s, i) => {
+                const st = s.overallStatus.toUpperCase();
+                const color =
+                  st === "HEALTHY" ? "bg-emerald-400" :
+                  st === "DEGRADED" ? "bg-amber-400" : "bg-red-400";
+                const height =
+                  st === "HEALTHY" ? "100%" : st === "DEGRADED" ? "66%" : "33%";
+                return (
+                  <div
+                    key={s.id ?? i}
+                    title={`${s.overallStatus} · ${new Date(s.timestamp).toLocaleTimeString()}`}
+                    className={`flex-1 rounded-sm min-w-[4px] ${color}`}
+                    style={{ height }}
+                  />
+                );
+              })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -606,6 +828,7 @@ export default function AdminEnvironmentsPage() {
   const [editTarget, setEditTarget] = useState<CustomerEnvironment | null>(null);
   const [revealKey, setRevealKey] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   // Listen for the api-key-reveal event fired from RegisterDialog
   useState(() => {
@@ -669,48 +892,69 @@ export default function AdminEnvironmentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
-                {envs.map((env) => (
-                  <tr key={env.id} className="hover:bg-stone-50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-[#0F1F3D]">{env.orgName ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{env.name}</div>
-                      <div className="text-xs text-stone-400">{env.environment}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${env.heartbeatMode === "poll" ? "bg-stone-100 text-stone-600 border-stone-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
-                        {env.heartbeatMode === "poll" ? "Hub Poll" : "Client Push"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium uppercase">{env.cloud}</div>
-                      <div className="text-xs text-stone-400">{env.region}</div>
-                    </td>
-                    <td className="px-4 py-3 text-stone-600">{env.runtime}</td>
-                    <td className="px-4 py-3">{statusBadge(env.status)}</td>
-                    <td className="px-4 py-3 text-stone-600">{relativeTime(env.lastSeen)}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-stone-500">{env.apiKeyPrefix}…</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-stone-500 hover:text-[#0F1F3D] hover:bg-stone-100"
-                          onClick={() => setEditTarget(env)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => setDeleteTarget({ id: env.id, name: env.name })}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {envs.map((env) => {
+                  const expanded = expandedId === env.id;
+                  return (
+                    <Fragment key={env.id}>
+                      <tr className={`transition-colors ${expanded ? "bg-stone-50" : "hover:bg-stone-50"}`}>
+                        <td className="px-4 py-3 font-medium text-[#0F1F3D]">{env.orgName ?? "—"}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{env.name}</div>
+                          <div className="text-xs text-stone-400">{env.environment}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${env.heartbeatMode === "poll" ? "bg-stone-100 text-stone-600 border-stone-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
+                            {env.heartbeatMode === "poll" ? "Hub Poll" : "Client Push"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium uppercase">{env.cloud}</div>
+                          <div className="text-xs text-stone-400">{env.region}</div>
+                        </td>
+                        <td className="px-4 py-3 text-stone-600">{env.runtime}</td>
+                        <td className="px-4 py-3">{statusBadge(env.status)}</td>
+                        <td className="px-4 py-3 text-stone-600">{relativeTime(env.lastSeen)}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-stone-500">{env.apiKeyPrefix}…</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-stone-500 hover:text-[#0F1F3D] hover:bg-stone-100"
+                              onClick={() => setEditTarget(env)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => setDeleteTarget({ id: env.id, name: env.name })}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-stone-400 hover:text-[#0F1F3D] hover:bg-stone-100"
+                              onClick={() => setExpandedId(expanded ? null : env.id)}
+                              title={expanded ? "Collapse" : "Show health details"}
+                            >
+                              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="bg-stone-50/80">
+                          <td colSpan={9} className="px-6 py-4 border-t border-stone-100">
+                            <EnvironmentDetail envId={env.id} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
