@@ -179,8 +179,9 @@ function LocalProviderWithRoutes() {
         credentials: "include",
       });
     } finally {
-      queryClient.clear();
-      queryClient.invalidateQueries();
+      // Hard-navigate so the session cookie is gone and the login page
+      // renders immediately without needing a manual refresh.
+      window.location.replace(basePath || "/");
     }
   };
 
