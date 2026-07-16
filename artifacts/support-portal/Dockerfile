@@ -23,6 +23,7 @@ RUN corepack enable
 
 # Workspace manifests
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY tsconfig.base.json ./
 COPY lib/api-client-react/package.json  lib/api-client-react/
 COPY lib/api-spec/package.json          lib/api-spec/
 COPY artifacts/support-portal/package.json artifacts/support-portal/

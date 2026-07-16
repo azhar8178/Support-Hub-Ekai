@@ -1,0 +1,57 @@
+=> => naming to docker.io/library/support-hub-ekai-api-server:latest                                                                                                 0.0s
+ => => unpacking to docker.io/library/support-hub-ekai-api-server:latest                                                                                              7.0s
+ => [portal builder 12/13] RUN pnpm --filter @workspace/api-client-react run build 2>/dev/null || true                                                                9.6s
+ => [migrator] resolving provenance for metadata file                                                                                                                 0.0s
+ => [api-server] resolving provenance for metadata file                                                                                                               0.0s
+ => ERROR [portal builder 13/13] RUN pnpm --filter @workspace/support-portal run build                                                                                1.2s
+------
+ > [portal builder 13/13] RUN pnpm --filter @workspace/support-portal run build:
+0.650 
+0.650 > @workspace/support-portal@0.0.0 build /workspace/artifacts/support-portal
+0.650 > vite build --config vite.config.ts
+0.650 
+0.896 ▲ [WARNING] Cannot find base config file "../../tsconfig.base.json" [tsconfig.json]
+0.896 
+0.896     tsconfig.json:2:13:
+0.896       2 │   "extends": "../../tsconfig.base.json",
+0.896         ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~
+0.896 
+1.054 vite v7.3.6 building client environment for production...
+1.158 ✓ 0 modules transformed.
+1.163 ✗ Build failed in 73ms
+1.163 error during build:
+1.163 [vite:build-html] failed to resolve "extends":"../../tsconfig.base.json" in /workspace/artifacts/support-portal/tsconfig.json
+1.163 file: /workspace/artifacts/support-portal/index.html
+1.163     at resolveExtends (file:///workspace/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:5809:8)
+1.163     at parseExtends (file:///workspace/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:5775:71)
+1.163     at parse$13 (file:///workspace/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:5677:23)
+1.163     at async loadTsconfigJsonForFile (file:///workspace/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:6302:37)
+1.163     at async transformWithEsbuild (file:///workspace/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:6086:55)
+1.163     at async Object.transform (file:///workspace/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.4_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:6172:20)
+1.163     at async transform (file:///workspace/node_modules/.pnpm/rollup@4.62.2/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+1.163     at async ModuleLoader.addModuleSource (file:///workspace/node_modules/.pnpm/rollup@4.62.2/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+1.196 /workspace/artifacts/support-portal:
+1.196  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/support-portal@0.0.0 build: `vite build --config vite.config.ts`
+1.196 Exit status 1
+------
+[+] up 0/3
+ ⠙ Image support-hub-ekai-portal     Building                                                                                                                         11.6s
+ ⠙ Image support-hub-ekai-migrator   Building                                                                                                                         11.6s
+ ⠙ Image support-hub-ekai-api-server Building                                                                                                                         11.6s
+Dockerfile:53
+
+--------------------
+
+  51 |     # PORT is required by vite.config.ts even during build; use a throwaway value
+
+  52 |     ENV PORT=3001
+
+  53 | >>> RUN pnpm --filter @workspace/support-portal run build
+
+  54 |     
+
+  55 |     # ---------------------------------------------------------------------------
+
+--------------------
+
+target portal: failed to solve: process "/bin/sh -c pnpm --filter @workspace/support-portal run build" did not complete successfully: exit code: 1
