@@ -101,12 +101,18 @@ services:
       AWS_REGION:                   ${AWS_REGION:-us-east-1}
       EMAIL_FROM:                   ${EMAIL_FROM:-}
 
-      # Object storage — optional; leave blank to store attachments in Postgres
+      # Object storage
+      # Set STORAGE_BACKEND=local (default) to persist files on the host volume.
+      # Set STORAGE_BACKEND=replit to use the Replit GCS sidecar instead.
+      STORAGE_BACKEND:              ${STORAGE_BACKEND:-local}
+      LOCAL_STORAGE_ROOT:           /app/uploads/objects
       DEFAULT_OBJECT_STORAGE_BUCKET_ID: ${DEFAULT_OBJECT_STORAGE_BUCKET_ID:-}
       PRIVATE_OBJECT_DIR:           ${PRIVATE_OBJECT_DIR:-}
 
       # Logging
       LOG_LEVEL:                    ${LOG_LEVEL:-info}
+    volumes:
+      - uploads_data:/app/uploads
     ports:
       - "${API_PORT:-8080}:8080"
     networks:
@@ -159,6 +165,7 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
 
 networks:
   internal:
