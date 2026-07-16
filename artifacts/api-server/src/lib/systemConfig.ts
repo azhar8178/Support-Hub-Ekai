@@ -1,9 +1,9 @@
 /**
  * Runtime system configuration.
  *
- * Non-sensitive values (URLs, addresses, region names) can be stored in the
- * database and edited from the admin Settings page.  Sensitive credentials
- * (AWS keys) always come from environment variables only.
+ * Non-sensitive values (URLs, addresses) can be stored in the database and
+ * edited from the admin Settings page.  Sensitive credentials (SMTP password)
+ * always come from environment variables only.
  *
  * The cached getter refreshes every 60 seconds so the server picks up changes
  * made through the UI without a restart.
@@ -66,11 +66,6 @@ async function getConfigValue(
 export async function getEmailFrom(): Promise<string | null> {
   const cfg = await getCachedConfig();
   return getConfigValue(cfg?.emailFrom, process.env.EMAIL_FROM);
-}
-
-export async function getAwsRegion(): Promise<string | null> {
-  const cfg = await getCachedConfig();
-  return getConfigValue(cfg?.awsRegion, process.env.AWS_REGION);
 }
 
 export async function getPrivateObjectDir(): Promise<string | null> {

@@ -21,8 +21,9 @@ const LOGO_STORAGE_KEY = "branding/logo";
 
 function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
   const emailConfigured = !!(
-    process.env["AWS_ACCESS_KEY_ID"] &&
-    process.env["AWS_SECRET_ACCESS_KEY"]
+    process.env["SMTP_HOST"] &&
+    process.env["SMTP_USER"] &&
+    process.env["SMTP_PASS"]
   );
   const storageConfigured = !!(
     (row?.privateObjectDir ?? process.env["PRIVATE_OBJECT_DIR"])

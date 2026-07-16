@@ -86,8 +86,9 @@ export async function collectHealthStatus(): Promise<RichHealthStatus> {
 
   // --- Config presence ---
   const emailConfigured = !!(
-    process.env["AWS_ACCESS_KEY_ID"] &&
-    process.env["AWS_SECRET_ACCESS_KEY"] &&
+    process.env["SMTP_HOST"] &&
+    process.env["SMTP_USER"] &&
+    process.env["SMTP_PASS"] &&
     process.env["EMAIL_FROM"]
   );
   const storageConfigured = !!(process.env["DEFAULT_OBJECT_STORAGE_BUCKET_ID"]);

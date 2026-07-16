@@ -95,10 +95,11 @@ services:
       CLERK_PUBLISHABLE_KEY:        ${CLERK_PUBLISHABLE_KEY:-}
       CLERK_SECRET_KEY:             ${CLERK_SECRET_KEY:-}
 
-      # Email (AWS SES) — optional; leave blank to disable email notifications
-      AWS_ACCESS_KEY_ID:            ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY:        ${AWS_SECRET_ACCESS_KEY:-}
-      AWS_REGION:                   ${AWS_REGION:-us-east-1}
+      # Email (AWS SES SMTP) — optional; leave blank to disable email notifications
+      SMTP_HOST:                    ${SMTP_HOST:-}
+      SMTP_PORT:                    ${SMTP_PORT:-587}
+      SMTP_USER:                    ${SMTP_USER:-}
+      SMTP_PASS:                    ${SMTP_PASS:-}
       EMAIL_FROM:                   ${EMAIL_FROM:-}
 
       # Object storage

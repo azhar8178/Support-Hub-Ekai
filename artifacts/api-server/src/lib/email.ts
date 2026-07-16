@@ -1,45 +1,50 @@
 /**
- * Email delivery via AWS SES.
+ * Email delivery via AWS SES SMTP.
  *
- * Requires the following environment variables / secrets:
- *   AWS_REGION          – e.g. "us-east-1"
- *   AWS_ACCESS_KEY_ID   – IAM access key (set as a Replit Secret)
- *   AWS_SECRET_ACCESS_KEY – IAM secret key (set as a Replit Secret)
- *   EMAIL_FROM          – verified sender address, e.g. "support@example.com"
- *   PORTAL_URL          – public base URL, e.g. "https://myapp.replit.app"
+ * Requires the following environment variables:
+ *   SMTP_HOST   – SES SMTP endpoint, e.g. "email-smtp.us-west-2.amazonaws.com"
+ *   SMTP_PORT   – 587 (STARTTLS, recommended) or 465 (TLS wrapper)
+ *   SMTP_USER   – SES SMTP username (shown in SES → SMTP settings)
+ *   SMTP_PASS   – SES SMTP password (generated once in SES console)
+ *   EMAIL_FROM  – verified sender address, e.g. "support@ekai.ai"
+ *   PORTAL_URL  – public base URL, e.g. "https://support.ekai.ai"
  *
  * When any required variable is absent the function logs the intent and
  * resolves without error so the rest of the notification pipeline keeps
- * working during development.
+ * working during development / before email is configured.
  */
 
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import nodemailer from "nodemailer";
+import type { Transporter } from "nodemailer";
 import { logger } from "./logger";
-import { getEmailFrom, getAwsRegion, getPortalUrl } from "./systemConfig";
+import { getEmailFrom, getPortalUrl } from "./systemConfig";
 
 // --------------------------------------------------------------------------
-// Client (lazy singleton — reset when region changes)
+// Transporter (lazy singleton — recreated if config changes)
 // --------------------------------------------------------------------------
 
-let _client: SESClient | null = null;
-let _clientRegion: string | null = null;
+let _transporter: Transporter | null = null;
+let _transporterKey: string | null = null;
 
-async function getSesClient(): Promise<SESClient | null> {
-  const region = await getAwsRegion();
-  const keyId = process.env.AWS_ACCESS_KEY_ID;
-  const secret = process.env.AWS_SECRET_ACCESS_KEY;
+function getTransporter(): Transporter | null {
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT ?? "587", 10);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
 
-  if (!region || !keyId || !secret) return null;
+  if (!host || !user || !pass) return null;
 
-  // Recreate if region changed (e.g. updated via settings UI)
-  if (!_client || _clientRegion !== region) {
-    _client = new SESClient({
-      region,
-      credentials: { accessKeyId: keyId, secretAccessKey: secret },
+  const key = `${host}:${port}:${user}`;
+  if (!_transporter || _transporterKey !== key) {
+    _transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465, // true = TLS wrapper; false = STARTTLS
+      auth: { user, pass },
     });
-    _clientRegion = region;
+    _transporterKey = key;
   }
-  return _client;
+  return _transporter;
 }
 
 export const portalUrl = async (): Promise<string> =>
@@ -60,34 +65,28 @@ export interface EmailMessage {
 }
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
-  const client = await getSesClient();
+  const transporter = getTransporter();
   const from = await fromAddress();
 
-  if (!client || !from) {
+  if (!transporter || !from) {
     logger.info(
       { to: msg.to, subject: msg.subject },
-      "email not sent — AWS SES credentials or EMAIL_FROM not configured",
+      "email not sent — SMTP credentials or EMAIL_FROM not configured",
     );
     return;
   }
 
   try {
-    await client.send(
-      new SendEmailCommand({
-        Source: from,
-        Destination: { ToAddresses: [msg.to] },
-        Message: {
-          Subject: { Data: msg.subject, Charset: "UTF-8" },
-          Body: {
-            Html: { Data: msg.html, Charset: "UTF-8" },
-            Text: { Data: msg.text, Charset: "UTF-8" },
-          },
-        },
-      }),
-    );
-    logger.info({ to: msg.to, subject: msg.subject }, "email sent via SES");
+    await transporter.sendMail({
+      from,
+      to: msg.to,
+      subject: msg.subject,
+      html: msg.html,
+      text: msg.text,
+    });
+    logger.info({ to: msg.to, subject: msg.subject }, "email sent via SES SMTP");
   } catch (err) {
-    logger.error({ err, to: msg.to, subject: msg.subject }, "SES send failed");
+    logger.error({ err, to: msg.to, subject: msg.subject }, "SES SMTP send failed");
     throw err;
   }
 }
