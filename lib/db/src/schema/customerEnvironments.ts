@@ -24,6 +24,8 @@ export const customerEnvironmentsTable = pgTable("customer_environments", {
   agentVersion: text("agent_version"),
   /** push = client sends heartbeats; poll = portal fetches from deployment URL */
   heartbeatMode: text("heartbeat_mode").notNull().default("push"),
+  /** URL the portal polls for Hub Poll mode (e.g. https://api.customer.com/api/healthz) */
+  pollUrl: text("poll_url"),
   /** Soft-delete: false means decommissioned, historical snapshots are kept */
   active: boolean("active").notNull().default(true),
   /** When false, no health alerts or auto-tickets are created for this environment */

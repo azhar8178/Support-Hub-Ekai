@@ -37,6 +37,7 @@ function serializeEnv(
     runtime: row.runtime,
     apiKeyPrefix: row.apiKeyPrefix,
     heartbeatMode: row.heartbeatMode ?? "push",
+    pollUrl: row.pollUrl ?? null,
     environment: row.environment,
     status: row.status,
     lastSeen: row.lastSeen?.toISOString() ?? null,
@@ -117,6 +118,7 @@ router.post(
       runtime?: string;
       environment?: string;
       heartbeatMode?: string;
+      pollUrl?: string;
     };
 
     if (!orgId || !name?.trim() || !cloud?.trim() || !region?.trim() || !runtime?.trim() || !environment?.trim()) {
@@ -144,6 +146,8 @@ router.post(
     const apiKeyHash = await bcrypt.hash(plainKey, 12);
 
     const heartbeatMode = (req.body as any).heartbeatMode === "poll" ? "poll" : "push";
+    const pollUrlRaw = (req.body as any).pollUrl;
+    const pollUrl = typeof pollUrlRaw === "string" && pollUrlRaw.trim() !== "" ? pollUrlRaw.trim() : null;
 
     const [row] = await db
       .insert(customerEnvironmentsTable)
@@ -155,6 +159,7 @@ router.post(
         runtime: runtime.trim(),
         environment: environment.trim(),
         heartbeatMode,
+        pollUrl,
         apiKeyHash,
         apiKeyPrefix,
       })
@@ -187,6 +192,7 @@ router.patch(
       runtime?: string;
       environment?: string;
       heartbeatMode?: string;
+      pollUrl?: string | null;
     };
 
     const updates: Partial<typeof customerEnvironmentsTable.$inferInsert> = {};
@@ -201,6 +207,10 @@ router.patch(
     if (runtime !== undefined) updates.runtime = runtime.trim();
     if (environment !== undefined) updates.environment = environment.trim();
     if (heartbeatMode === "poll" || heartbeatMode === "push") updates.heartbeatMode = heartbeatMode;
+    const pollUrlRaw = (req.body as any).pollUrl;
+    if (pollUrlRaw !== undefined) {
+      updates.pollUrl = typeof pollUrlRaw === "string" && pollUrlRaw.trim() !== "" ? pollUrlRaw.trim() : null;
+    }
     const alertsEnabledRaw = (req.body as any).alertsEnabled;
     if (typeof alertsEnabledRaw === "boolean") updates.alertsEnabled = alertsEnabledRaw;
     const slackWebhookUrlRaw = (req.body as any).slackWebhookUrl;

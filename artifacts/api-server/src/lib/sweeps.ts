@@ -4,6 +4,7 @@ import {
   deploymentHeartbeatsTable,
   kbSuggestionEventsTable,
   customerEnvironmentsTable,
+  healthSnapshotsTable,
   healthAlertsTable,
   ticketsTable,
   ticketMessagesTable,
@@ -43,8 +44,10 @@ let lastKbEventPruneAt = 0;
 let lastHeartbeatPruneAt = 0;
 let lastFleetPollAt = 0;
 let lastCustomerHeartbeatCheckAt = 0;
+let lastCustomerEnvPollAt = 0;
 const CUSTOMER_HEARTBEAT_CHECK_INTERVAL_MS = 5 * 60_000; // run every 5 min
 const CUSTOMER_HEARTBEAT_OFFLINE_MS = 10 * 60_000;       // offline after 10 min silence
+const CUSTOMER_ENV_POLL_INTERVAL_MS = 5 * 60_000;        // poll hub-poll environments every 5 min
 
 /**
  * Delete KB suggestion events for drafts whose latest activity is older than
@@ -411,6 +414,88 @@ export async function checkCustomerHeartbeats(now: Date): Promise<void> {
   }
 }
 
+/**
+ * Hub-side poll for customer environments in "poll" mode.
+ * Fetches each environment's configured pollUrl, records a health snapshot,
+ * and updates status + lastSeen — identical outcome to a push heartbeat.
+ * If status changes, delegates to handleStatusChange (same alert/ticket logic).
+ */
+export async function runCustomerEnvPoll(now: Date): Promise<void> {
+  let pollTargets: (typeof customerEnvironmentsTable.$inferSelect)[];
+  try {
+    pollTargets = await db
+      .select()
+      .from(customerEnvironmentsTable)
+      .where(
+        and(
+          eq(customerEnvironmentsTable.heartbeatMode, "poll"),
+          eq(customerEnvironmentsTable.active, true),
+        ),
+      );
+  } catch (err) {
+    logger.error({ err }, "customer env poll: failed to load poll-mode environments");
+    return;
+  }
+
+  const { handleStatusChange } = await import("../routes/fleet");
+
+  for (const env of pollTargets) {
+    if (!env.pollUrl) {
+      logger.debug({ envId: env.id, name: env.name }, "customer env poll: no pollUrl configured — skipping");
+      continue;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FLEET_POLL_TIMEOUT_MS);
+      let health: Record<string, unknown>;
+      try {
+        const resp = await fetch(env.pollUrl, { signal: controller.signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        health = (await resp.json()) as Record<string, unknown>;
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      const rawStatus = typeof health["status"] === "string" ? health["status"] : "degraded";
+      const u = rawStatus.toUpperCase();
+      const newStatus: "HEALTHY" | "DEGRADED" | "DOWN" =
+        u === "HEALTHY" ? "HEALTHY" : u === "DOWN" ? "DOWN" : "DEGRADED";
+
+      const dbEntry = health["db"] as Record<string, unknown> | undefined;
+      const dbStatus = typeof dbEntry?.["status"] === "string" ? dbEntry["status"] : "unknown";
+      const dbLatency = typeof dbEntry?.["latencyMs"] === "number" ? dbEntry["latencyMs"] : 0;
+      const openTickets = typeof health["openTicketCount"] === "number" ? health["openTicketCount"] : 0;
+      const slaBreaches = typeof health["slaBreachCount"] === "number" ? health["slaBreachCount"] : 0;
+
+      const services = [{ name: "db", type: "database", status: dbStatus, latency_ms: dbLatency, error_rate_percent: 0, uptime_seconds: 0 }];
+
+      await db.insert(healthSnapshotsTable).values({
+        environmentId: env.id,
+        timestamp: now,
+        overallStatus: newStatus,
+        servicesJson: JSON.stringify(services),
+        platformJson: JSON.stringify({ openTicketCount: openTickets, slaBreachCount: slaBreaches }),
+        agentVersion: "hub-poll/1.0",
+      });
+
+      const prevStatus = env.status;
+      await db
+        .update(customerEnvironmentsTable)
+        .set({ status: newStatus, lastSeen: now })
+        .where(eq(customerEnvironmentsTable.id, env.id));
+
+      logger.debug({ envId: env.id, name: env.name, status: newStatus }, "customer env poll: snapshot recorded");
+
+      if (newStatus !== prevStatus) {
+        await handleStatusChange({ env: { ...env, status: prevStatus }, prevStatus, newStatus, agentTs: now, services });
+      }
+    } catch (err) {
+      logger.warn({ err, envId: env.id, name: env.name, url: env.pollUrl }, "customer env poll: fetch failed — lastSeen left stale");
+    }
+  }
+}
+
 export async function runSweep(): Promise<void> {
   const now = new Date();
 
@@ -488,7 +573,13 @@ export async function runSweep(): Promise<void> {
   // --- Fleet health alerting (legacy deploymentsTable-based) ---
   await runFleetAlerts(now);
 
-  // --- Customer fleet environments: missed heartbeat check ---
+  // --- Customer fleet environments: hub-side poll for poll-mode envs ---
+  if (now.getTime() - lastCustomerEnvPollAt >= CUSTOMER_ENV_POLL_INTERVAL_MS) {
+    lastCustomerEnvPollAt = now.getTime();
+    await runCustomerEnvPoll(now);
+  }
+
+  // --- Customer fleet environments: missed heartbeat check (push-mode) ---
   if (now.getTime() - lastCustomerHeartbeatCheckAt >= CUSTOMER_HEARTBEAT_CHECK_INTERVAL_MS) {
     lastCustomerHeartbeatCheckAt = now.getTime();
     await checkCustomerHeartbeats(now);

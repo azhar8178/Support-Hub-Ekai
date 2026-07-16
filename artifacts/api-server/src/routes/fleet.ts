@@ -242,7 +242,7 @@ router.get("/fleet/check-heartbeats", async (req, res): Promise<void> => {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-async function handleStatusChange(opts: {
+export async function handleStatusChange(opts: {
   env: typeof customerEnvironmentsTable.$inferSelect;
   prevStatus: string;
   newStatus: "HEALTHY" | "DEGRADED" | "DOWN";

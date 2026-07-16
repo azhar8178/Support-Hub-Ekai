@@ -2323,6 +2323,7 @@ components:
         runtime: { type: string }
         apiKeyPrefix: { type: string, description: "First 12 chars of the ek_fleet_ key (display only)" }
         heartbeatMode: { type: string, description: "push | poll" }
+        pollUrl: { type: ["string", "null"], description: "URL polled by the hub for Hub Poll mode environments" }
         environment: { type: string }
         status: { type: string, description: "HEALTHY | DEGRADED | DOWN | OFFLINE | UNKNOWN" }
         lastSeen: { type: ["string", "null"] }
@@ -2331,7 +2332,7 @@ components:
         alertsEnabled: { type: boolean, description: "When false, no health alerts or auto-tickets are created for this environment" }
         slackWebhookUrl: { type: ["string", "null"], description: "Override Slack webhook URL for alerts from this environment" }
         createdAt: { type: string }
-      required: [id, orgId, orgName, name, cloud, region, runtime, apiKeyPrefix, heartbeatMode, environment, status, lastSeen, agentVersion, active, alertsEnabled, createdAt]
+      required: [id, orgId, orgName, name, cloud, region, runtime, apiKeyPrefix, heartbeatMode, pollUrl, environment, status, lastSeen, agentVersion, active, alertsEnabled, createdAt]
     RegisterEnvironmentInput:
       type: object
       properties:
@@ -2342,6 +2343,7 @@ components:
         runtime: { type: string }
         environment: { type: string }
         heartbeatMode: { type: string, description: "push | poll — defaults to push", default: "push" }
+        pollUrl: { type: string, description: "URL to poll for Hub Poll mode (e.g. https://api.customer.com/api/healthz)" }
       required: [orgId, name, cloud, region, runtime, environment]
     UpdateEnvironmentInput:
       type: object
@@ -2353,6 +2355,7 @@ components:
         runtime: { type: string }
         environment: { type: string }
         heartbeatMode: { type: string, description: "push | poll" }
+        pollUrl: { type: ["string", "null"], description: "URL to poll for Hub Poll mode" }
         alertsEnabled: { type: boolean, description: "Enable or disable health alerts for this environment" }
         slackWebhookUrl: { type: ["string", "null"], description: "Override Slack webhook URL for alerts from this environment" }
     RegenerateKeyResult:

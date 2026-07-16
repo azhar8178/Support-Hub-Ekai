@@ -1103,6 +1103,11 @@ export interface CustomerEnvironment {
   apiKeyPrefix: string;
   /** push | poll */
   heartbeatMode: string;
+  /**
+   * URL polled by the hub for Hub Poll mode environments
+   * @nullable
+   */
+  pollUrl: string | null;
   environment: string;
   /** HEALTHY | DEGRADED | DOWN | OFFLINE | UNKNOWN */
   status: string;
@@ -1131,6 +1136,8 @@ export interface RegisterEnvironmentInput {
   environment: string;
   /** push | poll — defaults to push */
   heartbeatMode?: string;
+  /** URL to poll for Hub Poll mode (e.g. https://api.customer.com/api/healthz) */
+  pollUrl?: string;
 }
 
 export interface UpdateEnvironmentInput {
@@ -1143,6 +1150,11 @@ export interface UpdateEnvironmentInput {
   environment?: string;
   /** push | poll */
   heartbeatMode?: string;
+  /**
+   * URL to poll for Hub Poll mode
+   * @nullable
+   */
+  pollUrl?: string | null;
   /** Enable or disable health alerts for this environment */
   alertsEnabled?: boolean;
   /**

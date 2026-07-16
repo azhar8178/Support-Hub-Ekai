@@ -1802,6 +1802,7 @@ export const ListAdminEnvironmentsResponseItem = zod.object({
   "runtime": zod.string(),
   "apiKeyPrefix": zod.string().describe('First 12 chars of the ek_fleet_ key (display only)'),
   "heartbeatMode": zod.string().describe('push | poll'),
+  "pollUrl": zod.string().nullable().describe('URL polled by the hub for Hub Poll mode environments'),
   "environment": zod.string(),
   "status": zod.string().describe('HEALTHY | DEGRADED | DOWN | OFFLINE | UNKNOWN'),
   "lastSeen": zod.string().nullable(),
@@ -1827,7 +1828,8 @@ export const RegisterCustomerEnvironmentBody = zod.object({
   "region": zod.string(),
   "runtime": zod.string(),
   "environment": zod.string(),
-  "heartbeatMode": zod.string().default(registerCustomerEnvironmentBodyHeartbeatModeDefault).describe('push | poll — defaults to push')
+  "heartbeatMode": zod.string().default(registerCustomerEnvironmentBodyHeartbeatModeDefault).describe('push | poll — defaults to push'),
+  "pollUrl": zod.string().optional().describe('URL to poll for Hub Poll mode (e.g. https://api.customer.com/api/healthz)')
 })
 
 export const RegisterCustomerEnvironmentResponse = zod.object({
@@ -1841,6 +1843,7 @@ export const RegisterCustomerEnvironmentResponse = zod.object({
   "runtime": zod.string(),
   "apiKeyPrefix": zod.string().describe('First 12 chars of the ek_fleet_ key (display only)'),
   "heartbeatMode": zod.string().describe('push | poll'),
+  "pollUrl": zod.string().nullable().describe('URL polled by the hub for Hub Poll mode environments'),
   "environment": zod.string(),
   "status": zod.string().describe('HEALTHY | DEGRADED | DOWN | OFFLINE | UNKNOWN'),
   "lastSeen": zod.string().nullable(),
@@ -1872,6 +1875,7 @@ export const UpdateCustomerEnvironmentBody = zod.object({
   "runtime": zod.string().optional(),
   "environment": zod.string().optional(),
   "heartbeatMode": zod.string().optional().describe('push | poll'),
+  "pollUrl": zod.string().nullish().describe('URL to poll for Hub Poll mode'),
   "alertsEnabled": zod.boolean().optional().describe('Enable or disable health alerts for this environment'),
   "slackWebhookUrl": zod.string().nullish().describe('Override Slack webhook URL for alerts from this environment')
 })
@@ -1886,6 +1890,7 @@ export const UpdateCustomerEnvironmentResponse = zod.object({
   "runtime": zod.string(),
   "apiKeyPrefix": zod.string().describe('First 12 chars of the ek_fleet_ key (display only)'),
   "heartbeatMode": zod.string().describe('push | poll'),
+  "pollUrl": zod.string().nullable().describe('URL polled by the hub for Hub Poll mode environments'),
   "environment": zod.string(),
   "status": zod.string().describe('HEALTHY | DEGRADED | DOWN | OFFLINE | UNKNOWN'),
   "lastSeen": zod.string().nullable(),

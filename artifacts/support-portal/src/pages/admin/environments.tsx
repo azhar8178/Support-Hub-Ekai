@@ -213,7 +213,7 @@ function EnvironmentDetail({ envId }: { envId: number }) {
   if (!snapshots || snapshots.length === 0) {
     return (
       <div className="py-6 text-center text-sm text-stone-400">
-        No telemetry received yet. Deploy the fleet agent with <code className="bg-stone-100 px-1 rounded text-xs">FLEET_HUB_URL</code> and <code className="bg-stone-100 px-1 rounded text-xs">FLEET_API_KEY</code> set.
+        No telemetry received yet. The portal will poll this environment's health URL every 5 minutes once a Health URL is configured.
       </div>
     );
   }
@@ -396,6 +396,8 @@ interface RegisterFormData {
   region: string;
   runtime: string;
   environment: string;
+  heartbeatMode: string;
+  pollUrl: string;
 }
 
 /** Small dialog to create a new organisation inline from the Register form. */
@@ -478,6 +480,7 @@ function EditDialog({
     runtime: env.runtime,
     environment: env.environment,
     heartbeatMode: env.heartbeatMode,
+    pollUrl: env.pollUrl ?? "",
     alertsEnabled: env.alertsEnabled,
     slackWebhookUrl: env.slackWebhookUrl ?? "",
   });
@@ -510,6 +513,7 @@ function EditDialog({
           runtime: form.runtime,
           environment: form.environment,
           heartbeatMode: form.heartbeatMode,
+          pollUrl: form.heartbeatMode === "poll" ? (form.pollUrl.trim() || null) : null,
           alertsEnabled: form.alertsEnabled,
           slackWebhookUrl: form.slackWebhookUrl.trim() || null,
         },
@@ -679,7 +683,26 @@ function EditDialog({
                   <SelectItem value="poll">Hub Poll</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-stone-500">
+                {form.heartbeatMode === "poll"
+                  ? "The portal will call the environment's health URL every 5 minutes."
+                  : "The environment's fleet agent pushes heartbeats to this portal."}
+              </p>
             </div>
+
+            {form.heartbeatMode === "poll" && (
+              <div className="space-y-1">
+                <Label>Health URL</Label>
+                <Input
+                  placeholder="https://api.your-env.com/api/healthz"
+                  value={form.pollUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, pollUrl: e.target.value }))}
+                />
+                <p className="text-xs text-stone-500">
+                  The portal will GET this URL every 5 minutes. Must be reachable from the portal's network.
+                </p>
+              </div>
+            )}
 
             {/* Alerts toggle */}
             <div className="flex items-center justify-between gap-4 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3">
@@ -777,6 +800,8 @@ function RegisterDialog({ onClose }: { onClose: () => void }) {
     region: "",
     runtime: "docker",
     environment: "production",
+    heartbeatMode: "push",
+    pollUrl: "",
   });
   const [showNewOrg, setShowNewOrg] = useState(false);
 
@@ -803,6 +828,8 @@ function RegisterDialog({ onClose }: { onClose: () => void }) {
           region: form.region.trim(),
           runtime: form.runtime,
           environment: form.environment,
+          heartbeatMode: form.heartbeatMode,
+          ...(form.heartbeatMode === "poll" && form.pollUrl.trim() ? { pollUrl: form.pollUrl.trim() } : {}),
         },
       });
       queryClient.invalidateQueries({ queryKey: getListAdminEnvironmentsQueryKey() });
@@ -897,6 +924,36 @@ function RegisterDialog({ onClose }: { onClose: () => void }) {
               </Select>
             </div>
           </div>
+
+          <div className="space-y-1">
+            <Label>Heartbeat mode</Label>
+            <Select value={form.heartbeatMode} onValueChange={set("heartbeatMode")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="push">Client Push</SelectItem>
+                <SelectItem value="poll">Hub Poll</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-stone-500">
+              {form.heartbeatMode === "poll"
+                ? "The portal will call the environment's health URL every 5 minutes."
+                : "The environment's fleet agent pushes heartbeats to this portal."}
+            </p>
+          </div>
+
+          {form.heartbeatMode === "poll" && (
+            <div className="space-y-1">
+              <Label>Health URL *</Label>
+              <Input
+                placeholder="https://api.your-env.com/api/healthz"
+                value={form.pollUrl}
+                onChange={(e) => set("pollUrl")(e.target.value)}
+              />
+              <p className="text-xs text-stone-500">
+                The portal will GET this URL every 5 minutes. Must be reachable from the portal's network.
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1" disabled={create.isPending}>
