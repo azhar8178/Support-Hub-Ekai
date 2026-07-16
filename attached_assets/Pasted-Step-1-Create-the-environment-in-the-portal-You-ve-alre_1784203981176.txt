@@ -1,0 +1,104 @@
+Step 1 — Create the environment in the portal
+You've already done this. Go to Admin → Fleet → Environments → New Environment, fill in the customer's details, and copy the ek_fleet_... API key that's shown once on creation.
+
+Step 2 — Give the customer two files from your repo
+The agent/ folder in your repo has everything they need:
+
+agent/health-agent.py   ← the agent script
+agent/Dockerfile        ← if they want to containerise it
+
+There's no published Docker image yet (ghcr.io/ekai/... in the README is a placeholder), so they either run the Python script directly or build the image themselves from that Dockerfile.
+
+Step 3 — Customer configures it with these env vars
+Variable	Required	Value
+FLEET_HUB_URL	✅	Your portal URL, e.g. https://support.ekai.ai
+FLEET_API_KEY	✅	The ek_fleet_... key from Step 1
+FLEET_INTERVAL		Seconds between heartbeats (default: 300 = 5 min)
+FLEET_CLOUD		aws / azure / gcp / snowflake / other
+FLEET_REGION		e.g. us-east-1
+FLEET_RUNTIME		ecs / eks / docker / vm / k8s / etc.
+FLEET_VERSION		Their deployed app version, e.g. 2.1.0
+FLEET_SERVICES		JSON array of services to probe (see below)
+FLEET_SERVICES format:
+
+[
+  {"name": "api",      "type": "api",      "url": "http://localhost:8080/health", "timeout": 5},
+  {"name": "database", "type": "database", "url": "tcp://db-host:5432",           "timeout": 3},
+  {"name": "redis",    "type": "cache",    "url": "tcp://redis-host:6379",        "timeout": 2}
+]
+
+URL schemes: http:// / https:// for HTTP probes, tcp:// for port checks.
+
+Step 4 — Deployment options
+Option A — Plain Python (simplest, any Linux VM)
+
+pip3 install requests psutil
+export FLEET_HUB_URL=https://support.ekai.ai
+export FLEET_API_KEY=ek_fleet_xxxxxxxxxxxx
+export FLEET_CLOUD=aws
+export FLEET_REGION=us-east-1
+export FLEET_RUNTIME=vm
+export FLEET_SERVICES='[{"name":"api","type":"api","url":"http://localhost:8080/health","timeout":5}]'
+python3 health-agent.py
+
+For a persistent service, create /etc/systemd/system/ekai-agent.service:
+
+[Unit]
+Description=Ekai Fleet Agent
+After=network.target
+[Service]
+Environment=FLEET_HUB_URL=https://support.ekai.ai
+Environment=FLEET_API_KEY=ek_fleet_xxxxxxxxxxxx
+Environment=FLEET_CLOUD=aws
+Environment=FLEET_REGION=us-east-1
+Environment=FLEET_RUNTIME=vm
+Environment=FLEET_SERVICES=[{"name":"api","type":"api","url":"http://localhost:8080/health","timeout":5}]
+ExecStart=/usr/bin/python3 /opt/ekai/health-agent.py
+Restart=always
+[Install]
+WantedBy=multi-user.target
+
+sudo systemctl enable --now ekai-agent
+
+Option B — Docker
+
+# Build once (from inside agent/)
+docker build -t ekai-health-agent .
+# Run
+docker run -d --restart unless-stopped \
+  -e FLEET_HUB_URL=https://support.ekai.ai \
+  -e FLEET_API_KEY=ek_fleet_xxxxxxxxxxxx \
+  -e FLEET_CLOUD=aws \
+  -e FLEET_REGION=us-east-1 \
+  -e FLEET_RUNTIME=docker \
+  -e FLEET_SERVICES='[{"name":"api","type":"api","url":"http://host.docker.internal:8080/health","timeout":5}]' \
+  ekai-health-agent
+
+Use host.docker.internal (Mac/Windows) or --network host (Linux) to reach services running on the host.
+
+Option C — Docker Compose (add a sidecar to their existing stack)
+
+Add this service to their existing docker-compose.yml:
+
+services:
+  ekai-agent:
+    build:
+      context: ./agent   # path to the agent/ folder you gave them
+    restart: unless-stopped
+    environment:
+      FLEET_HUB_URL: https://support.ekai.ai
+      FLEET_API_KEY: ek_fleet_xxxxxxxxxxxx
+      FLEET_CLOUD: aws
+      FLEET_REGION: us-east-1
+      FLEET_RUNTIME: docker
+      FLEET_SERVICES: '[{"name":"api","type":"api","url":"http://api:8080/health","timeout":5}]'
+    networks:
+      - your_existing_network
+
+Step 5 — Verify it's working
+Back in your portal, go to Admin → Fleet → Environments and find their environment. Within 5 minutes of the agent starting, the Last Heartbeat timestamp should update and the status badge should turn green (Healthy).
+
+If it stays Offline, the two most common causes are:
+
+FLEET_API_KEY was miscopied — it must be the full ek_fleet_... string
+Outbound HTTPS from their environment is blocked — they need to whitelist your portal's IP/domain on port 443
