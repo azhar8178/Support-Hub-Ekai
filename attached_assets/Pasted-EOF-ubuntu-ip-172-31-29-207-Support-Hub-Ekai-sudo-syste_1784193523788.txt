@@ -1,0 +1,26 @@
+EOF
+ubuntu@ip-172-31-29-207:~/Support-Hub-Ekai$ sudo systemctl restart caddy
+sudo systemctl status caddy --no-pager
+× caddy.service - Caddy
+     Loaded: loaded (/usr/lib/systemd/system/caddy.service; enabled; preset: enabled)
+     Active: failed (Result: exit-code) since Thu 2026-07-16 09:18:34 UTC; 20ms ago
+   Duration: 3ms
+ Invocation: 2cfc105ac9714c98a417c98e981b6599
+       Docs: https://caddyserver.com/docs/
+    Process: 28088 ExecStart=/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile (code=exited, status=1/FAILURE)
+   Main PID: 28088 (code=exited, status=1/FAILURE)
+     Status: "loading new config: http app module: start: listening on :80: listen tcp :80: bind: address already in use"
+   Mem peak: 9.8M
+        CPU: 69ms
+
+Jul 16 09:18:34 ip-172-31-29-207 caddy[28088]: {"level":"info","ts":1784193514.9090652,"logger":"http.auto_https","msg":"enabling automatic HTTP->HTTPS redire…ame":"srv0"}
+Jul 16 09:18:34 ip-172-31-29-207 caddy[28088]: {"level":"info","ts":1784193514.9092627,"logger":"tls.cache.maintenance","msg":"started background certificate …97f2646680"}
+Jul 16 09:18:34 ip-172-31-29-207 caddy[28088]: {"level":"info","ts":1784193514.9097362,"logger":"http","msg":"enabling HTTP/3 listener","addr":":443"}
+Jul 16 09:18:34 ip-172-31-29-207 caddy[28088]: {"level":"info","ts":1784193514.9100296,"logger":"http.log","msg":"server running","name":"srv0","protocols":["…,"h2","h3"]}
+Jul 16 09:18:34 ip-172-31-29-207 caddy[28088]: {"level":"info","ts":1784193514.9101996,"logger":"http","msg":"servers shutting down with eternal grace period"}
+Jul 16 09:18:34 ip-172-31-29-207 caddy[28088]: {"level":"info","ts":1784193514.9103105,"logger":"tls.cache.maintenance","msg":"stopped background certificate …97f2646680"}
+Jul 16 09:18:34 ip-172-31-29-207 caddy[28088]: Error: loading initial config: loading new config: http app module: start: listening on :80: listen tcp :80: bi…ready in use
+Jul 16 09:18:34 ip-172-31-29-207 systemd[1]: Started caddy.service - Caddy.
+Jul 16 09:18:34 ip-172-31-29-207 systemd[1]: caddy.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 09:18:34 ip-172-31-29-207 systemd[1]: caddy.service: Failed with result 'exit-code'.
+Hint: Some lines were ellipsized, use -l to show in full.
