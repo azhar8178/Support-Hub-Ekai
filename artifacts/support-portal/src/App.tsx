@@ -170,7 +170,15 @@ function AuthenticatedApp() {
 
 function LocalProviderWithRoutes() {
   const queryClient = useQueryClient();
-  const { data: user, error, isLoading } = useGetCurrentUser();
+  const { data: user, error, isLoading } = useGetCurrentUser({
+    query: {
+      queryKey: ["currentUser"],
+      // Poll every 2 minutes so a dead session is detected promptly — without
+      // this, the list can show cached data while individual queries (which
+      // also poll) detect the 401 first and show confusing errors.
+      refetchInterval: 2 * 60 * 1000,
+    },
+  });
 
   const handleLogout = async () => {
     try {

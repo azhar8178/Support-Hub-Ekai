@@ -762,10 +762,23 @@ export default function TicketDetailPage() {
   }
 
   if (error || !detail) {
+    const status = (error as any)?.status as number | undefined;
+    // Session expired — kick back to login page so the user doesn't see a
+    // confusing "Ticket Not Found" when their session simply died.
+    if (status === 401) {
+      window.location.replace((import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") || "/");
+      return null;
+    }
     return (
       <div className="p-8 max-w-5xl mx-auto text-center">
-        <h2 className="text-xl font-bold text-[#0F1F3D]">Ticket Not Found</h2>
-        <p className="text-stone-500 mt-2">The ticket you're looking for doesn't exist or you don't have access.</p>
+        <h2 className="text-xl font-bold text-[#0F1F3D]">
+          {status === 403 ? "Access Denied" : "Ticket Not Found"}
+        </h2>
+        <p className="text-stone-500 mt-2">
+          {status === 403
+            ? "You don't have permission to view this ticket."
+            : "The ticket you're looking for doesn't exist or you don't have access."}
+        </p>
         <Button asChild className="mt-4" variant="outline">
           <Link href="/tickets">Return to Tickets</Link>
         </Button>
