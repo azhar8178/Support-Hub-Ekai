@@ -1,0 +1,20 @@
+ => [portal] resolving provenance for metadata file                                                                                                                   0.0s
+[+] up 7/7
+ ✔ Image support-hub-ekai-migrator         Built                                                                                                                      17.5s
+ ✔ Image support-hub-ekai-api-server       Built                                                                                                                      17.5s
+ ✔ Image support-hub-ekai-portal           Built                                                                                                                      17.5s
+ ✔ Container support-hub-ekai-postgres-1   Healthy                                                                                                                     2.2s
+ ✔ Container support-hub-ekai-migrator-1   Exited                                                                                                                      6.0s
+ ✔ Container support-hub-ekai-api-server-1 Healthy                                                                                                                    10.7s
+ ✔ Container support-hub-ekai-portal-1     Started                                                                                                                    10.6s
+ubuntu@ip-172-31-29-207:~/Support-Hub-Ekai$ docker compose ps
+NAME                            IMAGE                         COMMAND                  SERVICE      CREATED          STATUS                    PORTS
+support-hub-ekai-api-server-1   support-hub-ekai-api-server   "dumb-init -- node -…"   api-server   26 seconds ago   Up 21 seconds (healthy)   0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+support-hub-ekai-portal-1       support-hub-ekai-portal       "/docker-entrypoint.…"   portal       26 seconds ago   Up 15 seconds (healthy)   0.0.0.0:3000->80/tcp, [::]:3000->80/tcp
+support-hub-ekai-postgres-1     postgres:16-alpine            "docker-entrypoint.s…"   postgres     13 hours ago     Up 13 hours (healthy)     5432/tcp
+ubuntu@ip-172-31-29-207:~/Support-Hub-Ekai$ docker compose logs api-server --tail 20
+api-server-1  | {"level":30,"time":1784241282075,"pid":7,"hostname":"b33b2561c382","port":8080,"msg":"Server listening"}
+api-server-1  | {"level":30,"time":1784241282082,"pid":7,"hostname":"b33b2561c382","msg":"bootstrap: disabled flag found in DB — endpoint suppressed"}
+api-server-1  | {"level":30,"time":1784241282111,"pid":7,"hostname":"b33b2561c382","msg":"background SLA/auto-close sweeps started"}
+api-server-1  | {"level":30,"time":1784241286380,"pid":7,"hostname":"b33b2561c382","req":{"id":1,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":15,"msg":"request completed"}
+api-server-1  | {"level":30,"time":1784241316548,"pid":7,"hostname":"b33b2561c382","req":{"id":2,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":18,"msg":"request completed"}
