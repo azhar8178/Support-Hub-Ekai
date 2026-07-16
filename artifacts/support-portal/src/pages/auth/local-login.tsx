@@ -72,7 +72,7 @@ export default function LocalLoginPage({ onSuccess }: Props) {
           )}
           <div className="text-center">
             <h1 className="text-2xl font-semibold tracking-tight text-[#0F1F3D]">
-              Welcome to {branding?.companyName ?? "Ekai Support"}
+              Welcome to {branding?.companyName || "Ekai Support"}
             </h1>
             <p className="mt-1 text-sm text-stone-500">
               Sign in to access your enterprise support portal
