@@ -1031,6 +1031,61 @@ router.get(
   },
 );
 
+/**
+ * POST /admin/test-email
+ * Sends a test email to the calling admin so they can verify SMTP is working.
+ * Returns {ok, message} — always 200 so the client can display the result.
+ */
+router.post(
+  "/admin/test-email",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const to = req.portalUser!.email;
+    const smtpConfigured = !!(
+      process.env["SMTP_HOST"] &&
+      process.env["SMTP_USER"] &&
+      process.env["SMTP_PASS"]
+    );
+    const emailFromConfigured = !!(process.env["EMAIL_FROM"]);
+
+    if (!smtpConfigured) {
+      res.json({
+        ok: false,
+        message:
+          "SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables, then restart the api-server container.",
+      });
+      return;
+    }
+    if (!emailFromConfigured) {
+      res.json({
+        ok: false,
+        message:
+          "EMAIL_FROM is not set. Add EMAIL_FROM=support@ekai.ai to your .env and restart the api-server container.",
+      });
+      return;
+    }
+
+    try {
+      await sendEmail({
+        to,
+        subject: "Ekai Support — SMTP test",
+        html: `<p>This is a test email sent from the Ekai Support Portal to confirm that SMTP delivery is working correctly.</p><p>If you received this, email is configured correctly.</p>`,
+        text: `This is a test email sent from the Ekai Support Portal. If you received this, email is configured correctly.`,
+      });
+      logger.info({ to }, "test email sent successfully");
+      res.json({ ok: true, message: `Test email sent to ${to}. Check your inbox.` });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.error({ err, to }, "test email failed");
+      res.json({
+        ok: false,
+        message: `SMTP send failed: ${errMsg}. Check your SMTP credentials and that the SES SMTP password is correct.`,
+      });
+    }
+  },
+);
+
 router.post(
   "/admin/bootstrap-rotate",
   requireAuth,

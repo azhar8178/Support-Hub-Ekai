@@ -12,7 +12,6 @@
     "bootstrap-admin": "node --enable-source-maps ./dist/scripts/bootstrap-admin.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-ses": "^3.1084.0",
     "@clerk/express": "^2.1.39",
     "@clerk/shared": "^4.25.2",
     "@google-cloud/storage": "^7.21.0",

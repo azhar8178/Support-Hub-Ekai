@@ -73,6 +73,8 @@ export default function AdminSettingsPage() {
   const [emailFrom, setEmailFrom] = useState("");
   const [awsRegion, setAwsRegion] = useState("");
   const [privateObjectDir, setPrivateObjectDir] = useState("");
+  const [testEmailState, setTestEmailState] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testEmailPending, setTestEmailPending] = useState(false);
   const [portalUrl, setPortalUrl] = useState("");
   const [logLevel, setLogLevel] = useState("");
 
@@ -88,6 +90,7 @@ export default function AdminSettingsPage() {
       setWhatsappSaved(!!(settings.whatsappNumber));
       setEmailFrom(settings.emailFrom ?? "");
       setAwsRegion(settings.awsRegion ?? "");
+      setTestEmailState(null);
       setPrivateObjectDir(settings.privateObjectDir ?? "");
       setPortalUrl(settings.portalUrl ?? "");
       setLogLevel(settings.logLevel ?? "");
@@ -333,41 +336,63 @@ export default function AdminSettingsPage() {
                 Non-sensitive configuration managed at runtime. Sensitive credentials (AWS keys) must be set as environment secrets and are shown here as status only.
               </p>
 
-              {/* Email / AWS SES */}
+              {/* Email · AWS SES SMTP */}
               <Card className="shadow-sm border-stone-200">
                 <CardHeader className="pb-4 border-b border-stone-100 bg-stone-50/50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-[#EFB323]" />
-                      <h2 className="text-base font-semibold text-[#0F1F3D]">Email · AWS SES</h2>
+                      <h2 className="text-base font-semibold text-[#0F1F3D]">Email · AWS SES SMTP</h2>
                     </div>
                     <StatusBadge ok={!!(settings?.emailConfigured)} label="Credentials set" />
                   </div>
                 </CardHeader>
                 <CardContent className="pt-5 space-y-4">
                   <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-                    <strong>AWS_ACCESS_KEY_ID</strong> and <strong>AWS_SECRET_ACCESS_KEY</strong> must be set as environment secrets — they cannot be stored here.
+                    <strong>SMTP_HOST</strong>, <strong>SMTP_USER</strong>, and <strong>SMTP_PASS</strong> must be set as environment variables — they cannot be stored here. Get your SMTP credentials from <strong>Amazon SES → SMTP settings</strong>.
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-[#0F1F3D]">Sender address</Label>
-                      <Input value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)} placeholder="support@example.com" className="bg-white" />
-                      <p className="text-xs text-stone-500">Must be a verified SES sender. Overrides EMAIL_FROM env var.</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-[#0F1F3D]">AWS region</Label>
-                      <Input value={awsRegion} onChange={(e) => setAwsRegion(e.target.value)} placeholder="us-east-1" className="bg-white font-mono text-sm" />
-                      <p className="text-xs text-stone-500">Overrides AWS_REGION env var.</p>
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-[#0F1F3D]">Sender address (EMAIL_FROM)</Label>
+                    <Input value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)} placeholder="support@ekai.ai" className="bg-white" />
+                    <p className="text-xs text-stone-500">Must be a verified SES identity. Overrides the EMAIL_FROM environment variable.</p>
                   </div>
-                  <Button
-                    onClick={() => handleSaveSystem({ emailFrom: emailFrom || null, awsRegion: awsRegion || null })}
-                    disabled={updateSettings.isPending}
-                    className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
-                  >
-                    {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Save email settings
-                  </Button>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Button
+                      onClick={() => handleSaveSystem({ emailFrom: emailFrom || null })}
+                      disabled={updateSettings.isPending}
+                      className="bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold gap-1.5"
+                    >
+                      {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      Save
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={testEmailPending || !settings?.emailConfigured}
+                      onClick={async () => {
+                        setTestEmailState(null);
+                        setTestEmailPending(true);
+                        try {
+                          const res = await fetch("/api/admin/test-email", { method: "POST", credentials: "include" });
+                          const body = await res.json();
+                          setTestEmailState(body);
+                        } catch {
+                          setTestEmailState({ ok: false, message: "Could not reach the server." });
+                        } finally {
+                          setTestEmailPending(false);
+                        }
+                      }}
+                      className="gap-1.5"
+                      title={!settings?.emailConfigured ? "Set SMTP credentials first" : undefined}
+                    >
+                      {testEmailPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                      Send test email
+                    </Button>
+                  </div>
+                  {testEmailState && (
+                    <div className={`rounded-md border px-3 py-2 text-xs ${testEmailState.ok ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800"}`}>
+                      {testEmailState.message}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
