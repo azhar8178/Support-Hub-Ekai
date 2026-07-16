@@ -5,7 +5,7 @@
  * Register customer environments, generate & reveal API keys, soft-delete.
  */
 
-import { Fragment, useState } from "react";
+import { Fragment, useState, useEffect } from "react";
 import {
   useListAdminEnvironments,
   useListAdminEnvironmentSnapshots,
@@ -166,8 +166,41 @@ function platformMetrics(s: HealthSnapshot): Record<string, unknown> {
   }
 }
 
+const REFETCH_INTERVAL_MS = 30_000;
+
+function useSecondsAgo(updatedAt: number): number {
+  const [secondsAgo, setSecondsAgo] = useState(() =>
+    Math.floor((Date.now() - updatedAt) / 1000)
+  );
+  useEffect(() => {
+    setSecondsAgo(Math.floor((Date.now() - updatedAt) / 1000));
+    const id = setInterval(() => {
+      setSecondsAgo(Math.floor((Date.now() - updatedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [updatedAt]);
+  return secondsAgo;
+}
+
+function LastRefreshed({ updatedAt }: { updatedAt: number }) {
+  const s = useSecondsAgo(updatedAt);
+  const label = s < 5 ? "just now" : s < 60 ? `${s}s ago` : `${Math.floor(s / 60)}m ago`;
+  return (
+    <span className="text-xs text-stone-400 flex items-center gap-1">
+      <RefreshCw className="h-3 w-3" />
+      Refreshed {label}
+    </span>
+  );
+}
+
 function EnvironmentDetail({ envId }: { envId: number }) {
-  const { data: snapshots, isLoading } = useListAdminEnvironmentSnapshots(envId);
+  const { data: snapshots, isLoading, dataUpdatedAt, refetch } = useListAdminEnvironmentSnapshots(envId);
+
+  // Auto-refresh every 30 s while the panel is mounted (panel unmounts when collapsed)
+  useEffect(() => {
+    const id = setInterval(() => { void refetch(); }, REFETCH_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [refetch]);
 
   if (isLoading) {
     return (
@@ -217,6 +250,12 @@ function EnvironmentDetail({ envId }: { envId: number }) {
 
   return (
     <div className="space-y-4">
+      {/* Panel header with last-refreshed indicator */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-stone-500">Health snapshot</p>
+        {dataUpdatedAt > 0 && <LastRefreshed updatedAt={dataUpdatedAt} />}
+      </div>
+
       {/* Current health snapshot tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {latestDb && (
