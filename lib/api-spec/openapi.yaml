@@ -1913,7 +1913,8 @@ components:
         parsedAt: { type: ["string", "null"] }
         parseError: { type: ["string", "null"] }
         parsedSummary: { type: ["string", "null"], description: "JSON string of full parse output; only populated for agents/admins" }
-      required: [id, ticketId, filename, fileSizeBytes, issueCount, uploadedAt, parsedAt, parseError, parsedSummary]
+        preflightFailures: { type: ["array", "null"], items: { type: string }, description: "Pre-flight failure messages; populated for all roles once parsed" }
+      required: [id, ticketId, filename, fileSizeBytes, issueCount, uploadedAt, parsedAt, parseError, parsedSummary, preflightFailures]
     BundleUploadResult:
       type: object
       properties:

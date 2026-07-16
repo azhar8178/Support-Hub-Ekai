@@ -325,19 +325,59 @@ function CustomerBundleRow({ bundle }: {
     uploadedAt: string;
     parsedAt?: string | null;
     parseError?: string | null;
+    preflightFailures?: string[] | null;
   };
 }) {
+  const [expanded, setExpanded] = useState(false);
   const status = resolveBundleStatus(bundle);
+  const hasDetails = (bundle.preflightFailures && bundle.preflightFailures.length > 0) || !!bundle.parseError;
+
   return (
-    <div className="flex items-center gap-3 py-2 border-b border-stone-100 last:border-0">
-      <Package className="h-4 w-4 text-stone-400 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm text-[#0F1F3D] truncate">{bundle.filename}</p>
-        <p className="text-xs text-stone-400">{formatBytes(bundle.fileSizeBytes)} · {formatDateTime(bundle.uploadedAt)}</p>
+    <div className="border border-stone-200 rounded-lg overflow-hidden">
+      <div className="flex items-center gap-3 p-3 bg-stone-50/60">
+        <Package className="h-4 w-4 text-stone-400 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-[#0F1F3D] truncate">{bundle.filename}</p>
+          <p className="text-xs text-stone-400">{formatBytes(bundle.fileSizeBytes)} · {formatDateTime(bundle.uploadedAt)}</p>
+        </div>
+        <BundleStatusBadge status={status} />
+        {bundle.issueCount > 0 && (
+          <span className="text-xs text-red-600 font-medium shrink-0">{bundle.issueCount} issue{bundle.issueCount !== 1 ? "s" : ""}</span>
+        )}
+        {hasDetails && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-stone-500 shrink-0"
+            onClick={() => setExpanded(v => !v)}
+          >
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        )}
       </div>
-      <BundleStatusBadge status={status} />
-      {bundle.issueCount > 0 && (
-        <span className="text-xs text-red-600 font-medium shrink-0">{bundle.issueCount} issue{bundle.issueCount !== 1 ? "s" : ""}</span>
+
+      {bundle.parseError && (
+        <div className="px-3 py-2 bg-red-50 border-t border-red-100 text-xs text-red-700">
+          <strong>Parse error:</strong> {bundle.parseError}
+        </div>
+      )}
+
+      {expanded && bundle.preflightFailures && bundle.preflightFailures.length > 0 && (
+        <div className="border-t border-stone-100 p-4 space-y-3 text-sm">
+          <section>
+            <h5 className="font-semibold text-[#0F1F3D] mb-2">
+              Pre-flight Issues
+              <span className="ml-2 text-xs font-normal text-red-600">({bundle.preflightFailures.length})</span>
+            </h5>
+            <ul className="space-y-1">
+              {bundle.preflightFailures.map((f, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-red-700">
+                  <XCircle className="h-3 w-3 mt-0.5 shrink-0" />{f}
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
       )}
     </div>
   );

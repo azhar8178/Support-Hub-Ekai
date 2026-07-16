@@ -221,6 +221,13 @@ router.get("/tickets/:id/bundles", requireAuth, async (req, res): Promise<void> 
       parseError: b.parseError,
       // Full parsed summary only for staff — customers get null
       parsedSummary: isStaff(user) ? b.parsedSummary : null,
+      preflightFailures: (() => {
+        if (!b.parsedSummary) return null;
+        try {
+          const s = JSON.parse(b.parsedSummary);
+          return Array.isArray(s?.preflight?.failures) ? s.preflight.failures : null;
+        } catch { return null; }
+      })(),
     })),
   );
 });

@@ -487,7 +487,8 @@ export const ListTicketBundlesResponseItem = zod.object({
   "uploadedAt": zod.string(),
   "parsedAt": zod.string().nullable(),
   "parseError": zod.string().nullable(),
-  "parsedSummary": zod.string().nullable().describe('JSON string of full parse output; only populated for agents\/admins')
+  "parsedSummary": zod.string().nullable().describe('JSON string of full parse output; only populated for agents\/admins'),
+  "preflightFailures": zod.array(zod.string()).nullable().describe('Pre-flight failure messages; populated for all roles once parsed')
 })
 export const ListTicketBundlesResponse = zod.array(ListTicketBundlesResponseItem)
 

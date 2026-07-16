@@ -28,4 +28,9 @@ export interface SupportBundle {
      * @nullable
      */
   parsedSummary: string | null;
+  /**
+     * Pre-flight failure messages; populated for all roles once parsed
+     * @nullable
+     */
+  preflightFailures: string[] | null;
 }
