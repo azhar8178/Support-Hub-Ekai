@@ -1,0 +1,41 @@
+# Ekai Support Portal — Caddy reverse proxy config
+#
+# Usage (on the EC2 host):
+#   sudo caddy run --config /path/to/Caddyfile
+#
+# Replace "your-domain-or-ip" below:
+#   - For a real domain (e.g. support.example.com) Caddy gets HTTPS automatically.
+#   - For a raw EC2 IP without HTTPS, use:  http://1.2.3.4
+#     and add NODE_ENV=development to the API start command (see note below).
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# REQUIRED: set the address to match how you access the server
+# ─────────────────────────────────────────────────────────────────────────────
+
+your-domain-or-ip {
+
+    # ── API server ────────────────────────────────────────────────────────────
+    # All /api/* requests go to the Node API on port 8080.
+    # Caddy forwards the original Host header and client IP automatically.
+    handle /api/* {
+        reverse_proxy localhost:8080
+    }
+
+    # ── Portal (production static build) ─────────────────────────────────────
+    # After running `pnpm --filter @workspace/support-portal run build`,
+    # built files land in artifacts/support-portal/dist/public.
+    # Replace the path below with the absolute path on your EC2 instance.
+    handle {
+        root * /home/ubuntu/ekai/artifacts/support-portal/dist/public
+        try_files {path} /index.html
+        file_server
+    }
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ALTERNATIVE: if you're running the Vite dev server instead of a static build
+# (comment out the "Portal static build" block above and use this instead)
+# ─────────────────────────────────────────────────────────────────────────────
+# handle {
+#     reverse_proxy localhost:20733
+# }
