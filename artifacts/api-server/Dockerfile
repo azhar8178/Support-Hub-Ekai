@@ -94,8 +94,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Externalized packages that are not bundled — install only prod deps
+# All workspace package.json files must be present so pnpm can resolve the
+# dependency graph and correctly symlink externalized packages (e.g. @aws-sdk/*).
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY artifacts/api-server/package.json artifacts/api-server/
+COPY lib/db/package.json                lib/db/
+COPY lib/api-spec/package.json          lib/api-spec/
+COPY lib/api-zod/package.json           lib/api-zod/
+COPY lib/api-client-react/package.json  lib/api-client-react/
+COPY artifacts/api-server/package.json  artifacts/api-server/
 RUN corepack enable && \
     pnpm install --prod --frozen-lockfile --filter @workspace/api-server
 

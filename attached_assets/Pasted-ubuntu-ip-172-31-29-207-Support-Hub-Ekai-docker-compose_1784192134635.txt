@@ -1,0 +1,191 @@
+ubuntu@ip-172-31-29-207:~/Support-Hub-Ekai$ docker compose logs api-server
+api-server-1  | node:internal/modules/package_json_reader:301
+api-server-1  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+api-server-1  |         ^
+api-server-1  | 
+api-server-1  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-ses' imported from /app/dist/index.mjs
+api-server-1  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+api-server-1  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+api-server-1  |     at moduleResolve (node:internal/modules/esm/resolve:859:18)
+api-server-1  |     at defaultResolve (node:internal/modules/esm/resolve:992:11)
+api-server-1  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+api-server-1  |     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+api-server-1  |     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+api-server-1  |     at #resolve (node:internal/modules/esm/loader:683:17)
+api-server-1  |     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+api-server-1  |     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+api-server-1  |   code: 'ERR_MODULE_NOT_FOUND'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
+api-server-1  | node:internal/modules/package_json_reader:301
+api-server-1  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+api-server-1  |         ^
+api-server-1  | 
+api-server-1  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-ses' imported from /app/dist/index.mjs
+api-server-1  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+api-server-1  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+api-server-1  |     at moduleResolve (node:internal/modules/esm/resolve:859:18)
+api-server-1  |     at defaultResolve (node:internal/modules/esm/resolve:992:11)
+api-server-1  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+api-server-1  |     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+api-server-1  |     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+api-server-1  |     at #resolve (node:internal/modules/esm/loader:683:17)
+api-server-1  |     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+api-server-1  |     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+api-server-1  |   code: 'ERR_MODULE_NOT_FOUND'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
+api-server-1  | node:internal/modules/package_json_reader:301
+api-server-1  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+api-server-1  |         ^
+api-server-1  | 
+api-server-1  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-ses' imported from /app/dist/index.mjs
+api-server-1  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+api-server-1  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+api-server-1  |     at moduleResolve (node:internal/modules/esm/resolve:859:18)
+api-server-1  |     at defaultResolve (node:internal/modules/esm/resolve:992:11)
+api-server-1  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+api-server-1  |     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+api-server-1  |     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+api-server-1  |     at #resolve (node:internal/modules/esm/loader:683:17)
+api-server-1  |     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+api-server-1  |     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+api-server-1  |   code: 'ERR_MODULE_NOT_FOUND'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
+api-server-1  | node:internal/modules/package_json_reader:301
+api-server-1  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+api-server-1  |         ^
+api-server-1  | 
+api-server-1  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-ses' imported from /app/dist/index.mjs
+api-server-1  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+api-server-1  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+api-server-1  |     at moduleResolve (node:internal/modules/esm/resolve:859:18)
+api-server-1  |     at defaultResolve (node:internal/modules/esm/resolve:992:11)
+api-server-1  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+api-server-1  |     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+api-server-1  |     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+api-server-1  |     at #resolve (node:internal/modules/esm/loader:683:17)
+api-server-1  |     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+api-server-1  |     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+api-server-1  |   code: 'ERR_MODULE_NOT_FOUND'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
+api-server-1  | node:internal/modules/package_json_reader:301
+api-server-1  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+api-server-1  |         ^
+api-server-1  | 
+api-server-1  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-ses' imported from /app/dist/index.mjs
+api-server-1  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+api-server-1  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+api-server-1  |     at moduleResolve (node:internal/modules/esm/resolve:859:18)
+api-server-1  |     at defaultResolve (node:internal/modules/esm/resolve:992:11)
+api-server-1  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+api-server-1  |     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+api-server-1  |     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+api-server-1  |     at #resolve (node:internal/modules/esm/loader:683:17)
+api-server-1  |     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+api-server-1  |     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+api-server-1  |   code: 'ERR_MODULE_NOT_FOUND'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
+api-server-1  | node:internal/modules/package_json_reader:301
+api-server-1  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+api-server-1  |         ^
+api-server-1  | 
+api-server-1  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-ses' imported from /app/dist/index.mjs
+api-server-1  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+api-server-1  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+api-server-1  |     at moduleResolve (node:internal/modules/esm/resolve:859:18)
+api-server-1  |     at defaultResolve (node:internal/modules/esm/resolve:992:11)
+api-server-1  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+api-server-1  |     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+api-server-1  |     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+api-server-1  |     at #resolve (node:internal/modules/esm/loader:683:17)
+api-server-1  |     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+api-server-1  |     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+api-server-1  |   code: 'ERR_MODULE_NOT_FOUND'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
+api-server-1  | node:internal/modules/package_json_reader:301
+api-server-1  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+api-server-1  |         ^
+api-server-1  | 
+api-server-1  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-ses' imported from /app/dist/index.mjs
+api-server-1  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+api-server-1  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+api-server-1  |     at moduleResolve (node:internal/modules/esm/resolve:859:18)
+api-server-1  |     at defaultResolve (node:internal/modules/esm/resolve:992:11)
+api-server-1  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+api-server-1  |     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+api-server-1  |     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+api-server-1  |     at #resolve (node:internal/modules/esm/loader:683:17)
+api-server-1  |     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+api-server-1  |     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+api-server-1  |   code: 'ERR_MODULE_NOT_FOUND'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
+api-server-1  | node:internal/modules/package_json_reader:301
+api-server-1  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+api-server-1  |         ^
+api-server-1  | 
+api-server-1  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-ses' imported from /app/dist/index.mjs
+api-server-1  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+api-server-1  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+api-server-1  |     at moduleResolve (node:internal/modules/esm/resolve:859:18)
+api-server-1  |     at defaultResolve (node:internal/modules/esm/resolve:992:11)
+api-server-1  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+api-server-1  |     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+api-server-1  |     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+api-server-1  |     at #resolve (node:internal/modules/esm/loader:683:17)
+api-server-1  |     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+api-server-1  |     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+api-server-1  |   code: 'ERR_MODULE_NOT_FOUND'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
+api-server-1  | node:internal/modules/package_json_reader:301
+api-server-1  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+api-server-1  |         ^
+api-server-1  | 
+api-server-1  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-ses' imported from /app/dist/index.mjs
+api-server-1  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+api-server-1  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+api-server-1  |     at moduleResolve (node:internal/modules/esm/resolve:859:18)
+api-server-1  |     at defaultResolve (node:internal/modules/esm/resolve:992:11)
+api-server-1  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+api-server-1  |     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+api-server-1  |     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+api-server-1  |     at #resolve (node:internal/modules/esm/loader:683:17)
+api-server-1  |     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+api-server-1  |     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+api-server-1  |   code: 'ERR_MODULE_NOT_FOUND'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
+api-server-1  | node:internal/modules/package_json_reader:301
+api-server-1  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+api-server-1  |         ^
+api-server-1  | 
+api-server-1  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-ses' imported from /app/dist/index.mjs
+api-server-1  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+api-server-1  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+api-server-1  |     at moduleResolve (node:internal/modules/esm/resolve:859:18)
+api-server-1  |     at defaultResolve (node:internal/modules/esm/resolve:992:11)
+api-server-1  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+api-server-1  |     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+api-server-1  |     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+api-server-1  |     at #resolve (node:internal/modules/esm/loader:683:17)
+api-server-1  |     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+api-server-1  |     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+api-server-1  |   code: 'ERR_MODULE_NOT_FOUND'
+api-server-1  | }
+api-server-1  | 
+api-server-1  | Node.js v24.18.0
