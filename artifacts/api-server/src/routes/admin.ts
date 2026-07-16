@@ -257,9 +257,11 @@ router.get(
     const rows = await db
       .select({
         org: organisationsTable,
-        userCount: sql<number>`(select count(*) from ${usersTable} where ${usersTable.orgId} = ${organisationsTable.id})`,
+        userCount: sql<number>`count(${usersTable.id})`,
       })
       .from(organisationsTable)
+      .leftJoin(usersTable, eq(usersTable.orgId, organisationsTable.id))
+      .groupBy(organisationsTable.id)
       .orderBy(organisationsTable.name);
     res.json(
       ListOrgsResponse.parse(
