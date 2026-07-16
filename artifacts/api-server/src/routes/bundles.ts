@@ -166,8 +166,20 @@ router.post(
       .set({ storageKey })
       .where(eq(supportBundlesTable.id, bundleId));
 
-    // Internal ticket message — placeholder while parsing runs
     const sizeMb = (fileSizeBytes / (1024 * 1024)).toFixed(1);
+
+    // If the uploader is a customer, post a visible thread message so the
+    // conversation shows the bundle was sent to Ekai Support.
+    if (!isStaff(user)) {
+      await db.insert(ticketMessagesTable).values({
+        ticketId: ticket.id,
+        authorId: user.id,
+        content: `📦 I've sent a support bundle to Ekai Support: **${originalname}** (${sizeMb} MB). Please review and let me know if you need anything else.`,
+        isInternal: false,
+      });
+    }
+
+    // Internal placeholder while parsing runs (always created)
     const [msg] = await db
       .insert(ticketMessagesTable)
       .values({

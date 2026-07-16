@@ -399,6 +399,8 @@ function SupportBundlesSection({
 }) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Customers stage the file first; agents auto-upload
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: bundles, refetch } = useListTicketBundles(ticketId, {
@@ -409,15 +411,15 @@ function SupportBundlesSection({
     },
   });
 
-  const handleUpload = async (file: File) => {
+  const validateFile = (file: File): boolean => {
     const lower = file.name.toLowerCase();
     const validExt = lower.endsWith(".zip") || lower.endsWith(".tar") || lower.endsWith(".tar.gz") || lower.endsWith(".tgz");
-    if (!validExt) {
-      toast.error("Only ZIP or TAR bundles are accepted (.zip, .tar, .tar.gz, .tgz)"); return;
-    }
-    if (file.size > MAX_BUNDLE_SIZE) {
-      toast.error("Bundle exceeds 50 MB limit"); return;
-    }
+    if (!validExt) { toast.error("Only ZIP or TAR bundles are accepted (.zip, .tar, .tar.gz, .tgz)"); return false; }
+    if (file.size > MAX_BUNDLE_SIZE) { toast.error("Bundle exceeds 50 MB limit"); return false; }
+    return true;
+  };
+
+  const doUpload = async (file: File) => {
     try {
       setUploading(true);
       const formData = new FormData();
@@ -430,12 +432,24 @@ function SupportBundlesSection({
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message ?? `Upload failed (${res.status})`);
       }
-      toast.success("Bundle uploaded — parsing in progress");
+      toast.success(isAgentOrAdmin ? "Bundle uploaded — parsing in progress" : "Support bundle sent to Ekai Support — we'll review it shortly");
+      setStagedFile(null);
       refetch();
     } catch (err: any) {
       toast.error(err?.message ?? "Upload failed");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleFileSelected = (file: File) => {
+    if (!validateFile(file)) return;
+    if (isAgentOrAdmin) {
+      // Agents: auto-upload immediately (existing behaviour)
+      doUpload(file);
+    } else {
+      // Customers: stage for explicit confirmation
+      setStagedFile(file);
     }
   };
 
@@ -449,7 +463,7 @@ function SupportBundlesSection({
             <Badge variant="secondary" className="text-xs">{bundles.length}</Badge>
           )}
         </div>
-        {!isClosed && (
+        {!isClosed && !stagedFile && (
           <Button
             size="sm"
             variant="outline"
@@ -461,7 +475,7 @@ function SupportBundlesSection({
               ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
               : <Upload className="h-3.5 w-3.5" />
             }
-            {isAgentOrAdmin ? "Upload Bundle" : "Send Support Bundle to Ekai Support"}
+            {isAgentOrAdmin ? "Upload Bundle" : "Attach Support Bundle"}
           </Button>
         )}
         <input
@@ -471,13 +485,56 @@ function SupportBundlesSection({
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) handleUpload(f);
+            if (f) handleFileSelected(f);
             e.target.value = "";
           }}
         />
       </CardHeader>
-      <CardContent className="pt-4">
-        {(!bundles || bundles.length === 0) ? (
+      <CardContent className="pt-4 space-y-3">
+
+        {/* Customer staging panel — shown after file is picked, before send */}
+        {!isAgentOrAdmin && stagedFile && (
+          <div className="rounded-lg border-2 border-amber-300 bg-amber-50/60 p-4">
+            <div className="flex items-start gap-3">
+              <Package className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[#0F1F3D] truncate">{stagedFile.name}</p>
+                <p className="text-xs text-stone-500 mt-0.5">{formatBytes(stagedFile.size)} — ready to send</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStagedFile(null)}
+                className="text-stone-400 hover:text-stone-600 text-lg leading-none shrink-0"
+                aria-label="Remove"
+              >×</button>
+            </div>
+            <div className="flex items-center gap-2 mt-3">
+              <Button
+                size="sm"
+                onClick={() => doUpload(stagedFile)}
+                disabled={uploading}
+                className="gap-2 bg-[#EFB323] hover:bg-[#D69E1E] text-[#0F1F3D] font-semibold"
+              >
+                {uploading
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Send className="h-3.5 w-3.5" />
+                }
+                Send Support Bundle to Ekai Support
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-stone-500"
+                onClick={() => setStagedFile(null)}
+                disabled={uploading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {(!bundles || bundles.length === 0) && !stagedFile ? (
           <div
             className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
               dragOver ? "border-amber-400 bg-amber-50" : "border-stone-200"
@@ -487,7 +544,7 @@ function SupportBundlesSection({
             onDrop={(e) => {
               if (isClosed) return;
               e.preventDefault(); setDragOver(false);
-              const f = e.dataTransfer.files[0]; if (f) handleUpload(f);
+              const f = e.dataTransfer.files[0]; if (f) handleFileSelected(f);
             }}
             onClick={() => { if (!isClosed) fileInputRef.current?.click(); }}
           >
@@ -495,17 +552,20 @@ function SupportBundlesSection({
             <p className="text-sm text-stone-500">No bundles yet.</p>
             {!isClosed && (
               <p className="text-xs text-stone-400 mt-1">
-                Run <code className="font-mono bg-stone-100 px-1 py-0.5 rounded text-[11px]">support-bundle.sh</code> and drag &amp; drop the ZIP here.
+                {isAgentOrAdmin
+                  ? <>Run <code className="font-mono bg-stone-100 px-1 py-0.5 rounded text-[11px]">support-bundle.sh</code> and drag &amp; drop the archive here.</>
+                  : <>Run <code className="font-mono bg-stone-100 px-1 py-0.5 rounded text-[11px]">support-bundle.sh</code> on your server, then attach and send the archive to Ekai Support.</>
+                }
               </p>
             )}
           </div>
-        ) : (
+        ) : bundles && bundles.length > 0 ? (
           <div className="space-y-3">
             {bundles.map((b) => (
               <AgentBundlePanel key={b.id} bundle={b} ticketId={ticketId} basePath={basePath} />
             ))}
           </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );
