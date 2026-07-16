@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { useGetPublicBranding } from "@workspace/api-client-react";
 
 interface Props {
   onSuccess: () => void;
@@ -19,6 +20,7 @@ export default function LocalLoginPage({ onSuccess }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { data: branding } = useGetPublicBranding();
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -54,15 +56,23 @@ export default function LocalLoginPage({ onSuccess }: Props) {
       <div className="w-full max-w-[440px]">
         {/* Logo / brand */}
         <div className="mb-8 flex flex-col items-center gap-3">
-          <img
-            src={`${basePath}/logo.svg`}
-            alt="Ekai"
-            className="h-10"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-          />
+          {branding?.logoUrl ? (
+            <img
+              src={branding.logoUrl}
+              alt={branding.companyName ?? "Ekai"}
+              className="h-10 max-w-[160px] object-contain"
+            />
+          ) : (
+            <img
+              src={`${basePath}/logo.svg`}
+              alt="Ekai"
+              className="h-10"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
+          )}
           <div className="text-center">
             <h1 className="text-2xl font-semibold tracking-tight text-[#0F1F3D]">
-              Welcome to Ekai Support
+              Welcome to {branding?.companyName ?? "Ekai Support"}
             </h1>
             <p className="mt-1 text-sm text-stone-500">
               Sign in to access your enterprise support portal
