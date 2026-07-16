@@ -19,7 +19,6 @@ import { sweepPushReceipts } from "./push";
 import { logger } from "./logger";
 import { sendSlackFleetAlert } from "./slack";
 import { recordHeartbeat } from "../routes/deployments";
-import { collectHealthStatus } from "../routes/health";
 
 const SWEEP_INTERVAL_MS = 60_000;
 const AUTO_CLOSE_BUSINESS_DAYS = 5;
@@ -44,80 +43,8 @@ let lastKbEventPruneAt = 0;
 let lastHeartbeatPruneAt = 0;
 let lastFleetPollAt = 0;
 let lastCustomerHeartbeatCheckAt = 0;
-let lastSelfHeartbeatAt = 0;
 const CUSTOMER_HEARTBEAT_CHECK_INTERVAL_MS = 5 * 60_000; // run every 5 min
 const CUSTOMER_HEARTBEAT_OFFLINE_MS = 10 * 60_000;       // offline after 10 min silence
-const SELF_HEARTBEAT_INTERVAL_MS = 5 * 60_000;           // push own health every 5 min
-
-// ---------------------------------------------------------------------------
-// Self-heartbeat: push this installation's health to a fleet hub when
-// FLEET_HUB_URL and FLEET_API_KEY are configured as environment variables.
-// ---------------------------------------------------------------------------
-export async function sendSelfHeartbeat(): Promise<void> {
-  const hubUrl = (process.env["FLEET_HUB_URL"] ?? "").trim();
-  const apiKey = (process.env["FLEET_API_KEY"] ?? "").trim();
-  if (!hubUrl || !apiKey) return; // not configured — silent no-op
-
-  let health;
-  try {
-    health = await collectHealthStatus();
-  } catch (err) {
-    logger.warn({ err }, "fleet self-heartbeat: could not collect local health");
-    return;
-  }
-
-  // Build the services array the hub expects (ServiceHealth shape)
-  const services = [
-    {
-      name: "db",
-      type: "database",
-      status: health.db.status,          // "healthy" | "degraded"
-      latency_ms: health.db.latencyMs ?? 0,
-      error_rate_percent: 0,
-      uptime_seconds: 0,
-    },
-  ];
-
-  // Platform metadata (used for metric tiles in the Environments detail panel)
-  const platform = {
-    openTicketCount: health.openTicketCount,
-    slaBreachCount:  health.slaBreachCount,
-    pushQueueDepth:  health.pushQueueDepth,
-  };
-
-  const body = JSON.stringify({
-    timestamp: health.timestamp,
-    status:    health.status,  // normalised to uppercase by hub
-    version:   process.env["npm_package_version"] ?? "unknown",
-    services,
-    platform,
-  });
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
-  try {
-    const endpoint = `${hubUrl.replace(/\/+$/, "")}/api/fleet/heartbeat`;
-    const response = await fetch(endpoint, {
-      method:  "POST",
-      headers: {
-        "Content-Type":   "application/json",
-        "X-Fleet-API-Key": apiKey,
-      },
-      body,
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      logger.warn({ status: response.status, text, hubUrl }, "fleet self-heartbeat rejected by hub");
-    } else {
-      logger.debug({ hubUrl }, "fleet self-heartbeat sent");
-    }
-  } catch (err) {
-    logger.warn({ err, hubUrl }, "fleet self-heartbeat failed (network error or timeout)");
-  } finally {
-    clearTimeout(timeout);
-  }
-}
 
 /**
  * Delete KB suggestion events for drafts whose latest activity is older than
@@ -566,22 +493,9 @@ export async function runSweep(): Promise<void> {
     lastCustomerHeartbeatCheckAt = now.getTime();
     await checkCustomerHeartbeats(now);
   }
-
-  // --- Self-heartbeat: push own health to a fleet hub (if FLEET_HUB_URL set) ---
-  if (now.getTime() - lastSelfHeartbeatAt >= SELF_HEARTBEAT_INTERVAL_MS) {
-    lastSelfHeartbeatAt = now.getTime();
-    sendSelfHeartbeat().catch((err) =>
-      logger.warn({ err }, "fleet self-heartbeat unexpected error"),
-    );
-  }
 }
 
 export function startSweeps(): void {
-  // Fire an immediate self-heartbeat on startup so the environment appears
-  // online straight away rather than waiting up to 5 minutes.
-  sendSelfHeartbeat().catch((err) =>
-    logger.warn({ err }, "fleet self-heartbeat (startup) failed"),
-  );
   setInterval(() => {
     runSweep().catch((err) => logger.error({ err }, "background sweep failed"));
   }, SWEEP_INTERVAL_MS);
