@@ -187,9 +187,15 @@ function LocalProviderWithRoutes() {
 
   if (isLoading) return <Spinner />;
 
-  // 401 → not signed in → show login page
+  // 401 → not signed in
   const notSignedIn = !user && error && (error as any).status === 401;
   if (notSignedIn) {
+    // Allow the accept-invite page to render pre-auth so new customers can
+    // set their password without being redirected to the login page first.
+    const rawPath = window.location.pathname.replace(basePath, "") || "/";
+    if (rawPath === "/accept-invite") {
+      return <AcceptInvitePage />;
+    }
     return (
       <LocalLoginPage
         onSuccess={() => {

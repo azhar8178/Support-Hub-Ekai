@@ -161,6 +161,101 @@ router.get("/invites/preview", async (req, res): Promise<void> => {
   );
 });
 
+/**
+ * POST /api/invites/accept-local
+ * Local-auth-mode only.  Creates a new portal user from an invite (or links an
+ * existing one) and starts a session — all in one step.
+ * Body: { token: string; name?: string; password: string }
+ */
+router.post("/invites/accept-local", async (req, res): Promise<void> => {
+  if (AUTH_MODE !== "local") {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+
+  const { token, name, password } = req.body as {
+    token?: unknown;
+    name?: unknown;
+    password?: unknown;
+  };
+
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ message: "Missing invite token." });
+    return;
+  }
+  if (!password || typeof password !== "string" || password.length < 8) {
+    res.status(400).json({ message: "Password must be at least 8 characters." });
+    return;
+  }
+
+  const [invite] = await db
+    .select()
+    .from(invitesTable)
+    .where(and(eq(invitesTable.token, token), isNull(invitesTable.usedAt)));
+
+  if (!invite || invite.revokedAt || invite.expiresAt < new Date()) {
+    res.status(400).json({ message: "This invite link is invalid or has expired." });
+    return;
+  }
+
+  const bcrypt = await import("bcryptjs");
+  const passwordHash = await bcrypt.hash(password, 12);
+  const email = invite.email.toLowerCase();
+  const displayName =
+    typeof name === "string" && name.trim()
+      ? name.trim()
+      : email.split("@")[0]!;
+
+  // Create user or update existing one (e.g. pre-seeded agent/admin)
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+
+  let user;
+  if (existing) {
+    const [updated] = await db
+      .update(usersTable)
+      .set({
+        passwordHash,
+        role: invite.role as (typeof usersTable.$inferInsert)["role"],
+        orgId: invite.orgId,
+        active: true,
+        name: existing.name || displayName,
+      })
+      .where(eq(usersTable.id, existing.id))
+      .returning();
+    user = updated!;
+  } else {
+    const [created] = await db
+      .insert(usersTable)
+      .values({
+        email,
+        name: displayName,
+        passwordHash,
+        role: invite.role as (typeof usersTable.$inferInsert)["role"],
+        orgId: invite.orgId,
+        active: true,
+        lastLogin: new Date(),
+      })
+      .returning();
+    user = created!;
+  }
+
+  await db.update(invitesTable).set({ usedAt: new Date() }).where(eq(invitesTable.id, invite.id));
+
+  // Start session so the client is immediately authenticated
+  req.session.userId = user.id;
+  await db.update(usersTable).set({ lastLogin: new Date() }).where(eq(usersTable.id, user.id));
+
+  let orgName: string | null = null;
+  if (user.orgId != null) {
+    const [org] = await db
+      .select()
+      .from(organisationsTable)
+      .where(eq(organisationsTable.id, user.orgId));
+    orgName = org?.name ?? null;
+  }
+  res.json(GetCurrentUserResponse.parse(serializeUser(user, orgName)));
+});
+
 router.post("/invites/accept", async (req, res): Promise<void> => {
   if (AUTH_MODE !== "clerk") {
     res.status(404).json({ message: "Not found" });
