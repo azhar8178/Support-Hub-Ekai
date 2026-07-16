@@ -32,6 +32,7 @@ RUN corepack enable
 
 # Only the packages needed for schema push
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY tsconfig.base.json ./
 COPY lib/db/package.json lib/db/
 
 # Install with devDependencies so drizzle-kit is available
