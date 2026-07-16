@@ -72,6 +72,34 @@ export async function sendSlackFleetAlert(text: string, overrideUrl?: string | n
   }
 }
 
+/**
+ * Send a test message to the given Slack webhook URL and return whether it
+ * succeeded. Throws only on network-level errors; Slack API errors are
+ * returned as `{ ok: false, error }`.
+ */
+export async function testSlackWebhook(
+  webhookUrl: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "✅ Ekai fleet webhook test — this channel is correctly configured." }),
+      signal: controller.signal,
+    });
+    if (res.ok) return { ok: true };
+    const body = await res.text().catch(() => "");
+    return { ok: false, error: body || `HTTP ${res.status}` };
+  } catch (err: any) {
+    if (err?.name === "AbortError") return { ok: false, error: "Request timed out" };
+    return { ok: false, error: err?.message ?? "Network error" };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function sendSlackAlert(ticket: TicketRef, raisedBy: RaisedBy): Promise<void> {
   try {
     const { slackAlertsEnabled } = await getAlertFlags();

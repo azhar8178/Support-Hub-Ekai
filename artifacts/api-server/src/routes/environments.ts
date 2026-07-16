@@ -16,6 +16,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireAuth, requireRole } from "../middlewares/requireAuth";
+import { testSlackWebhook } from "../lib/slack";
 
 const router: IRouter = Router();
 
@@ -229,6 +230,41 @@ router.patch(
       .limit(1);
 
     res.json(serializeEnv({ ...row, orgName: orgRow?.name }));
+  },
+);
+
+// ---------------------------------------------------------------------------
+// ADMIN: Test Slack webhook (pre-save or saved)
+// ---------------------------------------------------------------------------
+router.post(
+  "/admin/fleet/environments/:id/test-slack",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ message: "Invalid id" }); return; }
+
+    // Prefer the URL provided in the request body (pre-save test), fall back to DB value.
+    const bodyUrl = (req.body as any).webhookUrl;
+    let webhookUrl: string | null = typeof bodyUrl === "string" && bodyUrl.trim() !== "" ? bodyUrl.trim() : null;
+
+    if (!webhookUrl) {
+      const [env] = await db
+        .select({ slackWebhookUrl: customerEnvironmentsTable.slackWebhookUrl })
+        .from(customerEnvironmentsTable)
+        .where(and(eq(customerEnvironmentsTable.id, id), eq(customerEnvironmentsTable.active, true)))
+        .limit(1);
+      if (!env) { res.status(404).json({ message: "Environment not found" }); return; }
+      webhookUrl = env.slackWebhookUrl ?? null;
+    }
+
+    if (!webhookUrl) {
+      res.status(400).json({ message: "No Slack webhook URL configured for this environment" });
+      return;
+    }
+
+    const result = await testSlackWebhook(webhookUrl);
+    res.json(result);
   },
 );
 

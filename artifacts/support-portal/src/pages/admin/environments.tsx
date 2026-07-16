@@ -49,7 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Copy, Check, Loader2, Server, Trash2, AlertTriangle, Pencil, RefreshCw, BellOff, ChevronDown, ChevronUp, Activity } from "lucide-react";
+import { Plus, Copy, Check, Loader2, Server, Trash2, AlertTriangle, Pencil, RefreshCw, BellOff, ChevronDown, ChevronUp, Activity, Send } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   ResponsiveContainer,
@@ -483,6 +483,7 @@ function EditDialog({
   });
   const [showNewOrg, setShowNewOrg] = useState(false);
   const [confirmRegen, setConfirmRegen] = useState(false);
+  const [testingSlack, setTestingSlack] = useState(false);
 
   const set = (key: keyof typeof form) => (val: string) =>
     setForm((f) => ({ ...f, [key]: val }));
@@ -518,6 +519,33 @@ function EditDialog({
       onClose();
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to update environment");
+    }
+  };
+
+  const handleTestSlack = async () => {
+    const url = form.slackWebhookUrl.trim();
+    if (!url) {
+      toast.error("Enter a webhook URL to test");
+      return;
+    }
+    setTestingSlack(true);
+    try {
+      const res = await fetch(`/api/admin/fleet/environments/${env.id}/test-slack`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookUrl: url }),
+        credentials: "include",
+      });
+      const result: { ok: boolean; error?: string } = await res.json();
+      if (result.ok) {
+        toast.success("Test message delivered to Slack ✓");
+      } else {
+        toast.error(`Slack rejected the message: ${result.error ?? "unknown error"}`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to reach the test endpoint");
+    } finally {
+      setTestingSlack(false);
     }
   };
 
@@ -676,11 +704,27 @@ function EditDialog({
             {/* Slack Webhook Override */}
             <div className="space-y-1">
               <Label>Slack Webhook Override</Label>
-              <Input
-                placeholder="https://hooks.slack.com/services/…"
-                value={form.slackWebhookUrl}
-                onChange={(e) => setForm((f) => ({ ...f, slackWebhookUrl: e.target.value }))}
-              />
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder="https://hooks.slack.com/services/…"
+                  value={form.slackWebhookUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, slackWebhookUrl: e.target.value }))}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={testingSlack || !form.slackWebhookUrl.trim()}
+                  onClick={handleTestSlack}
+                >
+                  {testingSlack
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Send className="h-3.5 w-3.5 mr-1" />}
+                  {testingSlack ? "Testing…" : "Test"}
+                </Button>
+              </div>
               <p className="text-xs text-stone-500">
                 When set, fleet alerts for this environment go to this channel instead of the global webhook.
               </p>
