@@ -3,8 +3,7 @@ import { useGetKbArticle, useSubmitKbFeedback, useGetCurrentUser } from "@worksp
 import { ArrowLeft, ThumbsUp, ThumbsDown, Edit, Calendar, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -110,9 +109,7 @@ export default function KbDetailPage() {
 
       {/* Content */}
       <div className="flex-1 max-w-3xl w-full mx-auto px-6 py-12">
-        <div className="prose prose-stone prose-amber max-w-none prose-headings:text-[#0F1F3D] prose-a:text-[#B45309]">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{article.content}</ReactMarkdown>
-        </div>
+        <MarkdownRenderer content={article.content} />
 
         {/* Feedback Section */}
         <div className="mt-16 pt-8 border-t border-stone-200">

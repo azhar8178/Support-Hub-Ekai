@@ -35,8 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -247,9 +246,9 @@ export default function KbEditorPage() {
                     />
                   </TabsContent>
                   
-                  <TabsContent value="preview" className="m-0 border border-stone-200 bg-white rounded-lg p-8 min-h-[500px] shadow-sm overflow-auto prose prose-stone max-w-none">
+                  <TabsContent value="preview" className="m-0 border border-stone-200 bg-white rounded-lg p-8 min-h-[500px] shadow-sm overflow-auto">
                     {form.watch("content") ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{form.watch("content")}</ReactMarkdown>
+                      <MarkdownRenderer content={form.watch("content")} />
                     ) : (
                       <div className="text-stone-400 italic">Nothing to preview yet...</div>
                     )}
