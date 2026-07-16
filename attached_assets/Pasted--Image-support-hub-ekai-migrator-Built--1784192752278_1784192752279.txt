@@ -1,0 +1,16 @@
+ ✔ Image support-hub-ekai-migrator         Built                                                                                                                       5.1s
+ ✔ Image support-hub-ekai-api-server       Built                                                                                                                       5.1s
+ ✔ Image support-hub-ekai-portal           Built                                                                                                                       5.1s
+ ✔ Network support-hub-ekai_external       Created                                                                                                                     0.0s
+ ✔ Network support-hub-ekai_internal       Created                                                                                                                     0.1s
+ ✔ Container support-hub-ekai-postgres-1   Healthy                                                                                                                     6.8s
+ ✔ Container support-hub-ekai-migrator-1   Exited                                                                                                                     10.4s
+ ✔ Container support-hub-ekai-api-server-1 Healthy                                                                                                                    15.3s
+ ✔ Container support-hub-ekai-portal-1     Started                                                                                                                    15.6s
+ubuntu@ip-172-31-29-207:~/Support-Hub-Ekai$ docker compose logs api-server 2>&1 | head -30
+api-server-1  | {"level":30,"time":1784192724969,"pid":7,"hostname":"e4514da61122","port":8080,"msg":"Server listening"}
+api-server-1  | {"level":40,"time":1784192724977,"pid":7,"hostname":"e4514da61122","bootstrapToken":"H12niElegJcC_zOYsPAh4OGMNXUTyJAF","msg":"BOOTSTRAP: use this token (valid until the first admin signs in) with POST /api/bootstrap-admin to create the first admin invite. Or run: pnpm --filter @workspace/api-server run bootstrap-admin -- --email <email>"}
+api-server-1  | {"level":30,"time":1784192725025,"pid":7,"hostname":"e4514da61122","msg":"seeding initial data"}
+api-server-1  | {"level":30,"time":1784192725135,"pid":7,"hostname":"e4514da61122","msg":"seed complete"}
+api-server-1  | {"level":30,"time":1784192725137,"pid":7,"hostname":"e4514da61122","msg":"background SLA/auto-close sweeps started"}
+api-server-1  | {"level":30,"time":1784192729274,"pid":7,"hostname":"e4514da61122","req":{"id":1,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":14,"msg":"request completed"}
