@@ -1100,6 +1100,8 @@ export interface CustomerEnvironment {
   active: boolean;
   /** When false, no alerts are fired for this environment */
   alertsEnabled: boolean;
+  /** @nullable */
+  slackWebhookUrl: string | null;
   createdAt: string;
 }
 
@@ -1127,6 +1129,8 @@ export interface UpdateEnvironmentInput {
   heartbeatMode?: string;
   /** When false, no alerts are fired for this environment */
   alertsEnabled?: boolean;
+  /** @nullable */
+  slackWebhookUrl?: string | null;
 }
 
 export interface RegenerateKeyResult {

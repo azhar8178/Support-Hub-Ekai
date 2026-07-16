@@ -42,6 +42,7 @@ function serializeEnv(
     agentVersion: row.agentVersion ?? null,
     active: row.active,
     alertsEnabled: row.alertsEnabled,
+    slackWebhookUrl: row.slackWebhookUrl ?? null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -201,6 +202,12 @@ router.patch(
     if (heartbeatMode === "poll" || heartbeatMode === "push") updates.heartbeatMode = heartbeatMode;
     const alertsEnabledRaw = (req.body as any).alertsEnabled;
     if (typeof alertsEnabledRaw === "boolean") updates.alertsEnabled = alertsEnabledRaw;
+    const slackWebhookUrlRaw = (req.body as any).slackWebhookUrl;
+    if (slackWebhookUrlRaw !== undefined) {
+      updates.slackWebhookUrl = typeof slackWebhookUrlRaw === "string" && slackWebhookUrlRaw.trim() !== ""
+        ? slackWebhookUrlRaw.trim()
+        : null;
+    }
 
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ message: "No fields to update" });

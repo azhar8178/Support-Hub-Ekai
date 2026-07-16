@@ -440,6 +440,7 @@ function EditDialog({
     environment: env.environment,
     heartbeatMode: env.heartbeatMode,
     alertsEnabled: env.alertsEnabled,
+    slackWebhookUrl: env.slackWebhookUrl ?? "",
   });
   const [showNewOrg, setShowNewOrg] = useState(false);
   const [confirmRegen, setConfirmRegen] = useState(false);
@@ -470,6 +471,7 @@ function EditDialog({
           environment: form.environment,
           heartbeatMode: form.heartbeatMode,
           alertsEnabled: form.alertsEnabled,
+          slackWebhookUrl: form.slackWebhookUrl.trim() || null,
         },
       });
       queryClient.invalidateQueries({ queryKey: getListAdminEnvironmentsQueryKey() });
@@ -630,6 +632,19 @@ function EditDialog({
                 onCheckedChange={(v) => setForm((f) => ({ ...f, alertsEnabled: v }))}
                 className="data-[state=checked]:bg-[#EFB323]"
               />
+            </div>
+
+            {/* Slack Webhook Override */}
+            <div className="space-y-1">
+              <Label>Slack Webhook Override</Label>
+              <Input
+                placeholder="https://hooks.slack.com/services/…"
+                value={form.slackWebhookUrl}
+                onChange={(e) => setForm((f) => ({ ...f, slackWebhookUrl: e.target.value }))}
+              />
+              <p className="text-xs text-stone-500">
+                When set, fleet alerts for this environment go to this channel instead of the global webhook.
+              </p>
             </div>
 
             {/* Regenerate key — separated visually */}

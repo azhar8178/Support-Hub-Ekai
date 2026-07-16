@@ -464,6 +464,12 @@ export async function checkCustomerHeartbeats(now: Date): Promise<void> {
       toStatus: "OFFLINE",
     });
 
+    // Send Slack alert — use per-environment webhook when set, fall back to global.
+    await sendSlackFleetAlert(
+      `🔴 *Fleet alert* — *${orgName ?? "unknown org"} / ${env.name}* is *OFFLINE*\nNo heartbeat received in the last 10 minutes. Last seen: ${lastSeenAgo}.`,
+      env.slackWebhookUrl,
+    );
+
     if (flags.emailAlertsEnabled) {
       const { sendEmail } = await import("./email");
       const portalUrl = (await getPortalUrl()) ?? "https://support.ekai.ai";

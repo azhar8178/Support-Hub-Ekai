@@ -28,6 +28,8 @@ export const customerEnvironmentsTable = pgTable("customer_environments", {
   active: boolean("active").notNull().default(true),
   /** When false, no health alerts or auto-tickets are created for this environment */
   alertsEnabled: boolean("alerts_enabled").notNull().default(true),
+  /** Optional per-environment Slack webhook. Overrides the global site-settings webhook for this env's alerts. */
+  slackWebhookUrl: text("slack_webhook_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
