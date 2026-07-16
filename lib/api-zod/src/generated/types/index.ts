@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './adminResetPasswordInput';
 export * from './agentMetrics';
 export * from './apiMessage';
 export * from './appNotification';

@@ -1553,6 +1553,14 @@ paths:
                   $ref: "#/components/schemas/HealthSnapshot"
 components:
   schemas:
+    AdminResetPasswordInput:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 8
+          description: New password for the user (local auth mode only)
+      required: [password]
     BootstrapStatus:
       type: object
       properties:
@@ -2320,6 +2328,7 @@ components:
         agentVersion: { type: ["string", "null"] }
         active: { type: boolean }
         alertsEnabled: { type: boolean, description: "When false, no health alerts or auto-tickets are created for this environment" }
+        slackWebhookUrl: { type: ["string", "null"], description: "Override Slack webhook URL for alerts from this environment" }
         createdAt: { type: string }
       required: [id, orgId, orgName, name, cloud, region, runtime, apiKeyPrefix, heartbeatMode, environment, status, lastSeen, agentVersion, active, alertsEnabled, createdAt]
     RegisterEnvironmentInput:
@@ -2344,6 +2353,7 @@ components:
         environment: { type: string }
         heartbeatMode: { type: string, description: "push | poll" }
         alertsEnabled: { type: boolean, description: "Enable or disable health alerts for this environment" }
+        slackWebhookUrl: { type: ["string", "null"], description: "Override Slack webhook URL for alerts from this environment" }
     RegenerateKeyResult:
       type: object
       properties:

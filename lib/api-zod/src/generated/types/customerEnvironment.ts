@@ -27,5 +27,12 @@ export interface CustomerEnvironment {
   /** @nullable */
   agentVersion: string | null;
   active: boolean;
+  /** When false, no health alerts or auto-tickets are created for this environment */
+  alertsEnabled: boolean;
+  /**
+     * Override Slack webhook URL for alerts from this environment
+     * @nullable
+     */
+  slackWebhookUrl?: string | null;
   createdAt: string;
 }

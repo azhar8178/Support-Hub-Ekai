@@ -36,4 +36,8 @@ export interface SiteSettingsUpdate {
   portalUrl?: string | null;
   /** @nullable */
   logLevel?: string | null;
+  fleetAlertsEnabled?: boolean;
+  ticketNotificationsEnabled?: boolean;
+  emailAlertsEnabled?: boolean;
+  slackAlertsEnabled?: boolean;
 }

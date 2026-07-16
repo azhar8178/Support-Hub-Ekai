@@ -1050,9 +1050,22 @@ export const UpdateUserResponse = zod.object({
 })
 
 
-export const AdminResetPasswordBody = zod.object({
-  "password": zod.string().min(8)
+/**
+ * @summary Force-reset a user's password (admin only; local auth mode only)
+ */
+export const AdminResetUserPasswordParams = zod.object({
+  "id": zod.coerce.number()
 })
+
+export const adminResetUserPasswordBodyPasswordMin = 8;
+
+
+
+export const AdminResetUserPasswordBody = zod.object({
+  "password": zod.string().min(adminResetUserPasswordBodyPasswordMin).describe('New password for the user (local auth mode only)')
+})
+
+export const AdminResetUserPasswordResponse = zod.void()
 
 
 /**
@@ -1544,7 +1557,7 @@ export const GetSiteSettingsResponse = zod.object({
   "portalUrl": zod.string().nullable(),
   "logLevel": zod.string().nullable(),
   "fleetAlertsEnabled": zod.boolean().describe('When false, no fleet health alerts or auto-tickets are created'),
-  "ticketNotificationsEnabled": zod.boolean().describe('When false, no email/push notifications are sent for ticket events'),
+  "ticketNotificationsEnabled": zod.boolean().describe('When false, no email\/push notifications are sent for ticket events'),
   "emailAlertsEnabled": zod.boolean().describe('When false, no outbound emails are sent for any alert'),
   "slackAlertsEnabled": zod.boolean().describe('When false, no Slack messages are sent'),
   "updatedAt": zod.string()
@@ -1592,10 +1605,10 @@ export const UpdateSiteSettingsResponse = zod.object({
   "storageConfigured": zod.boolean().describe('True when object storage is reachable'),
   "portalUrl": zod.string().nullable(),
   "logLevel": zod.string().nullable(),
-  "fleetAlertsEnabled": zod.boolean(),
-  "ticketNotificationsEnabled": zod.boolean(),
-  "emailAlertsEnabled": zod.boolean(),
-  "slackAlertsEnabled": zod.boolean(),
+  "fleetAlertsEnabled": zod.boolean().describe('When false, no fleet health alerts or auto-tickets are created'),
+  "ticketNotificationsEnabled": zod.boolean().describe('When false, no email\/push notifications are sent for ticket events'),
+  "emailAlertsEnabled": zod.boolean().describe('When false, no outbound emails are sent for any alert'),
+  "slackAlertsEnabled": zod.boolean().describe('When false, no Slack messages are sent'),
   "updatedAt": zod.string()
 })
 
@@ -1793,6 +1806,8 @@ export const ListAdminEnvironmentsResponseItem = zod.object({
   "lastSeen": zod.string().nullable(),
   "agentVersion": zod.string().nullable(),
   "active": zod.boolean(),
+  "alertsEnabled": zod.boolean().describe('When false, no health alerts or auto-tickets are created for this environment'),
+  "slackWebhookUrl": zod.string().nullish().describe('Override Slack webhook URL for alerts from this environment'),
   "createdAt": zod.string()
 })
 export const ListAdminEnvironmentsResponse = zod.array(ListAdminEnvironmentsResponseItem)
@@ -1830,6 +1845,8 @@ export const RegisterCustomerEnvironmentResponse = zod.object({
   "lastSeen": zod.string().nullable(),
   "agentVersion": zod.string().nullable(),
   "active": zod.boolean(),
+  "alertsEnabled": zod.boolean().describe('When false, no health alerts or auto-tickets are created for this environment'),
+  "slackWebhookUrl": zod.string().nullish().describe('Override Slack webhook URL for alerts from this environment'),
   "createdAt": zod.string()
 }),
   "apiKey": zod.string().describe('Plaintext API key — shown only once')
@@ -1853,7 +1870,9 @@ export const UpdateCustomerEnvironmentBody = zod.object({
   "region": zod.string().optional(),
   "runtime": zod.string().optional(),
   "environment": zod.string().optional(),
-  "heartbeatMode": zod.string().optional().describe('push | poll')
+  "heartbeatMode": zod.string().optional().describe('push | poll'),
+  "alertsEnabled": zod.boolean().optional().describe('Enable or disable health alerts for this environment'),
+  "slackWebhookUrl": zod.string().nullish().describe('Override Slack webhook URL for alerts from this environment')
 })
 
 export const UpdateCustomerEnvironmentResponse = zod.object({
@@ -1871,6 +1890,8 @@ export const UpdateCustomerEnvironmentResponse = zod.object({
   "lastSeen": zod.string().nullable(),
   "agentVersion": zod.string().nullable(),
   "active": zod.boolean(),
+  "alertsEnabled": zod.boolean().describe('When false, no health alerts or auto-tickets are created for this environment'),
+  "slackWebhookUrl": zod.string().nullish().describe('Override Slack webhook URL for alerts from this environment'),
   "createdAt": zod.string()
 })
 
@@ -2003,6 +2024,8 @@ export const ListMyEnvironmentsResponseItem = zod.object({
   "lastSeen": zod.string().nullable(),
   "agentVersion": zod.string().nullable(),
   "active": zod.boolean(),
+  "alertsEnabled": zod.boolean().describe('When false, no health alerts or auto-tickets are created for this environment'),
+  "slackWebhookUrl": zod.string().nullish().describe('Override Slack webhook URL for alerts from this environment'),
   "createdAt": zod.string()
 })
 export const ListMyEnvironmentsResponse = zod.array(ListMyEnvironmentsResponseItem)

@@ -5,6 +5,14 @@
  * Ekai Support Portal API
  * OpenAPI spec version: 0.1.0
  */
+export interface AdminResetPasswordInput {
+  /**
+     * New password for the user (local auth mode only)
+     * @minLength 8
+     */
+  password: string;
+}
+
 export interface BootstrapStatus {
   /** true if the bootstrap endpoint can still be called (no signed-in admin yet AND token not yet rotated) */
   active: boolean;
@@ -1098,10 +1106,13 @@ export interface CustomerEnvironment {
   /** @nullable */
   agentVersion: string | null;
   active: boolean;
-  /** When false, no alerts are fired for this environment */
+  /** When false, no health alerts or auto-tickets are created for this environment */
   alertsEnabled: boolean;
-  /** @nullable */
-  slackWebhookUrl: string | null;
+  /**
+     * Override Slack webhook URL for alerts from this environment
+     * @nullable
+     */
+  slackWebhookUrl?: string | null;
   createdAt: string;
 }
 
@@ -1127,9 +1138,12 @@ export interface UpdateEnvironmentInput {
   environment?: string;
   /** push | poll */
   heartbeatMode?: string;
-  /** When false, no alerts are fired for this environment */
+  /** Enable or disable health alerts for this environment */
   alertsEnabled?: boolean;
-  /** @nullable */
+  /**
+     * Override Slack webhook URL for alerts from this environment
+     * @nullable
+     */
   slackWebhookUrl?: string | null;
 }
 

@@ -40,5 +40,13 @@ export interface SiteSettings {
   portalUrl: string | null;
   /** @nullable */
   logLevel: string | null;
+  /** When false, no fleet health alerts or auto-tickets are created */
+  fleetAlertsEnabled: boolean;
+  /** When false, no email/push notifications are sent for ticket events */
+  ticketNotificationsEnabled: boolean;
+  /** When false, no outbound emails are sent for any alert */
+  emailAlertsEnabled: boolean;
+  /** When false, no Slack messages are sent */
+  slackAlertsEnabled: boolean;
   updatedAt: string;
 }

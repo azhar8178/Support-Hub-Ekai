@@ -16,4 +16,11 @@ export interface UpdateEnvironmentInput {
   environment?: string;
   /** push | poll */
   heartbeatMode?: string;
+  /** Enable or disable health alerts for this environment */
+  alertsEnabled?: boolean;
+  /**
+     * Override Slack webhook URL for alerts from this environment
+     * @nullable
+     */
+  slackWebhookUrl?: string | null;
 }
