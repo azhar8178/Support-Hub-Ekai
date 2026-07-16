@@ -364,17 +364,11 @@ export async function checkCustomerHeartbeats(now: Date): Promise<void> {
     );
 
   for (const { env, orgName } of staleEnvs) {
+    // Always mark OFFLINE in the DB so status is accurate.
     await db
       .update(customerEnvironmentsTable)
       .set({ status: "OFFLINE" })
       .where(eq(customerEnvironmentsTable.id, env.id));
-
-    await db.insert(healthAlertsTable).values({
-      environmentId: env.id,
-      alertType: "MISSED_HEARTBEAT",
-      fromStatus: env.status,
-      toStatus: "OFFLINE",
-    });
 
     const lastSeenAgo = env.lastSeen
       ? `${Math.floor((now.getTime() - env.lastSeen.getTime()) / 60_000)} minutes ago`
@@ -385,17 +379,29 @@ export async function checkCustomerHeartbeats(now: Date): Promise<void> {
       "customer environment marked OFFLINE: missed heartbeat",
     );
 
-    // Send alert email
-    const { sendEmail } = await import("./email");
-    const { getPortalUrl } = await import("./systemConfig");
-    const portalUrl = (await getPortalUrl()) ?? "https://support.ekai.ai";
-    sendEmail({
-      to: "support@ekai.ai",
-      subject: `[FLEET] Missed heartbeat: ${env.name} (${orgName ?? "unknown org"})`,
-      html: `<p>No heartbeat from <strong>${orgName ?? "unknown org"} — ${env.name}</strong> for more than 10 minutes. Last seen: <strong>${lastSeenAgo}</strong>.</p>
-        <p><a href="${portalUrl}/agent/health/${env.id}">View fleet dashboard →</a></p>`,
-      text: `[FLEET] Missed heartbeat: ${env.name} (${orgName ?? "unknown org"})\nLast seen: ${lastSeenAgo}\nView: ${portalUrl}/agent/health/${env.id}`,
-    }).catch((err) => logger.error({ err }, "failed to send missed-heartbeat email"));
+    // Check global fleet flag and per-env flag before creating alert records or sending email.
+    const { getAlertFlags, getPortalUrl } = await import("./systemConfig");
+    const flags = await getAlertFlags();
+    if (!flags.fleetAlertsEnabled || !env.alertsEnabled) continue;
+
+    await db.insert(healthAlertsTable).values({
+      environmentId: env.id,
+      alertType: "MISSED_HEARTBEAT",
+      fromStatus: env.status,
+      toStatus: "OFFLINE",
+    });
+
+    if (flags.emailAlertsEnabled) {
+      const { sendEmail } = await import("./email");
+      const portalUrl = (await getPortalUrl()) ?? "https://support.ekai.ai";
+      sendEmail({
+        to: "support@ekai.ai",
+        subject: `[FLEET] Missed heartbeat: ${env.name} (${orgName ?? "unknown org"})`,
+        html: `<p>No heartbeat from <strong>${orgName ?? "unknown org"} — ${env.name}</strong> for more than 10 minutes. Last seen: <strong>${lastSeenAgo}</strong>.</p>
+          <p><a href="${portalUrl}/agent/health/${env.id}">View fleet dashboard →</a></p>`,
+        text: `[FLEET] Missed heartbeat: ${env.name} (${orgName ?? "unknown org"})\nLast seen: ${lastSeenAgo}\nView: ${portalUrl}/agent/health/${env.id}`,
+      }).catch((err) => logger.error({ err }, "failed to send missed-heartbeat email"));
+    }
   }
 }
 
