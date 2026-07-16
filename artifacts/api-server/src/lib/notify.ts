@@ -132,16 +132,22 @@ export async function notifyUsers(userIds: number[], payload: NotificationPayloa
   const activeUsers = users.filter((u) => u.active);
   if (activeUsers.length === 0) return;
 
-  await db.insert(notificationsTable).values(
-    activeUsers.map((u) => ({
-      userId: u.id,
-      type: payload.type,
-      title: payload.title,
-      body: payload.body,
-      ticketId: payload.ticketId ?? null,
-      emailTo: u.email,
-    })),
-  );
+  try {
+    await db.insert(notificationsTable).values(
+      activeUsers.map((u) => ({
+        userId: u.id,
+        type: payload.type,
+        title: payload.title,
+        body: payload.body,
+        ticketId: payload.ticketId ?? null,
+        emailTo: u.email,
+      })),
+    );
+  } catch (err) {
+    // Non-fatal: a missing column (e.g. email_to schema drift) or transient DB
+    // error must never suppress the in-app notification or the calling operation.
+    logger.warn({ err }, "notifyUsers: in-app DB insert failed — continuing with channel delivery");
+  }
 
   for (const user of activeUsers) {
     for (const channel of channels) {

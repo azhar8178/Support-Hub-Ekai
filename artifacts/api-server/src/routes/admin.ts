@@ -212,22 +212,30 @@ router.post(
       })
       .returning();
 
-    // Send the invite email directly (not through the in-app notification pipeline).
+    // Send the invite email and in-app notification — both are best-effort;
+    // failures must never prevent the invite from being returned to the caller.
     const inviteLink = `/accept-invite?token=${token}`;
-    await sendEmail(
-      await inviteEmail({
-        to: email,
-        inviteUrl: inviteLink,
-        role: parsed.data.role,
-        inviterName: req.portalUser!.name ?? "An administrator",
-      }),
-    );
-    // In-app confirmation for the admin who sent the invite.
-    await notifyUsers([req.portalUser!.id], {
-      type: "invite",
-      title: `Invite sent to ${email}`,
-      body: `An invitation email has been sent to ${email}. The link expires in 14 days.`,
-    });
+    try {
+      await sendEmail(
+        await inviteEmail({
+          to: email,
+          inviteUrl: inviteLink,
+          role: parsed.data.role,
+          inviterName: req.portalUser!.name ?? "An administrator",
+        }),
+      );
+    } catch (err) {
+      logger.warn({ err, to: email }, "invite email send failed — continuing");
+    }
+    try {
+      await notifyUsers([req.portalUser!.id], {
+        type: "invite",
+        title: `Invite sent to ${email}`,
+        body: `Invitation link generated for ${email}. The link expires in 14 days.`,
+      });
+    } catch (err) {
+      logger.warn({ err, adminId: req.portalUser!.id }, "invite notification failed — continuing");
+    }
 
     let orgName: string | null = null;
     if (invite!.orgId != null) {
@@ -392,14 +400,18 @@ router.post(
       .where(eq(invitesTable.id, id))
       .returning();
     const inviteLink = `/accept-invite?token=${token}`;
-    await sendEmail(
-      await inviteEmail({
-        to: updated!.email,
-        inviteUrl: inviteLink,
-        role: updated!.role,
-        inviterName: req.portalUser!.name ?? "An administrator",
-      }),
-    );
+    try {
+      await sendEmail(
+        await inviteEmail({
+          to: updated!.email,
+          inviteUrl: inviteLink,
+          role: updated!.role,
+          inviterName: req.portalUser!.name ?? "An administrator",
+        }),
+      );
+    } catch (err) {
+      logger.warn({ err, to: updated!.email }, "resend invite email failed — continuing");
+    }
     res.json(
       ResendInviteResponse.parse(
         serializeInvite(updated!, await orgNameFor(updated!.orgId), true),
