@@ -50,6 +50,10 @@ function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
       storageConfigured,
       portalUrl: null,
       logLevel: null,
+      fleetAlertsEnabled: true,
+      ticketNotificationsEnabled: true,
+      emailAlertsEnabled: true,
+      slackAlertsEnabled: true,
       updatedAt: new Date().toISOString(),
     };
   }
@@ -71,6 +75,10 @@ function serializeSettings(row: typeof siteSettingsTable.$inferSelect | null) {
     storageConfigured,
     portalUrl: row.portalUrl ?? null,
     logLevel: row.logLevel ?? null,
+    fleetAlertsEnabled: row.fleetAlertsEnabled,
+    ticketNotificationsEnabled: row.ticketNotificationsEnabled,
+    emailAlertsEnabled: row.emailAlertsEnabled,
+    slackAlertsEnabled: row.slackAlertsEnabled,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -115,6 +123,10 @@ router.patch(
     if (parsed.data.privateObjectDir !== undefined) fields.privateObjectDir = parsed.data.privateObjectDir ?? null;
     if (parsed.data.portalUrl !== undefined) fields.portalUrl = parsed.data.portalUrl ?? null;
     if (parsed.data.logLevel !== undefined) fields.logLevel = parsed.data.logLevel ?? null;
+    if (parsed.data.fleetAlertsEnabled !== undefined) fields.fleetAlertsEnabled = parsed.data.fleetAlertsEnabled;
+    if (parsed.data.ticketNotificationsEnabled !== undefined) fields.ticketNotificationsEnabled = parsed.data.ticketNotificationsEnabled;
+    if (parsed.data.emailAlertsEnabled !== undefined) fields.emailAlertsEnabled = parsed.data.emailAlertsEnabled;
+    if (parsed.data.slackAlertsEnabled !== undefined) fields.slackAlertsEnabled = parsed.data.slackAlertsEnabled;
     invalidateSystemConfigCache();
 
     await db

@@ -1,5 +1,6 @@
 import { db, siteSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { getAlertFlags } from "./systemConfig";
 
 interface TicketRef {
   id: number;
@@ -61,6 +62,8 @@ async function sendSlackMessage(webhookUrl: string, text: string): Promise<void>
  */
 export async function sendSlackFleetAlert(text: string, overrideUrl?: string | null): Promise<void> {
   try {
+    const { slackAlertsEnabled } = await getAlertFlags();
+    if (!slackAlertsEnabled) return;
     const webhookUrl = overrideUrl ?? (await getSlackWebhookUrl());
     if (!webhookUrl) return;
     await sendSlackMessage(webhookUrl, text);
@@ -71,6 +74,8 @@ export async function sendSlackFleetAlert(text: string, overrideUrl?: string | n
 
 export async function sendSlackAlert(ticket: TicketRef, raisedBy: RaisedBy): Promise<void> {
   try {
+    const { slackAlertsEnabled } = await getAlertFlags();
+    if (!slackAlertsEnabled) return;
     const webhookUrl = await getSlackWebhookUrl();
     if (!webhookUrl) return;
 

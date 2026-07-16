@@ -26,7 +26,7 @@ import {
 } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { sendEmail } from "../lib/email";
-import { getPortalUrl } from "../lib/systemConfig";
+import { getPortalUrl, getAlertFlags } from "../lib/systemConfig";
 
 const router: IRouter = Router();
 
@@ -191,13 +191,20 @@ router.get("/fleet/check-heartbeats", async (req, res): Promise<void> => {
       ),
     );
 
+  const flags = await getAlertFlags();
   let marked = 0;
   for (const { env, orgName } of staleEnvs) {
-    // Set status to OFFLINE
+    // Always update status to OFFLINE so the dashboard reflects reality
     await db
       .update(customerEnvironmentsTable)
       .set({ status: "OFFLINE" })
       .where(eq(customerEnvironmentsTable.id, env.id));
+
+    // Skip alert record + email if fleet alerts are disabled globally or per-env
+    if (!flags.fleetAlertsEnabled || !env.alertsEnabled) {
+      marked++;
+      continue;
+    }
 
     // Create MISSED_HEARTBEAT alert
     await db.insert(healthAlertsTable).values({
@@ -207,22 +214,23 @@ router.get("/fleet/check-heartbeats", async (req, res): Promise<void> => {
       toStatus: "OFFLINE",
     });
 
-    // Send email
-    const lastSeen = env.lastSeen
-      ? `${Math.floor((Date.now() - env.lastSeen.getTime()) / 60_000)} minutes ago`
-      : "never";
-    const portalUrl = (await getPortalUrl()) ?? "https://support.ekai.ai";
-    const envDetailUrl = `${portalUrl}/agent/health/${env.id}`;
+    if (flags.emailAlertsEnabled) {
+      const lastSeen = env.lastSeen
+        ? `${Math.floor((Date.now() - env.lastSeen.getTime()) / 60_000)} minutes ago`
+        : "never";
+      const portalUrl = (await getPortalUrl()) ?? "https://support.ekai.ai";
+      const envDetailUrl = `${portalUrl}/agent/health/${env.id}`;
 
-    sendEmail({
-      to: "support@ekai.ai",
-      subject: `[FLEET] Missed heartbeat: ${env.name} (${orgName ?? "unknown org"})`,
-      html: `<p>No heartbeat received from <strong>${orgName ?? "unknown org"} — ${env.name}</strong> for more than 10 minutes.</p>
+      sendEmail({
+        to: "support@ekai.ai",
+        subject: `[FLEET] Missed heartbeat: ${env.name} (${orgName ?? "unknown org"})`,
+        html: `<p>No heartbeat received from <strong>${orgName ?? "unknown org"} — ${env.name}</strong> for more than 10 minutes.</p>
         <p>Last seen: <strong>${lastSeen}</strong></p>
         <p>Environment: ${env.cloud.toUpperCase()} / ${env.region} / ${env.environment}</p>
         <p><a href="${envDetailUrl}">View fleet dashboard →</a></p>`,
-      text: `[FLEET] Missed heartbeat: ${env.name} (${orgName ?? "unknown org"})\nLast seen: ${lastSeen}\nView: ${envDetailUrl}`,
-    }).catch((err) => logger.error({ err }, "Failed to send missed-heartbeat email"));
+        text: `[FLEET] Missed heartbeat: ${env.name} (${orgName ?? "unknown org"})\nLast seen: ${lastSeen}\nView: ${envDetailUrl}`,
+      }).catch((err) => logger.error({ err }, "Failed to send missed-heartbeat email"));
+    }
 
     marked++;
   }
@@ -242,6 +250,16 @@ async function handleStatusChange(opts: {
   services: unknown[];
 }): Promise<void> {
   const { env, prevStatus, newStatus, agentTs, services } = opts;
+
+  // Check global + per-environment alert flags before doing anything
+  const flags = await getAlertFlags();
+  if (!flags.fleetAlertsEnabled || !env.alertsEnabled) {
+    logger.debug(
+      { envId: env.id, fleetAlertsEnabled: flags.fleetAlertsEnabled, envAlertsEnabled: env.alertsEnabled },
+      "handleStatusChange: alerts suppressed — skipping alert creation",
+    );
+    return;
+  }
 
   // Look up org name for emails
   const [orgRow] = await db
@@ -338,16 +356,18 @@ async function handleStatusChange(opts: {
       })
       .returning({ id: healthAlertsTable.id });
 
-    // Send email
-    sendEmail({
-      to: "support@ekai.ai",
-      subject: `[${newStatus === "DOWN" ? "P1" : "P2"} ALERT] ${orgName} — ${env.name} is ${newStatus}`,
-      html: `<p><strong>${orgName} — ${env.name}</strong> status changed to <strong style="color:${newStatus === "DOWN" ? "red" : "orange"}">${newStatus}</strong> (was: ${prevStatus}).</p>
+    // Send email (only when email alerts are also enabled)
+    if (flags.emailAlertsEnabled) {
+      sendEmail({
+        to: "support@ekai.ai",
+        subject: `[${newStatus === "DOWN" ? "P1" : "P2"} ALERT] ${orgName} — ${env.name} is ${newStatus}`,
+        html: `<p><strong>${orgName} — ${env.name}</strong> status changed to <strong style="color:${newStatus === "DOWN" ? "red" : "orange"}">${newStatus}</strong> (was: ${prevStatus}).</p>
         ${linkedTicketId ? `<p>Auto-created ticket <a href="${portalUrl}/tickets/${linkedTicketId}">#${linkedTicketId}</a>.</p>` : ""}
         ${downServices ? `<p>Affected services: ${downServices}</p>` : ""}
         <p><a href="${envDetailUrl}">View fleet dashboard →</a></p>`,
-      text: `FLEET ALERT: ${orgName} — ${env.name} is ${newStatus} (was: ${prevStatus}).\n${linkedTicketId ? `Ticket #${linkedTicketId}.\n` : ""}${downServices ? `Affected: ${downServices}\n` : ""}View: ${envDetailUrl}`,
-    }).catch((err) => logger.error({ err }, "Failed to send status-change alert email"));
+        text: `FLEET ALERT: ${orgName} — ${env.name} is ${newStatus} (was: ${prevStatus}).\n${linkedTicketId ? `Ticket #${linkedTicketId}.\n` : ""}${downServices ? `Affected: ${downServices}\n` : ""}View: ${envDetailUrl}`,
+      }).catch((err) => logger.error({ err }, "Failed to send status-change alert email"));
+    }
 
   } else if (newStatus === "HEALTHY" && existingAlert) {
     // Mark existing alert resolved
@@ -384,14 +404,16 @@ async function handleStatusChange(opts: {
       resolvedAt: new Date(),
     });
 
-    // Send resolution email
-    sendEmail({
-      to: "support@ekai.ai",
-      subject: `[RESOLVED] ${orgName} — ${env.name} is healthy again`,
-      html: `<p><strong>${orgName} — ${env.name}</strong> has returned to <strong style="color:green">HEALTHY</strong> (was: ${prevStatus}).</p>
+    // Send resolution email (only when email alerts are also enabled)
+    if (flags.emailAlertsEnabled) {
+      sendEmail({
+        to: "support@ekai.ai",
+        subject: `[RESOLVED] ${orgName} — ${env.name} is healthy again`,
+        html: `<p><strong>${orgName} — ${env.name}</strong> has returned to <strong style="color:green">HEALTHY</strong> (was: ${prevStatus}).</p>
         <p><a href="${envDetailUrl}">View fleet dashboard →</a></p>`,
-      text: `RESOLVED: ${orgName} — ${env.name} is healthy again (was: ${prevStatus}).\nView: ${envDetailUrl}`,
-    }).catch((err) => logger.error({ err }, "Failed to send resolution email"));
+        text: `RESOLVED: ${orgName} — ${env.name} is healthy again (was: ${prevStatus}).\nView: ${envDetailUrl}`,
+      }).catch((err) => logger.error({ err }, "Failed to send resolution email"));
+    }
   }
 }
 

@@ -101,3 +101,22 @@ export async function getLogLevel(): Promise<string | null> {
   const cfg = await getCachedConfig();
   return getConfigValue(cfg?.logLevel, process.env.LOG_LEVEL);
 }
+
+/**
+ * Returns the four alert-enable flags.  Defaults to all-on when no DB row
+ * exists so the system works out-of-the-box without a manual settings save.
+ */
+export async function getAlertFlags(): Promise<{
+  fleetAlertsEnabled: boolean;
+  ticketNotificationsEnabled: boolean;
+  emailAlertsEnabled: boolean;
+  slackAlertsEnabled: boolean;
+}> {
+  const cfg = await getCachedConfig();
+  return {
+    fleetAlertsEnabled: cfg?.fleetAlertsEnabled ?? true,
+    ticketNotificationsEnabled: cfg?.ticketNotificationsEnabled ?? true,
+    emailAlertsEnabled: cfg?.emailAlertsEnabled ?? true,
+    slackAlertsEnabled: cfg?.slackAlertsEnabled ?? true,
+  };
+}

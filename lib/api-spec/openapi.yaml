@@ -2228,8 +2228,12 @@ components:
         storageConfigured: { type: boolean, description: "True when object storage is reachable" }
         portalUrl: { type: ["string", "null"] }
         logLevel: { type: ["string", "null"] }
+        fleetAlertsEnabled: { type: boolean, description: "When false, no fleet health alerts or auto-tickets are created" }
+        ticketNotificationsEnabled: { type: boolean, description: "When false, no email/push notifications are sent for ticket events" }
+        emailAlertsEnabled: { type: boolean, description: "When false, no outbound emails are sent for any alert" }
+        slackAlertsEnabled: { type: boolean, description: "When false, no Slack messages are sent" }
         updatedAt: { type: string }
-      required: [id, companyName, tagline, logoUrl, whatsappNumber, slackWebhookUrl, emailFrom, awsRegion, smtpHost, smtpPort, smtpUser, smtpPassSet, emailConfigured, privateObjectDir, storageConfigured, portalUrl, logLevel, updatedAt]
+      required: [id, companyName, tagline, logoUrl, whatsappNumber, slackWebhookUrl, emailFrom, awsRegion, smtpHost, smtpPort, smtpUser, smtpPassSet, emailConfigured, privateObjectDir, storageConfigured, portalUrl, logLevel, fleetAlertsEnabled, ticketNotificationsEnabled, emailAlertsEnabled, slackAlertsEnabled, updatedAt]
     SiteSettingsUpdate:
       type: object
       properties:
@@ -2246,6 +2250,10 @@ components:
         privateObjectDir: { type: ["string", "null"] }
         portalUrl: { type: ["string", "null"] }
         logLevel: { type: ["string", "null"] }
+        fleetAlertsEnabled: { type: boolean }
+        ticketNotificationsEnabled: { type: boolean }
+        emailAlertsEnabled: { type: boolean }
+        slackAlertsEnabled: { type: boolean }
     LogoInput:
       type: object
       properties:
@@ -2288,8 +2296,9 @@ components:
         lastSeen: { type: ["string", "null"] }
         agentVersion: { type: ["string", "null"] }
         active: { type: boolean }
+        alertsEnabled: { type: boolean, description: "When false, no health alerts or auto-tickets are created for this environment" }
         createdAt: { type: string }
-      required: [id, orgId, orgName, name, cloud, region, runtime, apiKeyPrefix, heartbeatMode, environment, status, lastSeen, agentVersion, active, createdAt]
+      required: [id, orgId, orgName, name, cloud, region, runtime, apiKeyPrefix, heartbeatMode, environment, status, lastSeen, agentVersion, active, alertsEnabled, createdAt]
     RegisterEnvironmentInput:
       type: object
       properties:
@@ -2311,6 +2320,7 @@ components:
         runtime: { type: string }
         environment: { type: string }
         heartbeatMode: { type: string, description: "push | poll" }
+        alertsEnabled: { type: boolean, description: "Enable or disable health alerts for this environment" }
     RegenerateKeyResult:
       type: object
       properties:

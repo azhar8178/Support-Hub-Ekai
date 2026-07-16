@@ -48,7 +48,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Copy, Check, Loader2, Server, Trash2, AlertTriangle, Pencil, RefreshCw } from "lucide-react";
+import { Plus, Copy, Check, Loader2, Server, Trash2, AlertTriangle, Pencil, RefreshCw, BellOff } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -216,6 +217,7 @@ function EditDialog({
     runtime: env.runtime,
     environment: env.environment,
     heartbeatMode: env.heartbeatMode,
+    alertsEnabled: env.alertsEnabled,
   });
   const [showNewOrg, setShowNewOrg] = useState(false);
   const [confirmRegen, setConfirmRegen] = useState(false);
@@ -245,6 +247,7 @@ function EditDialog({
           runtime: form.runtime,
           environment: form.environment,
           heartbeatMode: form.heartbeatMode,
+          alertsEnabled: form.alertsEnabled,
         },
       });
       queryClient.invalidateQueries({ queryKey: getListAdminEnvironmentsQueryKey() });
@@ -385,6 +388,26 @@ function EditDialog({
                   <SelectItem value="poll">Hub Poll</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Alerts toggle */}
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-[#0F1F3D] flex items-center gap-1.5">
+                  {!form.alertsEnabled && <BellOff className="h-3.5 w-3.5 text-stone-400" />}
+                  Health alerts
+                </p>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {form.alertsEnabled
+                    ? "Alert records and auto-tickets are created for this environment"
+                    : "Alerts suppressed — status still updates but no records or emails are sent"}
+                </p>
+              </div>
+              <Switch
+                checked={form.alertsEnabled}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, alertsEnabled: v }))}
+                className="data-[state=checked]:bg-[#EFB323]"
+              />
             </div>
 
             {/* Regenerate key — separated visually */}

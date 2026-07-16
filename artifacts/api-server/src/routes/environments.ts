@@ -41,6 +41,7 @@ function serializeEnv(
     lastSeen: row.lastSeen?.toISOString() ?? null,
     agentVersion: row.agentVersion ?? null,
     active: row.active,
+    alertsEnabled: row.alertsEnabled,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -198,6 +199,8 @@ router.patch(
     if (runtime !== undefined) updates.runtime = runtime.trim();
     if (environment !== undefined) updates.environment = environment.trim();
     if (heartbeatMode === "poll" || heartbeatMode === "push") updates.heartbeatMode = heartbeatMode;
+    const alertsEnabledRaw = (req.body as any).alertsEnabled;
+    if (typeof alertsEnabledRaw === "boolean") updates.alertsEnabled = alertsEnabledRaw;
 
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ message: "No fields to update" });

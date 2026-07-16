@@ -26,6 +26,8 @@ export const customerEnvironmentsTable = pgTable("customer_environments", {
   heartbeatMode: text("heartbeat_mode").notNull().default("push"),
   /** Soft-delete: false means decommissioned, historical snapshots are kept */
   active: boolean("active").notNull().default(true),
+  /** When false, no health alerts or auto-tickets are created for this environment */
+  alertsEnabled: boolean("alerts_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -10,6 +10,7 @@ import {
   slaWarningEmail,
 } from "./email";
 import { sendExpoPushToUsers } from "./push";
+import { getAlertFlags } from "./systemConfig";
 
 export interface NotificationPayload {
   type: NotificationType;
@@ -132,6 +133,7 @@ export async function notifyUsers(userIds: number[], payload: NotificationPayloa
   const activeUsers = users.filter((u) => u.active);
   if (activeUsers.length === 0) return;
 
+  // Always write in-app notifications — they are visible only inside the portal.
   try {
     await db.insert(notificationsTable).values(
       activeUsers.map((u) => ({
@@ -149,8 +151,28 @@ export async function notifyUsers(userIds: number[], payload: NotificationPayloa
     logger.warn({ err }, "notifyUsers: in-app DB insert failed — continuing with channel delivery");
   }
 
+  // Check global alert flags before hitting external channels.
+  const flags = await getAlertFlags();
+
+  // ticket_notifications_enabled gates all external delivery for ticket events.
+  const ticketTypes: NotificationType[] = [
+    "ticket_created",
+    "agent_reply",
+    "status_changed",
+    "new_critical_ticket",
+    "sla_warning",
+  ];
+  const isTicketEvent = ticketTypes.includes(payload.type as NotificationType);
+  if (isTicketEvent && !flags.ticketNotificationsEnabled) {
+    logger.debug({ type: payload.type }, "notifyUsers: ticket notifications disabled — skipping external channels");
+    return;
+  }
+
+  // email_alerts_enabled gates the email channel specifically.
+  const effectiveChannels = flags.emailAlertsEnabled ? channels : [];
+
   for (const user of activeUsers) {
-    for (const channel of channels) {
+    for (const channel of effectiveChannels) {
       try {
         await channel.deliver(user.email, payload);
       } catch (err) {

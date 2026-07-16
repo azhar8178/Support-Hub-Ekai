@@ -1538,6 +1538,10 @@ export const GetSiteSettingsResponse = zod.object({
   "storageConfigured": zod.boolean().describe('True when object storage is reachable'),
   "portalUrl": zod.string().nullable(),
   "logLevel": zod.string().nullable(),
+  "fleetAlertsEnabled": zod.boolean().describe('When false, no fleet health alerts or auto-tickets are created'),
+  "ticketNotificationsEnabled": zod.boolean().describe('When false, no email/push notifications are sent for ticket events'),
+  "emailAlertsEnabled": zod.boolean().describe('When false, no outbound emails are sent for any alert'),
+  "slackAlertsEnabled": zod.boolean().describe('When false, no Slack messages are sent'),
   "updatedAt": zod.string()
 })
 
@@ -1558,7 +1562,11 @@ export const UpdateSiteSettingsBody = zod.object({
   "smtpPass": zod.string().nullish().describe('Set to update the password; omit to leave unchanged; null to clear'),
   "privateObjectDir": zod.string().nullish(),
   "portalUrl": zod.string().nullish(),
-  "logLevel": zod.string().nullish()
+  "logLevel": zod.string().nullish(),
+  "fleetAlertsEnabled": zod.boolean().optional(),
+  "ticketNotificationsEnabled": zod.boolean().optional(),
+  "emailAlertsEnabled": zod.boolean().optional(),
+  "slackAlertsEnabled": zod.boolean().optional()
 })
 
 export const UpdateSiteSettingsResponse = zod.object({
@@ -1579,6 +1587,10 @@ export const UpdateSiteSettingsResponse = zod.object({
   "storageConfigured": zod.boolean().describe('True when object storage is reachable'),
   "portalUrl": zod.string().nullable(),
   "logLevel": zod.string().nullable(),
+  "fleetAlertsEnabled": zod.boolean(),
+  "ticketNotificationsEnabled": zod.boolean(),
+  "emailAlertsEnabled": zod.boolean(),
+  "slackAlertsEnabled": zod.boolean(),
   "updatedAt": zod.string()
 })
 

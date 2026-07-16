@@ -27,12 +27,14 @@ import {
   CheckCircle2,
   XCircle,
   Server,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Link } from "wouter";
@@ -69,6 +71,13 @@ export default function AdminSettingsPage() {
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [whatsappSaved, setWhatsappSaved] = useState(false);
 
+  // Alerts tab state
+  const [fleetAlertsEnabled, setFleetAlertsEnabled] = useState(true);
+  const [ticketNotificationsEnabled, setTicketNotificationsEnabled] = useState(true);
+  const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(true);
+  const [slackAlertsEnabled, setSlackAlertsEnabled] = useState(true);
+  const [alertsSaving, setAlertsSaving] = useState(false);
+
   // System tab state
   const [emailFrom, setEmailFrom] = useState("");
   const [awsRegion, setAwsRegion] = useState("");
@@ -102,6 +111,10 @@ export default function AdminSettingsPage() {
       setPrivateObjectDir(settings.privateObjectDir ?? "");
       setPortalUrl(settings.portalUrl ?? "");
       setLogLevel(settings.logLevel ?? "");
+      setFleetAlertsEnabled(settings.fleetAlertsEnabled);
+      setTicketNotificationsEnabled(settings.ticketNotificationsEnabled);
+      setEmailAlertsEnabled(settings.emailAlertsEnabled);
+      setSlackAlertsEnabled(settings.slackAlertsEnabled);
     }
   }, [settings]);
 
@@ -176,6 +189,25 @@ export default function AdminSettingsPage() {
     );
   };
 
+  const handleSaveAlerts = () => {
+    setAlertsSaving(true);
+    updateSettings.mutate(
+      {
+        data: {
+          fleetAlertsEnabled,
+          ticketNotificationsEnabled,
+          emailAlertsEnabled,
+          slackAlertsEnabled,
+        },
+      },
+      {
+        onSuccess: () => { toast.success("Alert settings saved"); invalidate(); },
+        onError: (err: any) => toast.error(err?.message || "Failed to save alert settings"),
+        onSettled: () => setAlertsSaving(false),
+      }
+    );
+  };
+
   if (settingsLoading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[50vh]">
@@ -213,6 +245,10 @@ export default function AdminSettingsPage() {
               </TabsTrigger>
               <TabsTrigger value="administration" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D]">
                 Administration
+              </TabsTrigger>
+              <TabsTrigger value="alerts" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D] gap-1.5">
+                <Bell className="h-3.5 w-3.5" />
+                Alerts
               </TabsTrigger>
               <TabsTrigger value="fleet" className="data-[state=active]:bg-white data-[state=active]:text-[#0F1F3D] gap-1.5">
                 <Radio className="h-3.5 w-3.5" />
@@ -572,6 +608,104 @@ export default function AdminSettingsPage() {
                   </div>
                 </Link>
               ))}
+            </TabsContent>
+
+            {/* ── ALERTS TAB ── */}
+            <TabsContent value="alerts" className="space-y-6">
+              <Card className="shadow-sm border-stone-200">
+                <CardHeader className="pb-4 border-b border-stone-100 bg-stone-50/50">
+                  <h2 className="text-base font-semibold text-[#0F1F3D]">Alert channels</h2>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Control which notification channels are active. Turning a channel off silences it globally — in-app notifications are always on.
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-5">
+                  {(
+                    [
+                      {
+                        id: "emailAlertsEnabled",
+                        label: "Email alerts",
+                        desc: "Send outbound emails for fleet events and ticket notifications",
+                        value: emailAlertsEnabled,
+                        set: setEmailAlertsEnabled,
+                      },
+                      {
+                        id: "slackAlertsEnabled",
+                        label: "Slack alerts",
+                        desc: "Post messages to the configured Slack webhook",
+                        value: slackAlertsEnabled,
+                        set: setSlackAlertsEnabled,
+                      },
+                    ] as const
+                  ).map(({ id, label, desc, value, set }) => (
+                    <div key={id} className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label htmlFor={id} className="text-sm font-medium text-[#0F1F3D] cursor-pointer">{label}</Label>
+                        <p className="text-xs text-stone-500 mt-0.5">{desc}</p>
+                      </div>
+                      <Switch
+                        id={id}
+                        checked={value}
+                        onCheckedChange={set}
+                        className="data-[state=checked]:bg-[#EFB323]"
+                      />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border-stone-200">
+                <CardHeader className="pb-4 border-b border-stone-100 bg-stone-50/50">
+                  <h2 className="text-base font-semibold text-[#0F1F3D]">Alert types</h2>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Turn off entire categories of alerts. Per-environment fleet alerts can also be toggled in the Fleet environments list.
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-5">
+                  {(
+                    [
+                      {
+                        id: "fleetAlertsEnabled",
+                        label: "Fleet health alerts",
+                        desc: "Create alert records and auto-tickets when environments go DOWN or DEGRADED",
+                        value: fleetAlertsEnabled,
+                        set: setFleetAlertsEnabled,
+                      },
+                      {
+                        id: "ticketNotificationsEnabled",
+                        label: "Ticket notifications",
+                        desc: "Send email and push notifications for new tickets, status changes, and SLA warnings",
+                        value: ticketNotificationsEnabled,
+                        set: setTicketNotificationsEnabled,
+                      },
+                    ] as const
+                  ).map(({ id, label, desc, value, set }) => (
+                    <div key={id} className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label htmlFor={id} className="text-sm font-medium text-[#0F1F3D] cursor-pointer">{label}</Label>
+                        <p className="text-xs text-stone-500 mt-0.5">{desc}</p>
+                      </div>
+                      <Switch
+                        id={id}
+                        checked={value}
+                        onCheckedChange={set}
+                        className="data-[state=checked]:bg-[#EFB323]"
+                      />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSaveAlerts}
+                  disabled={alertsSaving}
+                  className="bg-[#EFB323] hover:bg-amber-500 text-[#0F1F3D] font-semibold"
+                >
+                  {alertsSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save alert settings
+                </Button>
+              </div>
             </TabsContent>
 
             {/* ── FLEET TAB ── */}

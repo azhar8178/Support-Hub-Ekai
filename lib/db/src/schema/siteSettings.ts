@@ -28,6 +28,11 @@ export const siteSettingsTable = pgTable("site_settings", {
   logLevel: text("log_level"),
   // Set to true by POST /admin/bootstrap-rotate — persists across restarts.
   bootstrapDisabled: boolean("bootstrap_disabled").notNull().default(false),
+  // Alert enable/disable toggles — all default to true (on)
+  fleetAlertsEnabled: boolean("fleet_alerts_enabled").notNull().default(true),
+  ticketNotificationsEnabled: boolean("ticket_notifications_enabled").notNull().default(true),
+  emailAlertsEnabled: boolean("email_alerts_enabled").notNull().default(true),
+  slackAlertsEnabled: boolean("slack_alerts_enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
