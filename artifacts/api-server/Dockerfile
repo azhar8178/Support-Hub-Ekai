@@ -105,8 +105,9 @@ COPY artifacts/api-server/package.json  artifacts/api-server/
 RUN corepack enable && \
     pnpm install --prod --frozen-lockfile --filter @workspace/api-server
 
-# Copy the compiled bundle from the builder
-COPY --from=builder /workspace/artifacts/api-server/dist ./dist
+# Copy the compiled bundle from the builder into the same subtree as
+# node_modules so Node.js module resolution finds packages installed by pnpm.
+COPY --from=builder /workspace/artifacts/api-server/dist ./artifacts/api-server/dist
 
 # Non-root user for security
 RUN addgroup --system ekai && adduser --system --ingroup ekai ekai
@@ -120,4 +121,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
 ENV NODE_ENV=production
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "--enable-source-maps", "./dist/index.mjs"]
+CMD ["node", "--enable-source-maps", "./artifacts/api-server/dist/index.mjs"]
