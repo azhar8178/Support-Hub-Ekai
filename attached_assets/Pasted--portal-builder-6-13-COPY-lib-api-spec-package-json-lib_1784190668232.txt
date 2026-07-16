@@ -1,0 +1,73 @@
+=> [portal builder  6/13] COPY lib/api-spec/package.json          lib/api-spec/                                                                                      0.1s
+ => [api-server runtime 5/8] COPY artifacts/api-server/package.json artifacts/api-server/                                                                             0.1s
+ => ERROR [migrator migrator 6/7] RUN pnpm install --frozen-lockfile --filter @workspace/db                                                                          58.2s
+ => CACHED [api-server builder  4/15] COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./                                                                         0.0s
+ => CACHED [api-server builder  5/15] COPY lib/db/package.json                    lib/db/                                                                             0.0s
+ => [api-server builder  6/15] COPY lib/api-spec/package.json              lib/api-spec/                                                                              0.1s
+ => [portal builder  7/13] COPY artifacts/support-portal/package.json artifacts/support-portal/                                                                       0.1s
+ => [api-server builder  7/15] COPY lib/api-client-react/package.json      lib/api-client-react/                                                                      0.1s
+ => CANCELED [api-server runtime 6/8] RUN corepack enable &&     pnpm install --prod --frozen-lockfile --filter @workspace/api-server                                58.9s
+ => CANCELED [portal builder  8/13] RUN pnpm install --frozen-lockfile                                                                                               58.8s
+ => [api-server builder  8/15] COPY lib/api-zod/package.json               lib/api-zod/                                                                               0.1s
+ => [api-server builder  9/15] COPY artifacts/api-server/package.json      artifacts/api-server/                                                                      0.2s
+ => CANCELED [api-server builder 10/15] RUN pnpm install --frozen-lockfile                                                                                           58.5s
+------
+ > [migrator migrator 6/7] RUN pnpm install --frozen-lockfile --filter @workspace/db:
+1.417 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.13.1.tgz
+7.063 [WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+8.499 ? Verifying lockfile against supply-chain policies (1536 entries)...
+8.570 Lockfile is up to date, resolution step is skipped
+9.025 Progress: resolved 1, reused 0, downloaded 0, added 0
+9.066 .                                        |  +28 +++
+10.10 Progress: resolved 28, reused 0, downloaded 1, added 0
+11.17 Progress: resolved 28, reused 0, downloaded 7, added 0
+12.18 Progress: resolved 28, reused 0, downloaded 13, added 0
+13.20 Progress: resolved 28, reused 0, downloaded 17, added 0
+14.21 Progress: resolved 28, reused 0, downloaded 24, added 0
+15.27 Progress: resolved 28, reused 0, downloaded 26, added 4
+16.31 Progress: resolved 28, reused 0, downloaded 27, added 4
+17.31 Progress: resolved 28, reused 0, downloaded 28, added 5
+18.37 Progress: resolved 28, reused 0, downloaded 28, added 14
+18.83 [WARN] Request took 10198ms: https://registry.npmjs.org/@aws-sdk%2Fcredential-provider-ini
+19.40 Progress: resolved 28, reused 0, downloaded 28, added 28, done
+22.06 [WARN] Request took 13452ms: https://registry.npmjs.org/@aws-sdk%2Fclient-ses
+22.43 [WARN] Request took 15236ms: https://registry.npmjs.org/pnpm
+24.23 [WARN] Request took 11639ms: https://registry.npmjs.org/@clerk%2Fexpo
+25.64 [WARN] Request took 12811ms: https://registry.npmjs.org/@clerk%2Fthemes
+31.26 [WARN] Request took 18663ms: https://registry.npmjs.org/@clerk%2Fexpress
+34.31 [WARN] Request took 10344ms: https://registry.npmjs.org/@solana%2Ftransactions
+34.98 [WARN] Request took 10081ms: https://registry.npmjs.org/@react-native%2Fcodegen
+38.05 [WARN] Request took 25558ms: https://registry.npmjs.org/@clerk%2Fbackend
+38.34 [WARN] Request took 25667ms: https://registry.npmjs.org/@clerk%2Fshared
+38.68 [WARN] Request took 10777ms: https://registry.npmjs.org/@types%2Fnode
+42.84 [WARN] Request took 12661ms: https://registry.npmjs.org/@react-native%2Fbabel-preset
+49.02 [WARN] Request took 36598ms: https://registry.npmjs.org/@clerk%2Fclerk-js
+49.73 [WARN] Request took 10093ms: https://registry.npmjs.org/react-native
+55.69 ✓ Lockfile passes supply-chain policies (1536 entries in 47.1s)
+57.03 . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+57.27 . preinstall: Done
+57.48 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.27.3
+57.48 
+57.48 Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+------
+[+] up 0/3
+ ⠙ Image support-hub-ekai-migrator   Building                                                                                                                         59.9s
+ ⠙ Image support-hub-ekai-api-server Building                                                                                                                         59.9s
+ ⠙ Image support-hub-ekai-portal     Building                                                                                                                         59.9s
+Dockerfile:38
+
+--------------------
+
+  36 |     
+
+  37 |     # Install with devDependencies so drizzle-kit is available
+
+  38 | >>> RUN pnpm install --frozen-lockfile --filter @workspace/db
+
+  39 |     
+
+  40 |     # Schema source files and drizzle config
+
+--------------------
+
+target migrator: failed to solve: process "/bin/sh -c pnpm install --frozen-lockfile --filter @workspace/db" did not complete successfully: exit code: 1
